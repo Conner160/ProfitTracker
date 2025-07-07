@@ -1,0 +1,12 @@
+:root {
+  --primary: #4a6fa5;
+  --danger: #e74c3c;
+  --font-sans: system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  padding: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
