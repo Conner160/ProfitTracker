@@ -6,18 +6,18 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # This is crucial for pushing to gh-pages
     steps:
-      # 1. Checkout code
       - uses: actions/checkout@v4
-
-      # 2. Move /public contents to root (keeps your structure intact)
+      
       - name: Move public files to root
         run: |
           mv public/* .
-          mv public/.gitkeep . || true  # Optional: Preserve .gitkeep if exists
+          mv public/.gitkeep . || true
 
-      # 3. Deploy to GitHub Pages
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./  # Deploy from root (where we moved the files)
+          publish_dir: ./
+          publish_branch: gh-pages  # Explicitly set this
