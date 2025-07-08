@@ -37,6 +37,24 @@ function setupEventListeners() {
     document.getElementById('points').addEventListener('input', calculateEarnings);
     document.getElementById('kms').addEventListener('input', calculateEarnings);
     document.getElementById('per-diem').addEventListener('change', calculateEarnings);
+    
+    // Recalculate when settings change
+    document.getElementById('point-rate').addEventListener('change', () => {
+        calculateEarnings();
+        loadEntries();
+    });
+    document.getElementById('km-rate').addEventListener('change', () => {
+        calculateEarnings();
+        loadEntries();
+    });
+    document.getElementById('per-diem-rate').addEventListener('change', () => {
+        calculateEarnings();
+        loadEntries();
+    });
+    document.getElementById('gst-enabled').addEventListener('change', () => {
+        calculateEarnings();
+        loadEntries();
+    });
 }
 
 function updateDateDisplay() {
