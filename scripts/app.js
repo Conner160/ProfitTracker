@@ -156,10 +156,10 @@ async function loadEntries() {
                     <div>Points: ${entry.points} ($${(entry.points * (parseFloat(document.getElementById('point-rate').value) || 7.25).toFixed(2)})</div>
                     <div>KMs: ${entry.kms} ($${(entry.kms * (parseFloat(document.getElementById('km-rate').value) || 0.84).toFixed(2)})</div>
                     ${entry.perDiem ? `<div>Per Diem: $${(parseFloat(document.getElementById('per-diem-rate').value) || 171).toFixed(2)}</div>` : ''}
-                    ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>' : ''}
+                    ${entry.notes ? '<div class="entry-notes">Notes: ${entry.notes}</div>' : ''}
                 </div>
             </div>
-        `).join('');
+        ').join('');
         
         // Add event listeners to delete buttons
         document.querySelectorAll('.delete-entry').forEach(button => {
