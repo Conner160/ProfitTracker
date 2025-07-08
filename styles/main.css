@@ -108,3 +108,63 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
+/* Add these styles to main.css */
+.entry-item {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.entry-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.entry-date {
+    font-weight: bold;
+}
+
+.delete-entry {
+    background: none;
+    border: none;
+    color: #ff4444;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.entry-details {
+    font-size: 0.9em;
+}
+
+.entry-notes {
+    font-style: italic;
+    margin-top: 5px;
+}
+
+.total-earnings {
+    font-weight: bold;
+    margin-top: 10px;
+    font-size: 1.1em;
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    border-radius: 4px;
+    color: white;
+    z-index: 1000;
+}
+
+.notification.success {
+    background-color: #4CAF50;
+}
+
+.notification.error {
+    background-color: #f44336;
+}
