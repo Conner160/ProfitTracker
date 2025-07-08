@@ -1,3 +1,22 @@
+// Date handling functions
+function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateForDisplay(dateString) {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString + 'T00:00:00').toLocaleDateString('en-CA', options);
+}
+
+function initializeDate() {
+    const today = new Date();
+    document.getElementById('work-date').value = formatDateForInput(today);
+    document.getElementById('date-display').textContent = formatDateForDisplay(formatDateForInput(today));
+}
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     // Register service worker
@@ -16,7 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSettings();
         loadEntries();
         setupEventListeners();
-        updateDateDisplay();
+        initializeDate();
+        calculateEarnings();
     });
 });
 
@@ -57,28 +77,13 @@ function setupEventListeners() {
     });
 }
 
-function updateDateDisplay() {
-    const dateDisplay = document.getElementById('date-display');
-    const today = new Date();
-    dateDisplay.textContent = today.toLocaleDateString('en-CA', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    });
-    
-    // Set default date to today
-    document.getElementById('work-date').valueAsDate = today;
-}
-
-// Add these new functions to app.js
 function calculateEarnings() {
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     
-    // Get rates from settings
-    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.25;
+    // Get rates from settings (default point rate is now 7.00)
+    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
     const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
     const includeGST = document.getElementById('gst-enabled').checked;
@@ -106,14 +111,14 @@ function calculateEarnings() {
 }
 
 async function saveEntry() {
-    const date = document.getElementById('work-date').value;
+    const dateInput = document.getElementById('work-date').value;
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
     
     const entry = {
-        date,
+        date: dateInput, // Store exactly what was selected
         points,
         kms,
         perDiem,
@@ -133,6 +138,15 @@ async function saveEntry() {
     }
 }
 
+function clearForm() {
+    document.getElementById('points').value = '';
+    document.getElementById('kms').value = '';
+    document.getElementById('per-diem').checked = false;
+    document.getElementById('notes').value = '';
+    initializeDate(); // Reset to today's date with proper formatting
+    calculateEarnings();
+}
+
 async function loadEntries() {
     try {
         const entries = await window.dbFunctions.getAllFromDB('entries');
@@ -147,14 +161,14 @@ async function loadEntries() {
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         
         entriesList.innerHTML = entries.map(entry => {
-            const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.25;
+            const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
             const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
             const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
             
             return `
                 <div class="entry-item">
                     <div class="entry-header">
-                        <span class="entry-date">${new Date(entry.date).toLocaleDateString()}</span>
+                        <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
                         <button class="delete-entry" data-id="${entry.id}">×</button>
                     </div>
                     <div class="entry-details">
@@ -190,6 +204,46 @@ async function deleteEntry(id) {
     }
 }
 
+function loadSettings() {
+    // Load settings from DB or use defaults
+    window.dbFunctions.getFromDB('settings', 'rates').then(settings => {
+        if (settings) {
+            document.getElementById('point-rate').value = settings.pointRate || 7.00;
+            document.getElementById('km-rate').value = settings.kmRate || 0.84;
+            document.getElementById('per-diem-rate').value = settings.perDiemRate || 171;
+            document.getElementById('gst-enabled').checked = settings.includeGST !== false;
+        }
+    }).catch(error => {
+        console.error('Error loading settings:', error);
+    });
+}
+
+async function saveSettings() {
+    const settings = {
+        name: 'rates',
+        pointRate: parseFloat(document.getElementById('point-rate').value) || 7.00,
+        kmRate: parseFloat(document.getElementById('km-rate').value) || 0.84,
+        perDiemRate: parseFloat(document.getElementById('per-diem-rate').value) || 171,
+        includeGST: document.getElementById('gst-enabled').checked
+    };
+    
+    try {
+        await window.dbFunctions.saveToDB('settings', settings);
+        calculateEarnings();
+        loadEntries();
+        showNotification('Settings saved');
+        toggleSettings();
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showNotification('Error saving settings', true);
+    }
+}
+
+function toggleSettings() {
+    const settingsPanel = document.getElementById('settings-panel');
+    settingsPanel.classList.toggle('hidden');
+}
+
 function showNotification(message, isError = false) {
     const notification = document.createElement('div');
     notification.className = `notification ${isError ? 'error' : 'success'}`;
@@ -200,29 +254,3 @@ function showNotification(message, isError = false) {
         notification.remove();
     }, 3000);
 }
-
-function clearForm() {
-    document.getElementById('points').value = '';
-    document.getElementById('kms').value = '';
-    document.getElementById('per-diem').checked = false;
-    document.getElementById('notes').value = '';
-    document.getElementById('work-date').valueAsDate = new Date();
-    calculateEarnings(); // Update the display with empty values
-}
-
-function toggleSettings() {
-    const settingsPanel = document.getElementById('settings-panel');
-    settingsPanel.classList.toggle('hidden');
-}
-
-function loadSettings() {
-    // This will load settings from local storage
-    console.log('Loading settings...');
-}
-
-function saveSettings() {
-    // This will save settings to local storage
-    console.log('Saving settings...');
-    toggleSettings();
-}
-
