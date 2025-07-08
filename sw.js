@@ -4,9 +4,7 @@ const ASSETS = [
   '/index.html',
   '/styles/main.css',
   '/scripts/app.js',
-  '/scripts/db.js',
-  '/images/icon-192x192.png',
-  '/images/icon-512x512.png'
+  '/scripts/db.js'
 ];
 
 self.addEventListener('install', (event) => {
