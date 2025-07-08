@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Register service worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('sw.js')
             .then(registration => {
                 console.log('ServiceWorker registration successful');
             })
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize database and load data
-    initDB().then(() => {
+    window.dbFunctions.initDB().then(() => {
         loadSettings();
         loadEntries();
         setupEventListeners();
