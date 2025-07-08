@@ -88,4 +88,11 @@ function deleteFromDB(storeName, key) {
     });
 }
 
-export { initDB, saveToDB, getFromDB, getAllFromDB, deleteFromDB };
+// Make functions available globally
+window.dbFunctions = {
+    initDB,
+    saveToDB,
+    getFromDB,
+    getAllFromDB,
+    deleteFromDB
+};
