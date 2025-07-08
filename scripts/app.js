@@ -146,20 +146,26 @@ async function loadEntries() {
         // Sort by date (newest first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         
-        entriesList.innerHTML = entries.map(entry => `
-            <div class="entry-item">
-                <div class="entry-header">
-                    <span class="entry-date">${new Date(entry.date).toLocaleDateString()}</span>
-                    <button class="delete-entry" data-id="${entry.id}">×</button>
+        entriesList.innerHTML = entries.map(entry => {
+            const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.25;
+            const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
+            const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+            
+            return `
+                <div class="entry-item">
+                    <div class="entry-header">
+                        <span class="entry-date">${new Date(entry.date).toLocaleDateString()}</span>
+                        <button class="delete-entry" data-id="${entry.id}">×</button>
+                    </div>
+                    <div class="entry-details">
+                        <div>Points: ${entry.points} ($${(entry.points * pointRate).toFixed(2)})</div>
+                        <div>KMs: ${entry.kms} ($${(entry.kms * kmRate).toFixed(2)})</div>
+                        ${entry.perDiem ? `<div>Per Diem: $${perDiemRate.toFixed(2)}</div>` : ''}
+                        ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
+                    </div>
                 </div>
-                <div class="entry-details">
-                    <div>Points: ${entry.points} ($${(entry.points * (parseFloat(document.getElementById('point-rate').value) || 7.25).toFixed(2)})</div>
-                    <div>KMs: ${entry.kms} ($${(entry.kms * (parseFloat(document.getElementById('km-rate').value) || 0.84).toFixed(2)})</div>
-                    ${entry.perDiem ? `<div>Per Diem: $${(parseFloat(document.getElementById('per-diem-rate').value) || 171).toFixed(2)}</div>` : ''}
-                    ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         // Add event listeners to delete buttons
         document.querySelectorAll('.delete-entry').forEach(button => {
