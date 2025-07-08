@@ -196,8 +196,12 @@ function showNotification(message, isError = false) {
 }
 
 function clearForm() {
-    // This will clear the form
-    console.log('Clearing form...');
+    document.getElementById('points').value = '';
+    document.getElementById('kms').value = '';
+    document.getElementById('per-diem').checked = false;
+    document.getElementById('notes').value = '';
+    document.getElementById('work-date').valueAsDate = new Date();
+    calculateEarnings(); // Update the display with empty values
 }
 
 function toggleSettings() {
