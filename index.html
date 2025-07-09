@@ -19,9 +19,13 @@
 
     <main>
         <!-- Pay Period Controls -->
+        <!-- Add this section below your date display -->
         <section id="pay-period-section">
+            <h2>Pay Period</h2>
             <div id="pay-period-controls">
-                <h3>Pay Period: <span id="current-pay-period"></span></h3>
+                <div class="pay-period-display">
+                    Current: <span id="current-pay-period"></span>
+                </div>
                 <div class="pay-period-nav">
                     <button id="prev-pay-period">← Previous</button>
                     <input type="date" id="pay-period-start" style="display: none;">
