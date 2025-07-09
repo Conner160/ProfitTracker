@@ -4,12 +4,15 @@ A Progressive Web App (PWA) for tracking piece-rate earnings, kilometers driven,
 
 ## Features
 
-- Track daily points earned with customizable rate
-- Record kilometers driven with mileage rate
-- Track per diem payments
+- Track daily points earned with customizable rate ($7.00/point default)
+- Record kilometers driven with mileage rate ($0.84/km default)
+- Track per diem payments ($171 default)
+- Pay period tracking (bi-weekly starting July 5, 2025)
+- GST calculation (5%)
 - All data stored locally on the user's device
 - Works offline (PWA)
-- Editable entries
+- Editable entries with delete confirmation
+- Duplicate date prevention
 
 ## Setup
 
@@ -25,10 +28,12 @@ A Progressive Web App (PWA) for tracking piece-rate earnings, kilometers driven,
 - CSS3
 - JavaScript
 - IndexedDB for local storage
-- PWA technologies (Service Workers, Web App Manifest)
+- Service Workers for offline functionality
+- Web App Manifest for PWA installation
 
 ## Future Enhancements
 
 - Export/import data
-- Reports and summaries
+- Detailed reports and summaries
 - Charts and visualizations
+- Cloud backup option
