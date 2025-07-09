@@ -2,7 +2,7 @@
     "name": "ProfitTracker",
     "short_name": "ProfitTracker",
     "description": "Track your piece-rate earnings and expenses",
-    "start_url": "/",
+    "start_url": "./",
     "display": "standalone",
     "theme_color": "#2b5797",
     "background_color": "#ffffff",
