@@ -36,7 +36,7 @@ function getCurrentPayPeriodStart() {
 
 function getPayPeriodEnd(startDate) {
     const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + PAY_PERIOD_DAYS - 1);
+    endDate.setDate(endDate.getDate() + PAY_PERIOD_DAYS);
     return formatDateForInput(endDate);
 }
 
