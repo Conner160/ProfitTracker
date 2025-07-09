@@ -50,9 +50,6 @@ function getAdjacentPeriod(startDate, direction) {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize variables only after DOM is ready
-    currentPayPeriodStart = getCurrentPayPeriodStart();
-
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
             .then(registration => {
@@ -69,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
+    // Initialize currentPayPeriodStart if not already set
+    if (!currentPayPeriodStart) {
+        currentPayPeriodStart = getCurrentPayPeriodStart();
+    }
+    
     window.dbFunctions.initDB().then(() => {
         loadSettings();
         setupPayPeriodControls();
