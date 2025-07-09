@@ -243,6 +243,18 @@ function clearForm() {
     calculateEarnings();
 }
 
+function populateFormForEdit(entry) {
+    document.getElementById('work-date').value = entry.date;
+    document.getElementById('points').value = entry.points;
+    document.getElementById('kms').value = entry.kms;
+    document.getElementById('per-diem').checked = entry.perDiem;
+    document.getElementById('notes').value = entry.notes || '';
+    calculateEarnings();
+    
+    // Scroll to the form for better user experience
+    document.getElementById('daily-entry').scrollIntoView({ behavior: 'smooth' });
+}
+
 async function loadEntries() {
     try {
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
@@ -271,7 +283,14 @@ async function loadEntries() {
             const includeGST = document.getElementById('gst-enabled').checked;
             
             return `
-                <div class="entry-item">
+                <div class="entry-item editable-entry" 
+                     data-id="${entry.id}"
+                     data-date="${entry.date}" 
+                     data-points="${entry.points}" 
+                     data-kms="${entry.kms}" 
+                     data-per-diem="${entry.perDiem}" 
+                     data-notes="${entry.notes || ''}"
+                     data-total="${entry.total}">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
                         <span class="entry-total">$${entry.total.toFixed(2)}</span>
@@ -306,6 +325,28 @@ async function loadEntries() {
             button.addEventListener('click', async (e) => {
                 const id = parseInt(e.target.dataset.id);
                 await deleteEntry(id);
+            });
+        });
+        
+        // Add click event listeners for editing entries
+        const editableEntries = document.querySelectorAll('.editable-entry');
+        editableEntries.forEach(entryElement => {
+            entryElement.addEventListener('click', (e) => {
+                // Don't trigger edit when clicking the delete button
+                if (e.target.classList.contains('delete-entry')) {
+                    return;
+                }
+                
+                const entryData = {
+                    id: parseInt(entryElement.dataset.id),
+                    date: entryElement.dataset.date,
+                    points: parseFloat(entryElement.dataset.points),
+                    kms: parseFloat(entryElement.dataset.kms),
+                    perDiem: entryElement.dataset.perDiem === 'true',
+                    notes: entryElement.dataset.notes,
+                    total: parseFloat(entryElement.dataset.total)
+                };
+                populateFormForEdit(entryData);
             });
         });
     } catch (error) {
