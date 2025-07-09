@@ -18,35 +18,31 @@ function initializeDate() {
 }
 
 // Pay period configuration
-const PAY_PERIOD_DAYS = 14; // Bi-weekly pay period
-const FIRST_PAY_PERIOD_START = new Date('2025-07-05'); // Your reference pay period start
-let currentPayPeriodStart = getCurrentPayPeriodStart();
+const PAY_PERIOD_LENGTH = 14; // 14-day pay periods
+const FIRST_PAY_PERIOD_START = new Date('2025-07-05T00:00:00'); // Your exact reference period start
 
 function getCurrentPayPeriodStart() {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize time
+    today.setHours(0, 0, 0, 0); // Normalize to midnight
     
     // Calculate days since first pay period
-    const timeDiff = today - FIRST_PAY_PERIOD_START;
-    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const msSinceFirstPeriod = today - FIRST_PAY_PERIOD_START;
+    const daysSinceFirstPeriod = Math.floor(msSinceFirstPeriod / (1000 * 60 * 60 * 24));
     
-    // Calculate complete periods passed and remaining days
-    const periodsPassed = Math.floor(daysDiff / PAY_PERIOD_DAYS);
-    const daysIntoCurrentPeriod = daysDiff % PAY_PERIOD_DAYS;
+    // Calculate how many complete periods have passed
+    const completePeriods = Math.floor(daysSinceFirstPeriod / PAY_PERIOD_LENGTH);
     
     // Calculate start of current pay period
     const periodStart = new Date(FIRST_PAY_PERIOD_START);
-    periodStart.setDate(periodStart.getDate() + periodsPassed * PAY_PERIOD_DAYS);
+    periodStart.setDate(periodStart.getDate() + completePeriods * PAY_PERIOD_LENGTH);
     
     return formatDateForInput(periodStart);
 }
 
 function getPayPeriodEnd(startDate) {
-    const start = new Date(startDate);
-    const end = new Date(start);
-    end.setDate(end.getDate() + PAY_PERIOD_DAYS - 1);
-    console.log(formatDateForInput(end));
-    return formatDateForInput(end);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + PAY_PERIOD_LENGTH - 1);
+    return formatDateForInput(endDate);
 }
 
 function getAdjacentPayPeriod(startDate, direction) {
