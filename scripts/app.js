@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.dbFunctions.initDB().then(() => {
-        let currentPayPeriodStart = getCurrentPayPeriodStart();
+        currentPayPeriodStart = getCurrentPayPeriodStart();
         loadSettings();
         setupPayPeriodControls();
         loadEntries();
