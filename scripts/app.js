@@ -18,42 +18,36 @@ function initializeDate() {
 }
 
 // Pay period configuration
-const PAY_PERIOD_LENGTH = 14; // 14-day pay periods
-const FIRST_PAY_PERIOD_START = new Date('2025-07-05T00:00:00'); // Your exact reference period start
+const PAY_PERIOD_DAYS = 14;
+const FIRST_PAY_PERIOD = new Date('2025-07-05T00:00:00');
+let currentPayPeriodStart = getCurrentPayPeriodStart();
 
 function getCurrentPayPeriodStart() {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to midnight
+    today.setHours(0, 0, 0, 0);
     
-    // Calculate days since first pay period
-    const msSinceFirstPeriod = today - FIRST_PAY_PERIOD_START;
-    const daysSinceFirstPeriod = Math.floor(msSinceFirstPeriod / (1000 * 60 * 60 * 24));
-    
-    // Calculate how many complete periods have passed
-    const completePeriods = Math.floor(daysSinceFirstPeriod / PAY_PERIOD_LENGTH);
-    
-    // Calculate start of current pay period
-    const periodStart = new Date(FIRST_PAY_PERIOD_START);
-    periodStart.setDate(periodStart.getDate() + completePeriods * PAY_PERIOD_LENGTH);
+    const daysSinceFirstPeriod = Math.floor((today - FIRST_PAY_PERIOD) / (1000 * 60 * 60 * 24));
+    const completePeriods = Math.floor(daysSinceFirstPeriod / PAY_PERIOD_DAYS);
+    const periodStart = new Date(FIRST_PAY_PERIOD);
+    periodStart.setDate(periodStart.getDate() + completePeriods * PAY_PERIOD_DAYS);
     
     return formatDateForInput(periodStart);
 }
 
 function getPayPeriodEnd(startDate) {
     const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + PAY_PERIOD_LENGTH - 1);
+    endDate.setDate(endDate.getDate() + PAY_PERIOD_DAYS - 1);
     return formatDateForInput(endDate);
 }
 
-function getAdjacentPayPeriod(startDate, direction) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + (PAY_PERIOD_DAYS * direction));
-    return formatDateForInput(date);
+function getAdjacentPeriod(startDate, direction) {
+    const newDate = new Date(startDate);
+    newDate.setDate(newDate.getDate() + (PAY_PERIOD_DAYS * direction));
+    return formatDateForInput(newDate);
 }
 
-// Initialize the app when DOM is loaded
+// Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    // Register service worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
             .then(registration => {
@@ -64,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // Initialize database and load data
     window.dbFunctions.initDB().then(() => {
         loadSettings();
         setupPayPeriodControls();
@@ -75,25 +68,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function setupPayPeriodControls() {
+    const prevBtn = document.getElementById('prev-pay-period');
+    const nextBtn = document.getElementById('next-pay-period');
+    
+    updatePayPeriodDisplay();
+    
+    prevBtn.addEventListener('click', () => {
+        currentPayPeriodStart = getAdjacentPeriod(currentPayPeriodStart, -1);
+        updatePayPeriodDisplay();
+        loadEntries();
+    });
+    
+    nextBtn.addEventListener('click', () => {
+        const nextPeriod = getAdjacentPeriod(currentPayPeriodStart, 1);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (new Date(nextPeriod) <= today) {
+            currentPayPeriodStart = nextPeriod;
+            updatePayPeriodDisplay();
+            loadEntries();
+        } else {
+            showNotification("Cannot view future pay periods", true);
+        }
+    });
+}
+
+function updatePayPeriodDisplay() {
+    const periodDisplay = document.getElementById('current-pay-period');
+    const periodEnd = getPayPeriodEnd(currentPayPeriodStart);
+    periodDisplay.textContent = 
+        `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(periodEnd)}`;
+}
+
 function setupEventListeners() {
-    // Save entry button
     document.getElementById('save-entry').addEventListener('click', saveEntry);
-    
-    // Clear form button
     document.getElementById('clear-form').addEventListener('click', clearForm);
-    
-    // Settings toggle
     document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
-    
-    // Save settings button
     document.getElementById('save-settings').addEventListener('click', saveSettings);
     
-    // Calculate earnings when inputs change
     document.getElementById('points').addEventListener('input', calculateEarnings);
     document.getElementById('kms').addEventListener('input', calculateEarnings);
     document.getElementById('per-diem').addEventListener('change', calculateEarnings);
     
-    // Recalculate when settings change
     document.getElementById('point-rate').addEventListener('change', () => {
         calculateEarnings();
         loadEntries();
@@ -112,66 +130,25 @@ function setupEventListeners() {
     });
 }
 
-function setupPayPeriodControls() {
-    const prevPayPeriodBtn = document.getElementById('prev-pay-period');
-    const nextPayPeriodBtn = document.getElementById('next-pay-period');
-    
-    // Initialize display
-    updatePayPeriodDisplay();
-    
-    // Set up event listeners
-    prevPayPeriodBtn.addEventListener('click', () => {
-        currentPayPeriodStart = getAdjacentPayPeriod(currentPayPeriodStart, -1);
-        updatePayPeriodDisplay();
-        loadEntries();
-    });
-    
-    nextPayPeriodBtn.addEventListener('click', () => {
-        // Don't allow navigating to future pay periods
-        const nextPeriodStart = new Date(getAdjacentPayPeriod(currentPayPeriodStart, 1));
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (nextPeriodStart <= today) {
-            currentPayPeriodStart = formatDateForInput(nextPeriodStart);
-            updatePayPeriodDisplay();
-            loadEntries();
-        } else {
-            showNotification("Cannot navigate to future pay periods", true);
-        }
-    });
-}
-function updatePayPeriodDisplay() {
-    const currentPayPeriodElement = document.getElementById('current-pay-period');
-    const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
-    
-    currentPayPeriodElement.textContent = 
-        `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(payPeriodEnd)}`;
-}
-
 function calculateEarnings() {
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     
-    // Get rates from settings (default point rate is now 7.00)
     const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
     const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
     const includeGST = document.getElementById('gst-enabled').checked;
     
-    // Calculate earnings
     const pointsEarnings = points * pointRate;
     const kmEarnings = kms * kmRate;
     const perDiemEarnings = perDiem ? perDiemRate : 0;
     
-    // Calculate GST if enabled
     const gstMultiplier = includeGST ? 1.05 : 1;
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
     const totalWithGST = totalBeforeGST * gstMultiplier;
     const gstAmount = totalWithGST - totalBeforeGST;
     
-    // Update the display
     const earningsDisplay = document.getElementById('earnings-display');
     earningsDisplay.innerHTML = `
         <div><strong>Points Earnings:</strong> $${pointsEarnings.toFixed(2)} (${points} pts)</div>
@@ -189,17 +166,14 @@ async function saveEntry() {
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
 
-    // Get rates for calculation
     const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
     const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
     const includeGST = document.getElementById('gst-enabled').checked;
     const gstMultiplier = includeGST ? 1.05 : 1;
 
-    // Calculate total for this entry
     const total = (points * pointRate + kms * kmRate + (perDiem ? perDiemRate : 0)) * gstMultiplier;
 
-    // Check for existing entry with same date
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
 
@@ -214,7 +188,6 @@ async function saveEntry() {
             return;
         }
 
-        // Delete old entry if keeping new one
         await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
     }
 
@@ -252,8 +225,6 @@ function clearForm() {
 async function loadEntries() {
     try {
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
-        
-        // Filter entries by current pay period
         const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
         const entries = allEntries.filter(entry => 
             entry.date >= currentPayPeriodStart && entry.date <= payPeriodEnd
@@ -267,10 +238,8 @@ async function loadEntries() {
             return;
         }
         
-        // Sort by date (newest first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         
-        // Calculate pay period totals
         const payPeriodTotals = calculatePayPeriodTotals(entries);
         updatePayPeriodSummary(payPeriodTotals);
         
@@ -312,7 +281,6 @@ async function loadEntries() {
             `;
         }).join('');
         
-        // Add event listeners to delete buttons
         document.querySelectorAll('.delete-entry').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const id = parseInt(e.target.dataset.id);
@@ -329,7 +297,6 @@ function calculatePayPeriodTotals(entries) {
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
     const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
     const includeGST = document.getElementById('gst-enabled').checked;
-    const gstMultiplier = includeGST ? 1.05 : 1;
     
     let pointsTotal = 0;
     let kmsTotal = 0;
