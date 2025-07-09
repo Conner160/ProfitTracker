@@ -41,7 +41,9 @@ function getPayPeriodEnd(startDate) {
 }
 
 function getAdjacentPeriod(startDate, direction) {
+    console.log(startDate);
     const newDate = new Date(startDate);
+    console.log(newDate.getDate());
     newDate.setDate(newDate.getDate() + (PAY_PERIOD_DAYS * direction));
     return formatDateForInput(newDate);
 }
