@@ -20,7 +20,6 @@ function initializeDate() {
 // Pay period configuration
 const PAY_PERIOD_DAYS = 14;
 const FIRST_PAY_PERIOD = new Date('2025-07-05T00:00:00');
-let currentPayPeriodStart = getCurrentPayPeriodStart();
 
 function getCurrentPayPeriodStart() {
     const today = new Date();
@@ -61,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.dbFunctions.initDB().then(() => {
+        let currentPayPeriodStart = getCurrentPayPeriodStart();
         loadSettings();
         setupPayPeriodControls();
         loadEntries();
