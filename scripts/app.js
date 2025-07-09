@@ -19,22 +19,39 @@ function initializeDate() {
 
 // Pay period configuration
 const PAY_PERIOD_DAYS = 14; // Bi-weekly pay period
+const FIRST_PAY_PERIOD_START = new Date('2025-07-05'); // Your reference pay period start
 let currentPayPeriodStart = getCurrentPayPeriodStart();
 
 function getCurrentPayPeriodStart() {
     const today = new Date();
-    const firstPayPeriodStart = new Date('2025-07-05'); // Updated to 2025 reference
-    const daysSinceFirstPeriod = Math.floor((today - firstPayPeriodStart) / (1000 * 60 * 60 * 24));
-    const periodsSinceFirst = Math.floor(daysSinceFirstPeriod / PAY_PERIOD_DAYS);
-    const startDate = new Date(firstPayPeriodStart);
-    startDate.setDate(startDate.getDate() + periodsSinceFirst * PAY_PERIOD_DAYS);
-    return formatDateForInput(startDate);
+    today.setHours(0, 0, 0, 0); // Normalize time
+    
+    // Calculate days since first pay period
+    const timeDiff = today - FIRST_PAY_PERIOD_START;
+    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    
+    // Calculate complete periods passed and remaining days
+    const periodsPassed = Math.floor(daysDiff / PAY_PERIOD_DAYS);
+    const daysIntoCurrentPeriod = daysDiff % PAY_PERIOD_DAYS;
+    
+    // Calculate start of current pay period
+    const periodStart = new Date(FIRST_PAY_PERIOD_START);
+    periodStart.setDate(periodStart.getDate() + periodsPassed * PAY_PERIOD_DAYS);
+    
+    return formatDateForInput(periodStart);
 }
 
 function getPayPeriodEnd(startDate) {
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + PAY_PERIOD_DAYS - 1);
-    return formatDateForInput(endDate);
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(end.getDate() + PAY_PERIOD_DAYS - 1);
+    return formatDateForInput(end);
+}
+
+function getAdjacentPayPeriod(startDate, direction) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + (PAY_PERIOD_DAYS * direction));
+    return formatDateForInput(date);
 }
 
 // Initialize the app when DOM is loaded
@@ -99,58 +116,40 @@ function setupEventListeners() {
 }
 
 function setupPayPeriodControls() {
-    const payPeriodStartInput = document.getElementById('pay-period-start');
     const prevPayPeriodBtn = document.getElementById('prev-pay-period');
     const nextPayPeriodBtn = document.getElementById('next-pay-period');
-    const currentYearElement = document.getElementById('current-year');
     
-    // Only initialize if elements exist
-    if (payPeriodStartInput && prevPayPeriodBtn && nextPayPeriodBtn) {
-        // Set current year display if element exists
-        if (currentYearElement) {
-            currentYearElement.textContent = new Date().getFullYear();
-        }
-        
-        // Initialize display
+    // Initialize display
+    updatePayPeriodDisplay();
+    
+    // Set up event listeners
+    prevPayPeriodBtn.addEventListener('click', () => {
+        currentPayPeriodStart = getAdjacentPayPeriod(currentPayPeriodStart, -1);
         updatePayPeriodDisplay();
+        loadEntries();
+    });
+    
+    nextPayPeriodBtn.addEventListener('click', () => {
+        // Don't allow navigating to future pay periods
+        const nextPeriodStart = new Date(getAdjacentPayPeriod(currentPayPeriodStart, 1));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        // Set up event listeners
-        payPeriodStartInput.addEventListener('change', () => {
-            currentPayPeriodStart = payPeriodStartInput.value;
+        if (nextPeriodStart <= today) {
+            currentPayPeriodStart = formatDateForInput(nextPeriodStart);
             updatePayPeriodDisplay();
             loadEntries();
-        });
-        
-        prevPayPeriodBtn.addEventListener('click', () => {
-            const startDate = new Date(currentPayPeriodStart);
-            startDate.setDate(startDate.getDate() - PAY_PERIOD_DAYS);
-            currentPayPeriodStart = formatDateForInput(startDate);
-            updatePayPeriodDisplay();
-            loadEntries();
-        });
-        
-        nextPayPeriodBtn.addEventListener('click', () => {
-            const startDate = new Date(currentPayPeriodStart);
-            startDate.setDate(startDate.getDate() + PAY_PERIOD_DAYS);
-            currentPayPeriodStart = formatDateForInput(startDate);
-            updatePayPeriodDisplay();
-            loadEntries();
-        });
-    } else {
-        console.error('Pay period control elements not found');
-    }
+        } else {
+            showNotification("Cannot navigate to future pay periods", true);
+        }
+    });
 }
 function updatePayPeriodDisplay() {
-    const payPeriodStartInput = document.getElementById('pay-period-start');
     const currentPayPeriodElement = document.getElementById('current-pay-period');
+    const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
     
-    // Only proceed if elements exist
-    if (payPeriodStartInput && currentPayPeriodElement) {
-        payPeriodStartInput.value = currentPayPeriodStart;
-        const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
-        currentPayPeriodElement.textContent = 
-            `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(payPeriodEnd)}`;
-    }
+    currentPayPeriodElement.textContent = 
+        `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(payPeriodEnd)}`;
 }
 
 function calculateEarnings() {
