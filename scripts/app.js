@@ -116,16 +116,46 @@ async function saveEntry() {
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
-    
+
+    // Get rates for calculation
+    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
+    const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
+    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+    const includeGST = document.getElementById('gst-enabled').checked;
+    const gstMultiplier = includeGST ? 1.05 : 1;
+
+    // Calculate total for this entry
+    const total = (points * pointRate + kms * kmRate + (perDiem ? perDiemRate : 0)) * gstMultiplier;
+
+    // Check for existing entry with same date
+    const existingEntries = await window.dbFunctions.getAllFromDB('entries');
+    const existingEntry = existingEntries.find(entry => entry.date === dateInput);
+
+    if (existingEntry) {
+        const keepNew = confirm(`An entry already exists for ${formatDateForDisplay(dateInput)}.\n\n` +
+                              `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
+                              `New: ${points} pts, ${kms} km\n\n` +
+                              `Keep new entry? (Cancel to keep old entry)`);
+        
+        if (!keepNew) {
+            showNotification('Entry not saved - kept existing entry');
+            return;
+        }
+
+        // Delete old entry if keeping new one
+        await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
+    }
+
     const entry = {
-        date: dateInput, // Store exactly what was selected
+        date: dateInput,
         points,
         kms,
         perDiem,
         notes,
+        total, // Store calculated total
         timestamp: new Date().getTime()
     };
-    
+
     try {
         await window.dbFunctions.saveToDB('entries', entry);
         calculateEarnings();
@@ -136,15 +166,6 @@ async function saveEntry() {
         console.error('Error saving entry:', error);
         showNotification('Error saving entry', true);
     }
-}
-
-function clearForm() {
-    document.getElementById('points').value = '';
-    document.getElementById('kms').value = '';
-    document.getElementById('per-diem').checked = false;
-    document.getElementById('notes').value = '';
-    initializeDate(); // Reset to today's date with proper formatting
-    calculateEarnings();
 }
 
 async function loadEntries() {
@@ -164,18 +185,42 @@ async function loadEntries() {
             const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
             const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
             const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+            const includeGST = document.getElementById('gst-enabled').checked;
+            
+            // Calculate total if not already stored (for backward compatibility)
+            const total = entry.total || 
+                (entry.points * pointRate + 
+                 entry.kms * kmRate + 
+                 (entry.perDiem ? perDiemRate : 0)) * 
+                (includeGST ? 1.05 : 1);
             
             return `
                 <div class="entry-item">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
-                        <button class="delete-entry" data-id="${entry.id}">×</button>
+                        <span class="entry-total">$${total.toFixed(2)}</span>
                     </div>
                     <div class="entry-details">
-                        <div>Points: ${entry.points} ($${(entry.points * pointRate).toFixed(2)})</div>
-                        <div>KMs: ${entry.kms} ($${(entry.kms * kmRate).toFixed(2)})</div>
-                        ${entry.perDiem ? `<div>Per Diem: $${perDiemRate.toFixed(2)}</div>` : ''}
+                        <div class="entry-row">
+                            <span>Points: ${entry.points}</span>
+                            <span>$${(entry.points * pointRate).toFixed(2)}</span>
+                        </div>
+                        <div class="entry-row">
+                            <span>KMs: ${entry.kms}</span>
+                            <span>$${(entry.kms * kmRate).toFixed(2)}</span>
+                        </div>
+                        ${entry.perDiem ? `
+                        <div class="entry-row">
+                            <span>Per Diem:</span>
+                            <span>$${perDiemRate.toFixed(2)}</span>
+                        </div>` : ''}
+                        ${includeGST ? `
+                        <div class="entry-row">
+                            <span>GST:</span>
+                            <span>$${(total - (total / 1.05)).toFixed(2)}</span>
+                        </div>` : ''}
                         ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
+                        <button class="delete-entry" data-id="${entry.id}">Delete</button>
                     </div>
                 </div>
             `;
@@ -202,6 +247,15 @@ async function deleteEntry(id) {
         console.error('Error deleting entry:', error);
         showNotification('Error deleting entry', true);
     }
+}
+
+function clearForm() {
+    document.getElementById('points').value = '';
+    document.getElementById('kms').value = '';
+    document.getElementById('per-diem').checked = false;
+    document.getElementById('notes').value = '';
+    initializeDate(); // Reset to today's date with proper formatting
+    calculateEarnings();
 }
 
 function loadSettings() {

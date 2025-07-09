@@ -109,18 +109,19 @@ footer {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-/* Add these styles to main.css */
 .entry-item {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 10px;
     margin-bottom: 10px;
+    position: relative;
 }
 
 .entry-header {
     display: flex;
     justify-content: space-between;
     margin-bottom: 5px;
+    font-weight: bold;
 }
 
 .entry-date {
@@ -128,16 +129,32 @@ footer {
 }
 
 .delete-entry {
-    background: none;
+    margin-top: 8px;
+    padding: 5px 10px;
+    background-color: #ff4444;
+    color: white;
     border: none;
-    color: #ff4444;
-    font-size: 1.2em;
+    border-radius: 3px;
     cursor: pointer;
-    padding: 0 5px;
+}
+.delete-entry:hover {
+    background-color: #cc0000;
+}
+
+.entry-total {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.entry-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
 }
 
 .entry-details {
     font-size: 0.9em;
+    margin-top: 8px;
 }
 
 .entry-notes {
