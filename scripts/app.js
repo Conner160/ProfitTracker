@@ -45,6 +45,7 @@ function getPayPeriodEnd(startDate) {
     const start = new Date(startDate);
     const end = new Date(start);
     end.setDate(end.getDate() + PAY_PERIOD_DAYS - 1);
+    console.log(formatDateForInput(end));
     return formatDateForInput(end);
 }
 
