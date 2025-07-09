@@ -102,42 +102,55 @@ function setupPayPeriodControls() {
     const payPeriodStartInput = document.getElementById('pay-period-start');
     const prevPayPeriodBtn = document.getElementById('prev-pay-period');
     const nextPayPeriodBtn = document.getElementById('next-pay-period');
+    const currentYearElement = document.getElementById('current-year');
     
-    // Set current year display
-    document.getElementById('current-year').textContent = new Date().getFullYear();
-    
-    // Initialize display
-    updatePayPeriodDisplay();
-    
-    // Set up event listeners
-    payPeriodStartInput.addEventListener('change', () => {
-        currentPayPeriodStart = payPeriodStartInput.value;
+    // Only initialize if elements exist
+    if (payPeriodStartInput && prevPayPeriodBtn && nextPayPeriodBtn) {
+        // Set current year display if element exists
+        if (currentYearElement) {
+            currentYearElement.textContent = new Date().getFullYear();
+        }
+        
+        // Initialize display
         updatePayPeriodDisplay();
-        loadEntries();
-    });
-    
-    prevPayPeriodBtn.addEventListener('click', () => {
-        const startDate = new Date(currentPayPeriodStart);
-        startDate.setDate(startDate.getDate() - PAY_PERIOD_DAYS);
-        currentPayPeriodStart = formatDateForInput(startDate);
-        updatePayPeriodDisplay();
-        loadEntries();
-    });
-    
-    nextPayPeriodBtn.addEventListener('click', () => {
-        const startDate = new Date(currentPayPeriodStart);
-        startDate.setDate(startDate.getDate() + PAY_PERIOD_DAYS);
-        currentPayPeriodStart = formatDateForInput(startDate);
-        updatePayPeriodDisplay();
-        loadEntries();
-    });
+        
+        // Set up event listeners
+        payPeriodStartInput.addEventListener('change', () => {
+            currentPayPeriodStart = payPeriodStartInput.value;
+            updatePayPeriodDisplay();
+            loadEntries();
+        });
+        
+        prevPayPeriodBtn.addEventListener('click', () => {
+            const startDate = new Date(currentPayPeriodStart);
+            startDate.setDate(startDate.getDate() - PAY_PERIOD_DAYS);
+            currentPayPeriodStart = formatDateForInput(startDate);
+            updatePayPeriodDisplay();
+            loadEntries();
+        });
+        
+        nextPayPeriodBtn.addEventListener('click', () => {
+            const startDate = new Date(currentPayPeriodStart);
+            startDate.setDate(startDate.getDate() + PAY_PERIOD_DAYS);
+            currentPayPeriodStart = formatDateForInput(startDate);
+            updatePayPeriodDisplay();
+            loadEntries();
+        });
+    } else {
+        console.error('Pay period control elements not found');
+    }
 }
-
 function updatePayPeriodDisplay() {
-    document.getElementById('pay-period-start').value = currentPayPeriodStart;
-    document.getElementById('pay-period-end').textContent = formatDateForDisplay(getPayPeriodEnd(currentPayPeriodStart));
-    document.getElementById('current-pay-period').textContent = 
-        `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(getPayPeriodEnd(currentPayPeriodStart))}`;
+    const payPeriodStartInput = document.getElementById('pay-period-start');
+    const currentPayPeriodElement = document.getElementById('current-pay-period');
+    
+    // Only proceed if elements exist
+    if (payPeriodStartInput && currentPayPeriodElement) {
+        payPeriodStartInput.value = currentPayPeriodStart;
+        const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
+        currentPayPeriodElement.textContent = 
+            `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(payPeriodEnd)}`;
+    }
 }
 
 function calculateEarnings() {
