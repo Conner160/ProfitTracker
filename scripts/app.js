@@ -21,6 +21,9 @@ function initializeDate() {
 const PAY_PERIOD_DAYS = 14;
 const FIRST_PAY_PERIOD = new Date('2025-07-05T00:00:00');
 
+// Global variable for current pay period start
+let currentPayPeriodStart;
+
 function getCurrentPayPeriodStart() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -48,27 +51,27 @@ function getAdjacentPeriod(startDate, direction) {
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize variables only after DOM is ready
-    let currentPayPeriodStart = getCurrentPayPeriodStart();
+    currentPayPeriodStart = getCurrentPayPeriodStart();
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
             .then(registration => {
                 console.log('ServiceWorker registered');
-                initializeApp(currentPayPeriodStart);
+                initializeApp();
             })
             .catch(err => {
                 console.error('ServiceWorker registration failed:', err);
-                initializeApp(currentPayPeriodStart);
+                initializeApp();
             });
     } else {
-        initializeApp(currentPayPeriodStart);
+        initializeApp();
     }
 });
 
-function initializeApp(currentPayPeriodStart) {
+function initializeApp() {
     window.dbFunctions.initDB().then(() => {
         loadSettings();
-        setupPayPeriodControls(currentPayPeriodStart);
+        setupPayPeriodControls();
         loadEntries();
         setupEventListeners();
         initializeDate();
@@ -79,15 +82,15 @@ function initializeApp(currentPayPeriodStart) {
     });
 }
 
-function setupPayPeriodControls(currentPayPeriodStart) {
+function setupPayPeriodControls() {
     const prevBtn = document.getElementById('prev-pay-period');
     const nextBtn = document.getElementById('next-pay-period');
     
-    updatePayPeriodDisplay(currentPayPeriodStart);
+    updatePayPeriodDisplay();
     
     prevBtn.addEventListener('click', () => {
         currentPayPeriodStart = getAdjacentPeriod(currentPayPeriodStart, -1);
-        updatePayPeriodDisplay(currentPayPeriodStart);
+        updatePayPeriodDisplay();
         loadEntries();
     });
     
@@ -98,7 +101,7 @@ function setupPayPeriodControls(currentPayPeriodStart) {
         
         if (new Date(nextPeriod) <= today) {
             currentPayPeriodStart = nextPeriod;
-            updatePayPeriodDisplay(currentPayPeriodStart);
+            updatePayPeriodDisplay();
             loadEntries();
         } else {
             showNotification("Cannot view future pay periods", true);
@@ -106,7 +109,7 @@ function setupPayPeriodControls(currentPayPeriodStart) {
     });
 }
 
-function updatePayPeriodDisplay(currentPayPeriodStart) {
+function updatePayPeriodDisplay() {
     const periodDisplay = document.getElementById('current-pay-period');
     if (!periodDisplay) {
         console.error('Pay period display element not found');
