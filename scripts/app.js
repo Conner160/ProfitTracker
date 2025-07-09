@@ -17,6 +17,26 @@ function initializeDate() {
     document.getElementById('date-display').textContent = formatDateForDisplay(formatDateForInput(today));
 }
 
+// Pay period configuration
+const PAY_PERIOD_DAYS = 14; // Bi-weekly pay period
+let currentPayPeriodStart = getCurrentPayPeriodStart();
+
+function getCurrentPayPeriodStart() {
+    const today = new Date();
+    const firstPayPeriodStart = new Date('2025-07-05'); // Updated to 2025 reference
+    const daysSinceFirstPeriod = Math.floor((today - firstPayPeriodStart) / (1000 * 60 * 60 * 24));
+    const periodsSinceFirst = Math.floor(daysSinceFirstPeriod / PAY_PERIOD_DAYS);
+    const startDate = new Date(firstPayPeriodStart);
+    startDate.setDate(startDate.getDate() + periodsSinceFirst * PAY_PERIOD_DAYS);
+    return formatDateForInput(startDate);
+}
+
+function getPayPeriodEnd(startDate) {
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + PAY_PERIOD_DAYS - 1);
+    return formatDateForInput(endDate);
+}
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     // Register service worker
@@ -33,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize database and load data
     window.dbFunctions.initDB().then(() => {
         loadSettings();
+        setupPayPeriodControls();
         loadEntries();
         setupEventListeners();
         initializeDate();
@@ -75,6 +96,48 @@ function setupEventListeners() {
         calculateEarnings();
         loadEntries();
     });
+}
+
+function setupPayPeriodControls() {
+    const payPeriodStartInput = document.getElementById('pay-period-start');
+    const prevPayPeriodBtn = document.getElementById('prev-pay-period');
+    const nextPayPeriodBtn = document.getElementById('next-pay-period');
+    
+    // Set current year display
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+    
+    // Initialize display
+    updatePayPeriodDisplay();
+    
+    // Set up event listeners
+    payPeriodStartInput.addEventListener('change', () => {
+        currentPayPeriodStart = payPeriodStartInput.value;
+        updatePayPeriodDisplay();
+        loadEntries();
+    });
+    
+    prevPayPeriodBtn.addEventListener('click', () => {
+        const startDate = new Date(currentPayPeriodStart);
+        startDate.setDate(startDate.getDate() - PAY_PERIOD_DAYS);
+        currentPayPeriodStart = formatDateForInput(startDate);
+        updatePayPeriodDisplay();
+        loadEntries();
+    });
+    
+    nextPayPeriodBtn.addEventListener('click', () => {
+        const startDate = new Date(currentPayPeriodStart);
+        startDate.setDate(startDate.getDate() + PAY_PERIOD_DAYS);
+        currentPayPeriodStart = formatDateForInput(startDate);
+        updatePayPeriodDisplay();
+        loadEntries();
+    });
+}
+
+function updatePayPeriodDisplay() {
+    document.getElementById('pay-period-start').value = currentPayPeriodStart;
+    document.getElementById('pay-period-end').textContent = formatDateForDisplay(getPayPeriodEnd(currentPayPeriodStart));
+    document.getElementById('current-pay-period').textContent = 
+        `${formatDateForDisplay(currentPayPeriodStart)} - ${formatDateForDisplay(getPayPeriodEnd(currentPayPeriodStart))}`;
 }
 
 function calculateEarnings() {
@@ -152,7 +215,7 @@ async function saveEntry() {
         kms,
         perDiem,
         notes,
-        total, // Store calculated total
+        total,
         timestamp: new Date().getTime()
     };
 
@@ -168,18 +231,39 @@ async function saveEntry() {
     }
 }
 
+function clearForm() {
+    document.getElementById('points').value = '';
+    document.getElementById('kms').value = '';
+    document.getElementById('per-diem').checked = false;
+    document.getElementById('notes').value = '';
+    initializeDate();
+    calculateEarnings();
+}
+
 async function loadEntries() {
     try {
-        const entries = await window.dbFunctions.getAllFromDB('entries');
+        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        
+        // Filter entries by current pay period
+        const payPeriodEnd = getPayPeriodEnd(currentPayPeriodStart);
+        const entries = allEntries.filter(entry => 
+            entry.date >= currentPayPeriodStart && entry.date <= payPeriodEnd
+        );
+        
         const entriesList = document.getElementById('entries-list');
         
         if (entries.length === 0) {
-            entriesList.innerHTML = '<p>No entries yet</p>';
+            entriesList.innerHTML = '<p>No entries for this pay period</p>';
+            updatePayPeriodSummary(null);
             return;
         }
         
         // Sort by date (newest first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Calculate pay period totals
+        const payPeriodTotals = calculatePayPeriodTotals(entries);
+        updatePayPeriodSummary(payPeriodTotals);
         
         entriesList.innerHTML = entries.map(entry => {
             const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
@@ -187,18 +271,11 @@ async function loadEntries() {
             const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
             const includeGST = document.getElementById('gst-enabled').checked;
             
-            // Calculate total if not already stored (for backward compatibility)
-            const total = entry.total || 
-                (entry.points * pointRate + 
-                 entry.kms * kmRate + 
-                 (entry.perDiem ? perDiemRate : 0)) * 
-                (includeGST ? 1.05 : 1);
-            
             return `
                 <div class="entry-item">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
-                        <span class="entry-total">$${total.toFixed(2)}</span>
+                        <span class="entry-total">$${entry.total.toFixed(2)}</span>
                     </div>
                     <div class="entry-details">
                         <div class="entry-row">
@@ -217,7 +294,7 @@ async function loadEntries() {
                         ${includeGST ? `
                         <div class="entry-row">
                             <span>GST:</span>
-                            <span>$${(total - (total / 1.05)).toFixed(2)}</span>
+                            <span>$${(entry.total - (entry.total / 1.05)).toFixed(2)}</span>
                         </div>` : ''}
                         ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
                         <button class="delete-entry" data-id="${entry.id}">Delete</button>
@@ -238,7 +315,87 @@ async function loadEntries() {
     }
 }
 
+function calculatePayPeriodTotals(entries) {
+    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
+    const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
+    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+    const includeGST = document.getElementById('gst-enabled').checked;
+    const gstMultiplier = includeGST ? 1.05 : 1;
+    
+    let pointsTotal = 0;
+    let kmsTotal = 0;
+    let perDiemCount = 0;
+    let entriesTotal = 0;
+    
+    entries.forEach(entry => {
+        pointsTotal += entry.points || 0;
+        kmsTotal += entry.kms || 0;
+        if (entry.perDiem) perDiemCount++;
+        entriesTotal += entry.total || 0;
+    });
+    
+    const pointsEarnings = pointsTotal * pointRate;
+    const kmEarnings = kmsTotal * kmRate;
+    const perDiemEarnings = perDiemCount * perDiemRate;
+    const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
+    const totalWithGST = entriesTotal;
+    
+    return {
+        pointsTotal,
+        kmsTotal,
+        perDiemCount,
+        pointsEarnings,
+        kmEarnings,
+        perDiemEarnings,
+        totalBeforeGST,
+        totalWithGST,
+        gstAmount: totalWithGST - (totalWithGST / 1.05)
+    };
+}
+
+function updatePayPeriodSummary(totals) {
+    const summaryElement = document.getElementById('pay-period-summary');
+    
+    if (!totals) {
+        summaryElement.innerHTML = '<p>No entries for this pay period</p>';
+        return;
+    }
+    
+    const includeGST = document.getElementById('gst-enabled').checked;
+    
+    summaryElement.innerHTML = `
+        <h3>Pay Period Summary</h3>
+        <div class="summary-row">
+            <span>Total Points:</span>
+            <span>${totals.pointsTotal} ($${totals.pointsEarnings.toFixed(2)})</span>
+        </div>
+        <div class="summary-row">
+            <span>Total Kilometers:</span>
+            <span>${totals.kmsTotal} ($${totals.kmEarnings.toFixed(2)})</span>
+        </div>
+        <div class="summary-row">
+            <span>Per Diems:</span>
+            <span>${totals.perDiemCount} ($${totals.perDiemEarnings.toFixed(2)})</span>
+        </div>
+        ${includeGST ? `
+        <div class="summary-row">
+            <span>GST:</span>
+            <span>$${totals.gstAmount.toFixed(2)}</span>
+        </div>` : ''}
+        <div class="summary-total">
+            <span>Pay Period Total:</span>
+            <span>$${totals.totalWithGST.toFixed(2)}</span>
+        </div>
+    `;
+}
+
 async function deleteEntry(id) {
+    const confirmDelete = confirm('Are you sure you want to delete this entry?\nThis action cannot be undone.');
+    if (!confirmDelete) {
+        showNotification('Deletion cancelled');
+        return;
+    }
+    
     try {
         await window.dbFunctions.deleteFromDB('entries', id);
         loadEntries();
@@ -249,17 +406,7 @@ async function deleteEntry(id) {
     }
 }
 
-function clearForm() {
-    document.getElementById('points').value = '';
-    document.getElementById('kms').value = '';
-    document.getElementById('per-diem').checked = false;
-    document.getElementById('notes').value = '';
-    initializeDate(); // Reset to today's date with proper formatting
-    calculateEarnings();
-}
-
 function loadSettings() {
-    // Load settings from DB or use defaults
     window.dbFunctions.getFromDB('settings', 'rates').then(settings => {
         if (settings) {
             document.getElementById('point-rate').value = settings.pointRate || 7.00;
