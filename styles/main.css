@@ -197,14 +197,6 @@ button:hover {
     background-color: #f44336;
 }
 
-/* Year Display */
-#year-display {
-    text-align: center;
-    margin: 10px 0;
-    font-weight: bold;
-    color: var(--primary-color);
-}
-
 /* Total Earnings Highlight */
 .total-earnings {
     font-weight: bold;
