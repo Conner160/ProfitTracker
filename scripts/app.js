@@ -71,8 +71,8 @@ function initializeApp() {
         currentPayPeriodStart = getCurrentPayPeriodStart();
     }
     
-    window.dbFunctions.initDB().then(() => {
-        loadSettings();
+    window.dbFunctions.initDB().then(async () => {
+        await loadSettings();
         setupPayPeriodControls();
         loadEntries();
         setupEventListeners();
@@ -403,17 +403,18 @@ async function deleteEntry(id) {
     }
 }
 
-function loadSettings() {
-    window.dbFunctions.getFromDB('settings', 'rates').then(settings => {
+async function loadSettings() {
+    try {
+        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
         if (settings) {
             document.getElementById('point-rate').value = settings.pointRate || 7.00;
             document.getElementById('km-rate').value = settings.kmRate || 0.84;
             document.getElementById('per-diem-rate').value = settings.perDiemRate || 171;
             document.getElementById('gst-enabled').checked = settings.includeGST !== false;
         }
-    }).catch(error => {
+    } catch (error) {
         console.error('Error loading settings:', error);
-    });
+    }
 }
 
 async function saveSettings() {
