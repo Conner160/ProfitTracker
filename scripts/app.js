@@ -133,6 +133,11 @@ function setupEventListeners() {
     document.getElementById('kms').addEventListener('input', calculateEarnings);
     document.getElementById('per-diem').addEventListener('change', calculateEarnings);
     
+    // Add expense input listeners
+    document.getElementById('hotel-expense').addEventListener('input', calculateEarnings);
+    document.getElementById('gas-expense').addEventListener('input', calculateEarnings);
+    document.getElementById('food-expense').addEventListener('input', calculateEarnings);
+    
     document.getElementById('point-rate').addEventListener('change', () => {
         calculateEarnings();
         loadEntries();
@@ -152,7 +157,7 @@ function setupEventListeners() {
 }
 
 // Utility function to calculate entry total based on current settings
-function calculateEntryTotal(points, kms, perDiem) {
+function calculateEntryTotal(points, kms, perDiem, expenses = {}) {
     const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
     const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
@@ -164,9 +169,23 @@ function calculateEntryTotal(points, kms, perDiem) {
     
     const gstMultiplier = includeGST ? 1.05 : 1;
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
-    const totalWithGST = totalBeforeGST * gstMultiplier;
+    const grossTotal = totalBeforeGST * gstMultiplier;
     
-    return totalWithGST;
+    // Calculate total expenses
+    const totalExpenses = (expenses.hotel || 0) + (expenses.gas || 0) + (expenses.food || 0);
+    const netTotal = grossTotal - totalExpenses;
+    
+    return {
+        pointsEarnings,
+        kmEarnings,
+        perDiemEarnings,
+        totalBeforeGST,
+        grossTotal,
+        totalExpenses,
+        netTotal,
+        gstAmount: grossTotal - totalBeforeGST,
+        expenses
+    };
 }
 
 function calculateEarnings() {
@@ -174,27 +193,49 @@ function calculateEarnings() {
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     
-    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
-    const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
-    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
-    const includeGST = document.getElementById('gst-enabled').checked;
+    // Get expense values
+    const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
+    const gasExpense = parseFloat(document.getElementById('gas-expense').value) || 0;
+    const foodExpense = parseFloat(document.getElementById('food-expense').value) || 0;
     
-    const pointsEarnings = points * pointRate;
-    const kmEarnings = kms * kmRate;
-    const perDiemEarnings = perDiem ? perDiemRate : 0;
+    const expenses = {
+        hotel: hotelExpense,
+        gas: gasExpense,
+        food: foodExpense
+    };
     
-    const gstMultiplier = includeGST ? 1.05 : 1;
-    const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
-    const totalWithGST = totalBeforeGST * gstMultiplier;
-    const gstAmount = totalWithGST - totalBeforeGST;
+    const totals = calculateEntryTotal(points, kms, perDiem, expenses);
     
     const earningsDisplay = document.getElementById('earnings-display');
     earningsDisplay.innerHTML = `
-        <div><strong>Points Earnings:</strong> $${pointsEarnings.toFixed(2)} (${points} pts)</div>
-        <div><strong>KM Earnings:</strong> $${kmEarnings.toFixed(2)} (${kms} km)</div>
-        ${perDiem ? `<div><strong>Per Diem:</strong> $${perDiemEarnings.toFixed(2)}</div>` : ''}
-        ${includeGST ? `<div><strong>GST:</strong> $${gstAmount.toFixed(2)}</div>` : ''}
-        <div class="total-earnings"><strong>Total Earnings:</strong> $${totalWithGST.toFixed(2)}</div>
+        <div><strong>Points Earnings:</strong> $${totals.pointsEarnings.toFixed(2)} (${points} pts)</div>
+        <div><strong>KM Earnings:</strong> $${totals.kmEarnings.toFixed(2)} (${kms} km)</div>
+        ${perDiem ? `<div><strong>Per Diem:</strong> $${totals.perDiemEarnings.toFixed(2)}</div>` : ''}
+        ${document.getElementById('gst-enabled').checked ? `<div><strong>GST:</strong> $${totals.gstAmount.toFixed(2)}</div>` : ''}
+        <div class="total-earnings"><strong>Gross Total:</strong> $${totals.grossTotal.toFixed(2)}</div>
+        ${totals.totalExpenses > 0 ? `
+        <div class="net-gross-summary">
+            <div class="summary-row">
+                <span>Hotel:</span>
+                <span>-$${expenses.hotel.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Gas:</span>
+                <span>-$${expenses.gas.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Food:</span>
+                <span>-$${expenses.food.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Expenses:</span>
+                <span>-$${totals.totalExpenses.toFixed(2)}</span>
+            </div>
+            <div class="summary-row net-total">
+                <span><strong>Net Total:</strong></span>
+                <span><strong>$${totals.netTotal.toFixed(2)}</strong></span>
+            </div>
+        </div>` : ''}
     `;
 }
 
@@ -204,6 +245,17 @@ async function saveEntry() {
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
+    
+    // Get expense values
+    const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
+    const gasExpense = parseFloat(document.getElementById('gas-expense').value) || 0;
+    const foodExpense = parseFloat(document.getElementById('food-expense').value) || 0;
+    
+    const expenses = {
+        hotel: hotelExpense,
+        gas: gasExpense,
+        food: foodExpense
+    };
 
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
@@ -228,6 +280,7 @@ async function saveEntry() {
         kms,
         perDiem,
         notes,
+        expenses,
         timestamp: new Date().getTime()
     };
 
@@ -248,6 +301,12 @@ function clearForm() {
     document.getElementById('kms').value = '';
     document.getElementById('per-diem').checked = false;
     document.getElementById('notes').value = '';
+    
+    // Clear expense fields
+    document.getElementById('hotel-expense').value = '';
+    document.getElementById('gas-expense').value = '';
+    document.getElementById('food-expense').value = '';
+    
     initializeDate();
     calculateEarnings();
 }
@@ -258,6 +317,13 @@ function populateFormForEdit(entry) {
     document.getElementById('kms').value = entry.kms;
     document.getElementById('per-diem').checked = entry.perDiem;
     document.getElementById('notes').value = entry.notes || '';
+    
+    // Populate expense fields
+    const expenses = entry.expenses || {};
+    document.getElementById('hotel-expense').value = expenses.hotel || '';
+    document.getElementById('gas-expense').value = expenses.gas || '';
+    document.getElementById('food-expense').value = expenses.food || '';
+    
     calculateEarnings();
     
     // Scroll to the form for better user experience
@@ -292,7 +358,11 @@ async function loadEntries() {
             const includeGST = document.getElementById('gst-enabled').checked;
             
             // Calculate total dynamically based on current settings
-            const entryTotal = calculateEntryTotal(entry.points, entry.kms, entry.perDiem);
+            const expenses = entry.expenses || {};
+            const entryTotals = calculateEntryTotal(entry.points, entry.kms, entry.perDiem, expenses);
+            
+            // Prepare expense data for editing
+            const expenseData = JSON.stringify(expenses).replace(/"/g, '&quot;');
             
             return `
                 <div class="entry-item editable-entry" 
@@ -301,10 +371,11 @@ async function loadEntries() {
                      data-points="${entry.points}" 
                      data-kms="${entry.kms}" 
                      data-per-diem="${entry.perDiem}" 
-                     data-notes="${entry.notes || ''}">
+                     data-notes="${entry.notes || ''}"
+                     data-expenses="${expenseData}">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
-                        <span class="entry-total">$${entryTotal.toFixed(2)}</span>
+                        <span class="entry-total">Net: $${entryTotals.netTotal.toFixed(2)}</span>
                     </div>
                     <div class="entry-details">
                         <div class="entry-row">
@@ -323,7 +394,28 @@ async function loadEntries() {
                         ${includeGST ? `
                         <div class="entry-row">
                             <span>GST:</span>
-                            <span>$${(entryTotal - (entryTotal / 1.05)).toFixed(2)}</span>
+                            <span>$${entryTotals.gstAmount.toFixed(2)}</span>
+                        </div>` : ''}
+                        <div class="entry-row">
+                            <span><strong>Gross Total:</strong></span>
+                            <span><strong>$${entryTotals.grossTotal.toFixed(2)}</strong></span>
+                        </div>
+                        ${entryTotals.totalExpenses > 0 ? `
+                        <div class="entry-row">
+                            <span>Hotel:</span>
+                            <span>-$${expenses.hotel.toFixed(2)}</span>
+                        </div>
+                        <div class="entry-row">
+                            <span>Gas:</span>
+                            <span>-$${expenses.gas.toFixed(2)}</span>
+                        </div>
+                        <div class="entry-row">
+                            <span>Food:</span>
+                            <span>-$${expenses.food.toFixed(2)}</span>
+                        </div>
+                        <div class="entry-row">
+                            <span>Total Expenses:</span>
+                            <span>-$${entryTotals.totalExpenses.toFixed(2)}</span>
                         </div>` : ''}
                         ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
                         <button class="delete-entry" data-id="${entry.id}">Delete</button>
@@ -348,13 +440,22 @@ async function loadEntries() {
                     return;
                 }
                 
+                const expenseData = entryElement.dataset.expenses;
+                let expenses = {};
+                try {
+                    expenses = JSON.parse(expenseData.replace(/&quot;/g, '"'));
+                } catch (error) {
+                    expenses = {};
+                }
+                
                 const entryData = {
                     id: parseInt(entryElement.dataset.id),
                     date: entryElement.dataset.date,
                     points: parseFloat(entryElement.dataset.points),
                     kms: parseFloat(entryElement.dataset.kms),
                     perDiem: entryElement.dataset.perDiem === 'true',
-                    notes: entryElement.dataset.notes
+                    notes: entryElement.dataset.notes,
+                    expenses: expenses
                 };
                 populateFormForEdit(entryData);
             });
@@ -373,11 +474,20 @@ function calculatePayPeriodTotals(entries) {
     let pointsTotal = 0;
     let kmsTotal = 0;
     let perDiemCount = 0;
+    let totalHotelExpenses = 0;
+    let totalGasExpenses = 0;
+    let totalFoodExpenses = 0;
     
     entries.forEach(entry => {
         pointsTotal += entry.points || 0;
         kmsTotal += entry.kms || 0;
         if (entry.perDiem) perDiemCount++;
+        
+        // Add expenses
+        const expenses = entry.expenses || {};
+        totalHotelExpenses += expenses.hotel || 0;
+        totalGasExpenses += expenses.gas || 0;
+        totalFoodExpenses += expenses.food || 0;
     });
     
     const pointsEarnings = pointsTotal * pointRate;
@@ -385,7 +495,10 @@ function calculatePayPeriodTotals(entries) {
     const perDiemEarnings = perDiemCount * perDiemRate;
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
     const gstMultiplier = includeGST ? 1.05 : 1;
-    const totalWithGST = totalBeforeGST * gstMultiplier;
+    const grossTotal = totalBeforeGST * gstMultiplier;
+    
+    const totalExpenses = totalHotelExpenses + totalGasExpenses + totalFoodExpenses;
+    const netTotal = grossTotal - totalExpenses;
 
     console.log(entries);
     
@@ -397,8 +510,15 @@ function calculatePayPeriodTotals(entries) {
         kmEarnings,
         perDiemEarnings,
         totalBeforeGST,
-        totalWithGST,
-        gstAmount: totalWithGST - totalBeforeGST
+        grossTotal,
+        totalExpenses,
+        netTotal,
+        gstAmount: grossTotal - totalBeforeGST,
+        expenses: {
+            hotel: totalHotelExpenses,
+            gas: totalGasExpenses,
+            food: totalFoodExpenses
+        }
     };
 }
 
@@ -431,10 +551,33 @@ function updatePayPeriodSummary(totals) {
             <span>GST:</span>
             <span>$${totals.gstAmount.toFixed(2)}</span>
         </div>` : ''}
-        <div class="summary-total">
-            <span>Pay Period Total:</span>
-            <span>$${totals.totalWithGST.toFixed(2)}</span>
+        <div class="summary-row">
+            <span><strong>Gross Total:</strong></span>
+            <span><strong>$${totals.grossTotal.toFixed(2)}</strong></span>
         </div>
+        ${totals.totalExpenses > 0 ? `
+        <div class="net-gross-summary">
+            <div class="summary-row">
+                <span>Hotel Expenses:</span>
+                <span>-$${totals.expenses.hotel.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Gas Expenses:</span>
+                <span>-$${totals.expenses.gas.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Food Expenses:</span>
+                <span>-$${totals.expenses.food.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Expenses:</span>
+                <span>-$${totals.totalExpenses.toFixed(2)}</span>
+            </div>
+            <div class="summary-row net-total">
+                <span><strong>Net Total:</strong></span>
+                <span><strong>$${totals.netTotal.toFixed(2)}</strong></span>
+            </div>
+        </div>` : ''}
     `;
 }
 
