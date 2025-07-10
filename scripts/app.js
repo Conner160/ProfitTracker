@@ -377,7 +377,7 @@ function calculatePayPeriodTotals(entries) {
     const gstMultiplier = includeGST ? 1.05 : 1;
     const totalWithGST = totalBeforeGST * gstMultiplier;
 
-    console.log(entry);
+    console.log(entries);
     
     return {
         pointsTotal,
