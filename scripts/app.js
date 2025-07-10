@@ -322,20 +322,19 @@ function calculatePayPeriodTotals(entries) {
     let pointsTotal = 0;
     let kmsTotal = 0;
     let perDiemCount = 0;
-    let entriesTotal = 0;
     
     entries.forEach(entry => {
         pointsTotal += entry.points || 0;
         kmsTotal += entry.kms || 0;
         if (entry.perDiem) perDiemCount++;
-        entriesTotal += entry.total || 0;
     });
     
     const pointsEarnings = pointsTotal * pointRate;
     const kmEarnings = kmsTotal * kmRate;
     const perDiemEarnings = perDiemCount * perDiemRate;
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
-    const totalWithGST = entriesTotal;
+    const gstMultiplier = includeGST ? 1.05 : 1;
+    const totalWithGST = totalBeforeGST * gstMultiplier;
     
     return {
         pointsTotal,
@@ -346,7 +345,7 @@ function calculatePayPeriodTotals(entries) {
         perDiemEarnings,
         totalBeforeGST,
         totalWithGST,
-        gstAmount: totalWithGST - (totalWithGST / 1.05)
+        gstAmount: totalWithGST - totalBeforeGST
     };
 }
 
