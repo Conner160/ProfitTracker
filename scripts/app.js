@@ -151,6 +151,24 @@ function setupEventListeners() {
     });
 }
 
+// Utility function to calculate entry total based on current settings
+function calculateEntryTotal(points, kms, perDiem) {
+    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
+    const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
+    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+    const includeGST = document.getElementById('gst-enabled').checked;
+    
+    const pointsEarnings = points * pointRate;
+    const kmEarnings = kms * kmRate;
+    const perDiemEarnings = perDiem ? perDiemRate : 0;
+    
+    const gstMultiplier = includeGST ? 1.05 : 1;
+    const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
+    const totalWithGST = totalBeforeGST * gstMultiplier;
+    
+    return totalWithGST;
+}
+
 function calculateEarnings() {
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
@@ -187,14 +205,6 @@ async function saveEntry() {
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
 
-    const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
-    const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
-    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
-    const includeGST = document.getElementById('gst-enabled').checked;
-    const gstMultiplier = includeGST ? 1.05 : 1;
-
-    const total = (points * pointRate + kms * kmRate + (perDiem ? perDiemRate : 0)) * gstMultiplier;
-
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
 
@@ -218,7 +228,6 @@ async function saveEntry() {
         kms,
         perDiem,
         notes,
-        total,
         timestamp: new Date().getTime()
     };
 
@@ -282,6 +291,9 @@ async function loadEntries() {
             const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
             const includeGST = document.getElementById('gst-enabled').checked;
             
+            // Calculate total dynamically based on current settings
+            const entryTotal = calculateEntryTotal(entry.points, entry.kms, entry.perDiem);
+            
             return `
                 <div class="entry-item editable-entry" 
                      data-id="${entry.id}"
@@ -289,11 +301,10 @@ async function loadEntries() {
                      data-points="${entry.points}" 
                      data-kms="${entry.kms}" 
                      data-per-diem="${entry.perDiem}" 
-                     data-notes="${entry.notes || ''}"
-                     data-total="${entry.total}">
+                     data-notes="${entry.notes || ''}">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
-                        <span class="entry-total">$${entry.total.toFixed(2)}</span>
+                        <span class="entry-total">$${entryTotal.toFixed(2)}</span>
                     </div>
                     <div class="entry-details">
                         <div class="entry-row">
@@ -312,7 +323,7 @@ async function loadEntries() {
                         ${includeGST ? `
                         <div class="entry-row">
                             <span>GST:</span>
-                            <span>$${(entry.total - (entry.total / 1.05)).toFixed(2)}</span>
+                            <span>$${(entryTotal - (entryTotal / 1.05)).toFixed(2)}</span>
                         </div>` : ''}
                         ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
                         <button class="delete-entry" data-id="${entry.id}">Delete</button>
@@ -343,8 +354,7 @@ async function loadEntries() {
                     points: parseFloat(entryElement.dataset.points),
                     kms: parseFloat(entryElement.dataset.kms),
                     perDiem: entryElement.dataset.perDiem === 'true',
-                    notes: entryElement.dataset.notes,
-                    total: parseFloat(entryElement.dataset.total)
+                    notes: entryElement.dataset.notes
                 };
                 populateFormForEdit(entryData);
             });
