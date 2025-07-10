@@ -376,6 +376,8 @@ function calculatePayPeriodTotals(entries) {
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
     const gstMultiplier = includeGST ? 1.05 : 1;
     const totalWithGST = totalBeforeGST * gstMultiplier;
+
+    console.log(entry);
     
     return {
         pointsTotal,
