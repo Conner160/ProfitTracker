@@ -17,9 +17,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="icon" href="images/favicon.ico">
-    
-    <!-- PDF.js library for PDF parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
     <header>
@@ -100,16 +97,16 @@
         
         <!-- PDF Upload Section -->
         <section id="pdf-upload">
-            <h2>Upload Work Orders PDF</h2>
-            <p>Upload a PDF file containing your work orders to automatically populate daily entries.</p>
+            <h2>Upload Work Orders Data</h2>
+            <p>Upload a CSV or text file containing your work orders to automatically populate daily entries. PDF support coming soon.</p>
             
             <div class="form-group">
-                <label for="pdf-file">Select PDF File:</label>
-                <input type="file" id="pdf-file" accept=".pdf" class="file-input">
+                <label for="pdf-file">Select File (CSV/TXT):</label>
+                <input type="file" id="pdf-file" accept=".csv,.txt,.pdf" class="file-input">
             </div>
             
             <div class="form-group">
-                <button id="process-pdf" disabled>Process PDF</button>
+                <button id="process-pdf" disabled>Process File</button>
                 <button id="clear-pdf">Clear File</button>
             </div>
             

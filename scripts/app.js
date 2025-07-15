@@ -662,15 +662,19 @@ function handleFileSelect(event) {
     const processBtn = document.getElementById('process-pdf');
     const statusDiv = document.getElementById('pdf-status');
     
-    if (file && file.type === 'application/pdf') {
+    if (file && (file.type === 'text/csv' || file.type === 'text/plain' || file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
         selectedFile = file;
         processBtn.disabled = false;
         showPDFStatus(`File selected: ${file.name}`, 'info');
+    } else if (file && file.type === 'application/pdf') {
+        selectedFile = file;
+        processBtn.disabled = false;
+        showPDFStatus(`PDF file selected: ${file.name} (PDF parsing will be available in a future update)`, 'info');
     } else {
         selectedFile = null;
         processBtn.disabled = true;
         if (file) {
-            showPDFStatus('Please select a valid PDF file.', 'error');
+            showPDFStatus('Please select a valid CSV, TXT, or PDF file.', 'error');
         } else {
             statusDiv.classList.add('hidden');
         }
@@ -699,107 +703,205 @@ async function processPDF() {
     }
     
     try {
-        showPDFStatus('Processing PDF...', 'info');
+        showPDFStatus('Processing file...', 'info');
         
-        // Read the PDF file
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        
-        // Configure PDF.js worker
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            
-            // Load the PDF
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            
-            // Validate the PDF
-            const isValid = await validatePDF(pdf);
-            if (!isValid) {
-                showPDFStatus('Invalid PDF: This does not appear to be a TRA work orders report.', 'error');
-                return;
-            }
-            
-            // Extract data from PDF
-            const workOrderData = await extractWorkOrderData(pdf);
-            
-            if (workOrderData.length === 0) {
-                showPDFStatus('No work order data found in the PDF.', 'error');
-                return;
-            }
-            
-            // Process and group data by date
-            const groupedData = processWorkOrderData(workOrderData);
-            
-            // Show preview
-            showDataPreview(groupedData);
-            
-            // Auto-populate entries
-            await populateEntriesFromData(groupedData);
-            
-            showPDFStatus(`Successfully processed ${workOrderData.length} work orders across ${Object.keys(groupedData).length} days.`, 'success');
-            
-        } else {
-            throw new Error('PDF.js library not loaded');
+        if (selectedFile.type === 'application/pdf') {
+            showPDFStatus('PDF processing not yet implemented. Please export your data as CSV or text file.', 'error');
+            return;
         }
         
+        // Read the text/CSV file
+        const text = await selectedFile.text();
+        
+        // Validate the file content
+        const isValid = validateFileContent(text);
+        if (!isValid) {
+            showPDFStatus('Invalid file: This does not appear to be a TRA work orders report.', 'error');
+            return;
+        }
+        
+        // Extract data from CSV/text
+        const workOrderData = extractWorkOrderDataFromText(text);
+        
+        if (workOrderData.length === 0) {
+            showPDFStatus('No work order data found in the file.', 'error');
+            return;
+        }
+        
+        // Process and group data by date
+        const groupedData = processWorkOrderData(workOrderData);
+        
+        // Show preview
+        showDataPreview(groupedData);
+        
+        // Auto-populate entries
+        await populateEntriesFromData(groupedData);
+        
+        showPDFStatus(`Successfully processed ${workOrderData.length} work orders across ${Object.keys(groupedData).length} days.`, 'success');
+        
     } catch (error) {
-        console.error('Error processing PDF:', error);
-        showPDFStatus(`Error processing PDF: ${error.message}`, 'error');
+        console.error('Error processing file:', error);
+        showPDFStatus(`Error processing file: ${error.message}`, 'error');
     }
 }
 
-async function validatePDF(pdf) {
+function validateFileContent(text) {
     try {
-        // Check the last page for the TRA footer
-        const lastPageNum = pdf.numPages;
-        const page = await pdf.getPage(lastPageNum);
-        const textContent = await page.getTextContent();
-        
-        // Combine all text items
-        const fullText = textContent.items.map(item => item.str).join(' ');
-        
         // Check for TRA report footer
-        return fullText.includes('https://account.myaccess.ca/TRA/WO_report.php');
+        return text.includes('https://account.myaccess.ca/TRA/WO_report.php') ||
+               text.includes('Work Order') ||
+               text.includes('WO_') ||
+               text.includes('Date') && text.includes('Points');
     } catch (error) {
-        console.error('Error validating PDF:', error);
+        console.error('Error validating file:', error);
         return false;
     }
 }
 
-async function extractWorkOrderData(pdf) {
+function extractWorkOrderDataFromText(text) {
     const workOrders = [];
     
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        try {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            
-            // Extract work order data from this page
-            const pageData = parsePageData(textContent);
-            workOrders.push(...pageData);
-            
-        } catch (error) {
-            console.error(`Error processing page ${pageNum}:`, error);
+    try {
+        // Split into lines
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        // Try to detect if it's CSV or detect headers
+        let isCSV = text.includes(',') && text.includes('Date');
+        
+        if (isCSV) {
+            workOrders.push(...parseCSVData(lines));
+        } else {
+            workOrders.push(...parseTextData(lines));
+        }
+        
+    } catch (error) {
+        console.error('Error extracting work order data:', error);
+    }
+    
+    return workOrders;
+}
+
+function parseCSVData(lines) {
+    const workOrders = [];
+    let headers = [];
+    
+    // Find header line
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.toLowerCase().includes('wo_number') || 
+            line.toLowerCase().includes('date') || 
+            line.toLowerCase().includes('work order')) {
+            headers = line.split(',').map(h => h.trim().toLowerCase());
+            lines.splice(0, i + 1); // Remove header and everything before it
+            break;
+        }
+    }
+    
+    if (headers.length === 0) {
+        // Assume standard format if no headers found
+        headers = ['wo_number', 'date', 'time', 'subno', 'phone', 'address', 'cc', 'doneflag', 'totalpnts', 'activitycodes', 'reportedcodes', 'solutioncodes', 'notes', 'ped_address', 'ped_location'];
+    }
+    
+    // Parse data lines
+    for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        const values = parseCSVLine(line);
+        if (values.length >= 3) { // Minimum: wo_number, date, points
+            const workOrder = parseWorkOrderFromValues(headers, values);
+            if (workOrder) {
+                workOrders.push(workOrder);
+            }
         }
     }
     
     return workOrders;
 }
 
-function parsePageData(textContent) {
-    const workOrders = [];
-    const text = textContent.items.map(item => item.str).join('\n');
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
     
-    // Split into lines and look for table data
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    // Find work order patterns - this is a simplified approach
-    // In a real implementation, you'd need more sophisticated table parsing
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
         
-        // Look for work order number pattern (typically starts with digits)
-        if (/^\d+/.test(line)) {
-            const workOrder = parseWorkOrderLine(line, lines, i);
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    values.push(current.trim());
+    return values;
+}
+
+function parseWorkOrderFromValues(headers, values) {
+    try {
+        const workOrder = {
+            woNumber: '',
+            date: '',
+            time: 'AV',
+            totalPoints: 0,
+            activityCodes: '',
+            reportedCodes: '',
+            solutionCodes: '',
+            doneflag: 'Y'
+        };
+        
+        // Map values to work order properties
+        for (let i = 0; i < headers.length && i < values.length; i++) {
+            const header = headers[i];
+            const value = values[i];
+            
+            if (header.includes('wo_number') || header.includes('wo number') || header.includes('work_order')) {
+                workOrder.woNumber = value;
+            } else if (header.includes('date')) {
+                workOrder.date = parseDate(value);
+            } else if (header.includes('time')) {
+                workOrder.time = value || 'AV';
+            } else if (header.includes('totalpnts') || header.includes('total_points') || header.includes('points')) {
+                workOrder.totalPoints = parseFloat(value) || 0;
+            } else if (header.includes('activitycodes') || header.includes('activity_codes')) {
+                workOrder.activityCodes = value || '';
+            } else if (header.includes('reportedcodes') || header.includes('reported_codes')) {
+                workOrder.reportedCodes = value || '';
+            } else if (header.includes('solutioncodes') || header.includes('solution_codes')) {
+                workOrder.solutionCodes = value || '';
+            } else if (header.includes('doneflag') || header.includes('done_flag') || header.includes('complete')) {
+                workOrder.doneflag = value || 'Y';
+            }
+        }
+        
+        // Validate minimum required fields
+        if (workOrder.woNumber && workOrder.date) {
+            return workOrder;
+        }
+        
+    } catch (error) {
+        console.error('Error parsing work order from values:', error);
+    }
+    
+    return null;
+}
+
+function parseTextData(lines) {
+    const workOrders = [];
+    
+    // Try to parse simple text format
+    for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        // Look for lines that might contain work order data
+        // Simple pattern: WO_NUMBER DATE TIME POINTS
+        const parts = line.split(/\s+/);
+        
+        if (parts.length >= 3) {
+            const workOrder = parseWorkOrderLine(line, [], 0);
             if (workOrder) {
                 workOrders.push(workOrder);
             }
