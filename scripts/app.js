@@ -129,6 +129,10 @@ function setupEventListeners() {
     document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
     document.getElementById('save-settings').addEventListener('click', saveSettings);
     
+    // PDF Upload event listeners
+    document.getElementById('pdf-file').addEventListener('change', handlePDFFileSelect);
+    document.getElementById('upload-pdf').addEventListener('click', processPDF);
+    
     document.getElementById('points').addEventListener('input', calculateEarnings);
     document.getElementById('kms').addEventListener('input', calculateEarnings);
     document.getElementById('per-diem').addEventListener('change', calculateEarnings);
@@ -647,4 +651,160 @@ function showNotification(message, isError = false) {
     setTimeout(() => {
         notification.remove();
     }, 3000);
+}
+
+// PDF Upload Functions
+let selectedPDFFile = null;
+let pdfParser = null;
+
+function handlePDFFileSelect(event) {
+    const file = event.target.files[0];
+    selectedPDFFile = file;
+    
+    const uploadButton = document.getElementById('upload-pdf');
+    const statusDiv = document.getElementById('pdf-status');
+    
+    if (file && file.type === 'application/pdf') {
+        uploadButton.disabled = false;
+        statusDiv.innerHTML = `<p>Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>`;
+        statusDiv.classList.remove('hidden');
+    } else {
+        uploadButton.disabled = true;
+        statusDiv.innerHTML = '<p class="error">Please select a valid PDF file</p>';
+        statusDiv.classList.remove('hidden');
+        selectedPDFFile = null;
+    }
+}
+
+async function processPDF() {
+    if (!selectedPDFFile) {
+        showNotification('Please select a PDF file first', true);
+        return;
+    }
+    
+    const statusDiv = document.getElementById('pdf-status');
+    const previewDiv = document.getElementById('pdf-preview');
+    const uploadButton = document.getElementById('upload-pdf');
+    
+    try {
+        // Show processing status
+        uploadButton.disabled = true;
+        statusDiv.innerHTML = '<p>Processing PDF... This may take a moment.</p>';
+        
+        // Initialize parser if not already done
+        if (!pdfParser) {
+            pdfParser = new window.PDFParser();
+        }
+        
+        // Parse the PDF
+        const dailyEntries = await pdfParser.parsePDF(selectedPDFFile);
+        
+        if (dailyEntries.length === 0) {
+            statusDiv.innerHTML = '<p class="error">No work orders found in the PDF</p>';
+            return;
+        }
+        
+        // Show preview
+        const previewHTML = pdfParser.generatePreview(dailyEntries);
+        previewDiv.innerHTML = previewHTML + 
+            '<button id="confirm-import" class="confirm-btn">Import These Entries</button>' +
+            '<button id="cancel-import" class="cancel-btn">Cancel</button>';
+        previewDiv.classList.remove('hidden');
+        
+        statusDiv.innerHTML = `<p class="success">Found ${dailyEntries.length} days with work orders. Review and confirm import.</p>`;
+        
+        // Add event listeners for import buttons
+        document.getElementById('confirm-import').addEventListener('click', () => importPDFData(dailyEntries));
+        document.getElementById('cancel-import').addEventListener('click', cancelPDFImport);
+        
+    } catch (error) {
+        console.error('PDF processing error:', error);
+        statusDiv.innerHTML = `<p class="error">Error processing PDF: ${error.message}</p>`;
+    } finally {
+        uploadButton.disabled = false;
+    }
+}
+
+async function importPDFData(dailyEntries) {
+    const statusDiv = document.getElementById('pdf-status');
+    
+    try {
+        let importedCount = 0;
+        let skippedCount = 0;
+        
+        statusDiv.innerHTML = '<p>Importing entries...</p>';
+        
+        for (const dayEntry of dailyEntries) {
+            // Check if entry already exists for this date
+            const existingEntries = await window.dbFunctions.getAllFromDB('entries');
+            const existingEntry = existingEntries.find(entry => entry.date === dayEntry.date);
+            
+            if (existingEntry) {
+                const overwrite = confirm(
+                    `An entry already exists for ${pdfParser.formatDate(dayEntry.date)}.\n\n` +
+                    `Existing: ${existingEntry.points} points\n` +
+                    `New: ${dayEntry.points} points\n\n` +
+                    `Overwrite existing entry?`
+                );
+                
+                if (!overwrite) {
+                    skippedCount++;
+                    continue;
+                }
+                
+                // Delete existing entry
+                await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
+            }
+            
+            // Create new entry
+            const entry = {
+                date: dayEntry.date,
+                points: dayEntry.points,
+                kms: 0, // PDF doesn't contain KM data
+                perDiem: false, // PDF doesn't contain per diem data
+                notes: `Imported from PDF - ${dayEntry.workOrders.length} work orders`,
+                expenses: { hotel: 0, gas: 0, food: 0 },
+                timestamp: new Date().getTime(),
+                pdfImported: true,
+                workOrders: dayEntry.workOrders // Store original work order data
+            };
+            
+            await window.dbFunctions.saveToDB('entries', entry);
+            importedCount++;
+        }
+        
+        // Refresh the entries display
+        loadEntries();
+        
+        // Show success message
+        statusDiv.innerHTML = `
+            <p class="success">
+                Import completed! ${importedCount} entries imported.
+                ${skippedCount > 0 ? ` ${skippedCount} entries skipped.` : ''}
+            </p>
+        `;
+        
+        // Clear the upload
+        resetPDFUpload();
+        
+        showNotification(`PDF import completed! ${importedCount} entries added.`);
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        statusDiv.innerHTML = `<p class="error">Error importing data: ${error.message}</p>`;
+        showNotification('Error importing PDF data', true);
+    }
+}
+
+function cancelPDFImport() {
+    resetPDFUpload();
+    showNotification('PDF import cancelled');
+}
+
+function resetPDFUpload() {
+    document.getElementById('pdf-file').value = '';
+    document.getElementById('upload-pdf').disabled = true;
+    document.getElementById('pdf-status').classList.add('hidden');
+    document.getElementById('pdf-preview').classList.add('hidden');
+    selectedPDFFile = null;
 }

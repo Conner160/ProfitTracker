@@ -286,3 +286,98 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
+/* PDF Upload Styles */
+#pdf-upload {
+    background: #f8f9fa;
+    border-left: 4px solid var(--primary-color);
+}
+
+#pdf-file {
+    width: 100%;
+    padding: 8px;
+    border: 2px dashed var(--border-color);
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+}
+
+#pdf-file:hover {
+    border-color: var(--primary-color);
+}
+
+#upload-pdf:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#pdf-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+}
+
+#pdf-status .error {
+    background: #ffebee;
+    border-left-color: #f44336;
+    color: #c62828;
+}
+
+#pdf-status .success {
+    background: #e8f5e8;
+    border-left-color: #4caf50;
+    color: #2e7d32;
+}
+
+#pdf-preview {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.preview-day {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid var(--primary-color);
+}
+
+.preview-day h4 {
+    margin-bottom: 8px;
+    color: var(--primary-color);
+}
+
+.preview-day ul {
+    margin-left: 20px;
+    font-size: 0.9em;
+}
+
+.preview-day li {
+    margin-bottom: 3px;
+}
+
+.confirm-btn {
+    background-color: #4caf50;
+    margin-top: 15px;
+    margin-right: 10px;
+}
+
+.confirm-btn:hover {
+    background-color: #45a049;
+}
+
+.cancel-btn {
+    background-color: #f44336;
+    margin-top: 15px;
+}
+
+.cancel-btn:hover {
+    background-color: #d32f2f;
+}
