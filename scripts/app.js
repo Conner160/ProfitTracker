@@ -133,21 +133,12 @@ function setupEventListeners() {
     const pdfFileInput = document.getElementById('pdf-file');
     const uploadPdfButton = document.getElementById('upload-pdf');
     
-    console.log('PDF file input element:', pdfFileInput);
-    console.log('Upload PDF button element:', uploadPdfButton);
-    
     if (pdfFileInput) {
         pdfFileInput.addEventListener('change', handlePDFFileSelect);
-        console.log('PDF file input event listener added');
-    } else {
-        console.error('PDF file input element not found');
     }
     
     if (uploadPdfButton) {
         uploadPdfButton.addEventListener('click', processPDF);
-        console.log('Upload PDF button event listener added');
-    } else {
-        console.error('Upload PDF button element not found');
     }
     
     document.getElementById('points').addEventListener('input', calculateEarnings);
@@ -680,10 +671,6 @@ function handlePDFFileSelect(event) {
     
     const uploadButton = document.getElementById('upload-pdf');
     const statusDiv = document.getElementById('pdf-status');
-    
-    // Debug: Always show status for testing
-    console.log('File selected:', file);
-    console.log('File type:', file ? file.type : 'no file');
     
     if (file && file.type === 'application/pdf') {
         uploadButton.disabled = false;
