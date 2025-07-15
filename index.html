@@ -17,6 +17,9 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="icon" href="images/favicon.ico">
+    
+    <!-- PDF.js library for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
     <header>
@@ -93,6 +96,30 @@
             
             <button id="save-entry">Save Entry</button>
             <button id="clear-form">Clear Form</button>
+        </section>
+        
+        <!-- PDF Upload Section -->
+        <section id="pdf-upload">
+            <h2>Upload Work Orders PDF</h2>
+            <p>Upload a PDF file containing your work orders to automatically populate daily entries.</p>
+            
+            <div class="form-group">
+                <label for="pdf-file">Select PDF File:</label>
+                <input type="file" id="pdf-file" accept=".pdf" class="file-input">
+            </div>
+            
+            <div class="form-group">
+                <button id="process-pdf" disabled>Process PDF</button>
+                <button id="clear-pdf">Clear File</button>
+            </div>
+            
+            <div id="pdf-status" class="pdf-status hidden">
+                <!-- Status messages will appear here -->
+            </div>
+            
+            <div id="pdf-preview" class="pdf-preview hidden">
+                <!-- Parsed data preview will appear here -->
+            </div>
         </section>
         
         <!-- Today's Earnings Display -->

@@ -154,6 +154,11 @@ function setupEventListeners() {
         calculateEarnings();
         loadEntries();
     });
+    
+    // PDF upload event listeners
+    document.getElementById('pdf-file').addEventListener('change', handleFileSelect);
+    document.getElementById('process-pdf').addEventListener('click', processPDF);
+    document.getElementById('clear-pdf').addEventListener('click', clearPDFUpload);
 }
 
 // Utility function to calculate entry total based on current settings
@@ -647,4 +652,325 @@ function showNotification(message, isError = false) {
     setTimeout(() => {
         notification.remove();
     }, 3000);
+}
+
+// PDF Processing Functions
+let selectedFile = null;
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    const processBtn = document.getElementById('process-pdf');
+    const statusDiv = document.getElementById('pdf-status');
+    
+    if (file && file.type === 'application/pdf') {
+        selectedFile = file;
+        processBtn.disabled = false;
+        showPDFStatus(`File selected: ${file.name}`, 'info');
+    } else {
+        selectedFile = null;
+        processBtn.disabled = true;
+        if (file) {
+            showPDFStatus('Please select a valid PDF file.', 'error');
+        } else {
+            statusDiv.classList.add('hidden');
+        }
+    }
+}
+
+function clearPDFUpload() {
+    selectedFile = null;
+    document.getElementById('pdf-file').value = '';
+    document.getElementById('process-pdf').disabled = true;
+    document.getElementById('pdf-status').classList.add('hidden');
+    document.getElementById('pdf-preview').classList.add('hidden');
+}
+
+function showPDFStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('pdf-status');
+    statusDiv.className = `pdf-status ${type}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('hidden');
+}
+
+async function processPDF() {
+    if (!selectedFile) {
+        showPDFStatus('No file selected.', 'error');
+        return;
+    }
+    
+    try {
+        showPDFStatus('Processing PDF...', 'info');
+        
+        // Read the PDF file
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        
+        // Configure PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            
+            // Load the PDF
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            
+            // Validate the PDF
+            const isValid = await validatePDF(pdf);
+            if (!isValid) {
+                showPDFStatus('Invalid PDF: This does not appear to be a TRA work orders report.', 'error');
+                return;
+            }
+            
+            // Extract data from PDF
+            const workOrderData = await extractWorkOrderData(pdf);
+            
+            if (workOrderData.length === 0) {
+                showPDFStatus('No work order data found in the PDF.', 'error');
+                return;
+            }
+            
+            // Process and group data by date
+            const groupedData = processWorkOrderData(workOrderData);
+            
+            // Show preview
+            showDataPreview(groupedData);
+            
+            // Auto-populate entries
+            await populateEntriesFromData(groupedData);
+            
+            showPDFStatus(`Successfully processed ${workOrderData.length} work orders across ${Object.keys(groupedData).length} days.`, 'success');
+            
+        } else {
+            throw new Error('PDF.js library not loaded');
+        }
+        
+    } catch (error) {
+        console.error('Error processing PDF:', error);
+        showPDFStatus(`Error processing PDF: ${error.message}`, 'error');
+    }
+}
+
+async function validatePDF(pdf) {
+    try {
+        // Check the last page for the TRA footer
+        const lastPageNum = pdf.numPages;
+        const page = await pdf.getPage(lastPageNum);
+        const textContent = await page.getTextContent();
+        
+        // Combine all text items
+        const fullText = textContent.items.map(item => item.str).join(' ');
+        
+        // Check for TRA report footer
+        return fullText.includes('https://account.myaccess.ca/TRA/WO_report.php');
+    } catch (error) {
+        console.error('Error validating PDF:', error);
+        return false;
+    }
+}
+
+async function extractWorkOrderData(pdf) {
+    const workOrders = [];
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        try {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            
+            // Extract work order data from this page
+            const pageData = parsePageData(textContent);
+            workOrders.push(...pageData);
+            
+        } catch (error) {
+            console.error(`Error processing page ${pageNum}:`, error);
+        }
+    }
+    
+    return workOrders;
+}
+
+function parsePageData(textContent) {
+    const workOrders = [];
+    const text = textContent.items.map(item => item.str).join('\n');
+    
+    // Split into lines and look for table data
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    // Find work order patterns - this is a simplified approach
+    // In a real implementation, you'd need more sophisticated table parsing
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Look for work order number pattern (typically starts with digits)
+        if (/^\d+/.test(line)) {
+            const workOrder = parseWorkOrderLine(line, lines, i);
+            if (workOrder) {
+                workOrders.push(workOrder);
+            }
+        }
+    }
+    
+    return workOrders;
+}
+
+function parseWorkOrderLine(line, allLines, startIndex) {
+    // This is a simplified parser - in practice, you'd need more robust parsing
+    const parts = line.split(/\s+/);
+    
+    if (parts.length < 5) return null;
+    
+    try {
+        const workOrder = {
+            woNumber: parts[0],
+            date: parseDate(parts[1]),
+            time: parts[2] || 'AV',
+            totalPoints: parseFloat(parts[3]) || 0,
+            activityCodes: '',
+            reportedCodes: '',
+            solutionCodes: '',
+            doneflag: 'Y' // Default to complete
+        };
+        
+        // Look for additional data in subsequent lines
+        for (let j = startIndex + 1; j < Math.min(startIndex + 3, allLines.length); j++) {
+            const nextLine = allLines[j].trim();
+            
+            // Look for solution codes (4D, 4E, 4F, 4G)
+            if (/4[DEFG]/.test(nextLine)) {
+                workOrder.solutionCodes = nextLine;
+            }
+            
+            // Look for reported codes
+            if (/^[A-Z0-9]{2,}/.test(nextLine) && !workOrder.reportedCodes) {
+                workOrder.reportedCodes = nextLine;
+            }
+        }
+        
+        return workOrder;
+    } catch (error) {
+        console.error('Error parsing work order line:', error);
+        return null;
+    }
+}
+
+function parseDate(dateStr) {
+    // Handle various date formats
+    try {
+        // Assume format is MM/DD/YYYY or similar
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            // Try alternative parsing
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+                // Assume MM/DD/YYYY
+                return formatDateForInput(new Date(parts[2], parts[0] - 1, parts[1]));
+            }
+        }
+        return formatDateForInput(date);
+    } catch (error) {
+        console.error('Error parsing date:', dateStr, error);
+        return formatDateForInput(new Date()); // Default to today
+    }
+}
+
+function processWorkOrderData(workOrders) {
+    const groupedData = {};
+    
+    workOrders.forEach(workOrder => {
+        const date = workOrder.date;
+        
+        if (!groupedData[date]) {
+            groupedData[date] = {
+                totalPoints: 0,
+                workOrders: []
+            };
+        }
+        
+        // Calculate actual points (handle service call special cases)
+        let actualPoints = workOrder.totalPoints;
+        
+        // Check for service call reduction codes
+        if (workOrder.solutionCodes && /4[DEFG]/.test(workOrder.solutionCodes)) {
+            // If it shows 6 points but has reduction codes, make it 3
+            if (actualPoints === 6) {
+                actualPoints = 3;
+            }
+        }
+        
+        groupedData[date].totalPoints += actualPoints;
+        groupedData[date].workOrders.push({
+            ...workOrder,
+            actualPoints
+        });
+    });
+    
+    return groupedData;
+}
+
+function showDataPreview(groupedData) {
+    const previewDiv = document.getElementById('pdf-preview');
+    const dates = Object.keys(groupedData).sort();
+    
+    let previewHTML = '<h4>Parsed Work Order Data Preview</h4><div class="pdf-preview-content">';
+    
+    dates.forEach(date => {
+        const dayData = groupedData[date];
+        previewHTML += `
+            <div class="preview-entry">
+                <h5>${formatDateForDisplay(date)}</h5>
+                <div class="entry-details">
+                    Total Points: ${dayData.totalPoints}<br>
+                    Work Orders: ${dayData.workOrders.length}<br>
+                    WO Numbers: ${dayData.workOrders.map(wo => wo.woNumber).join(', ')}
+                </div>
+            </div>
+        `;
+    });
+    
+    previewHTML += '</div>';
+    previewDiv.innerHTML = previewHTML;
+    previewDiv.classList.remove('hidden');
+}
+
+async function populateEntriesFromData(groupedData) {
+    const dates = Object.keys(groupedData);
+    let entriesCreated = 0;
+    let entriesSkipped = 0;
+    
+    for (const date of dates) {
+        try {
+            const dayData = groupedData[date];
+            
+            // Check if entry already exists
+            const existingEntries = await window.dbFunctions.getAllFromDB('entries');
+            const existingEntry = existingEntries.find(entry => entry.date === date);
+            
+            if (existingEntry) {
+                entriesSkipped++;
+                continue;
+            }
+            
+            // Create new entry
+            const entry = {
+                date: date,
+                points: dayData.totalPoints,
+                kms: 0, // PDF doesn't contain KM data
+                perDiem: false, // PDF doesn't contain per diem data
+                notes: `Auto-imported from PDF: ${dayData.workOrders.length} work orders (${dayData.workOrders.map(wo => wo.woNumber).join(', ')})`,
+                expenses: {
+                    hotel: 0,
+                    gas: 0,
+                    food: 0
+                },
+                timestamp: new Date().getTime()
+            };
+            
+            await window.dbFunctions.saveToDB('entries', entry);
+            entriesCreated++;
+            
+        } catch (error) {
+            console.error(`Error creating entry for ${date}:`, error);
+        }
+    }
+    
+    // Refresh the entries display
+    loadEntries();
+    
+    showNotification(`Created ${entriesCreated} new entries. ${entriesSkipped} entries skipped (already exist).`);
 }
