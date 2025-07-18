@@ -83,11 +83,6 @@ button:hover {
     display: none;
 }
 
-#earnings-display {
-    padding: 10px;
-    background-color: #f0f8ff;
-    border-radius: 4px;
-}
 
 /* Entry Styles */
 .entry-item {
