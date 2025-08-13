@@ -13,8 +13,12 @@ function formatDateForDisplay(dateString) {
 
 function initializeDate() {
     const today = new Date();
-    document.getElementById('work-date').value = formatDateForInput(today);
-    document.getElementById('date-display').textContent = formatDateForDisplay(formatDateForInput(today));
+    const todayFormatted = formatDateForInput(today);
+    document.getElementById('work-date').value = todayFormatted;
+    document.getElementById('date-display').textContent = formatDateForDisplay(todayFormatted);
+    
+    // Check if there's already an entry for today and populate if so
+    checkAndPopulateExistingEntry(todayFormatted);
 }
 
 // Pay period configuration
@@ -137,6 +141,11 @@ function setupEventListeners() {
     document.getElementById('hotel-expense').addEventListener('input', calculateEarnings);
     document.getElementById('gas-expense').addEventListener('input', calculateEarnings);
     document.getElementById('food-expense').addEventListener('input', calculateEarnings);
+    
+    // Add date change listener for auto-population
+    document.getElementById('work-date').addEventListener('change', (e) => {
+        checkAndPopulateExistingEntry(e.target.value);
+    });
     
     document.getElementById('point-rate').addEventListener('change', () => {
         calculateEarnings();
@@ -328,6 +337,42 @@ function populateFormForEdit(entry) {
     
     // Scroll to the form for better user experience
     document.getElementById('daily-entry').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function checkAndPopulateExistingEntry(date) {
+    try {
+        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        const existingEntry = allEntries.find(entry => entry.date === date);
+        
+        if (existingEntry) {
+            // Populate form with existing entry data, but don't scroll
+            document.getElementById('points').value = existingEntry.points;
+            document.getElementById('kms').value = existingEntry.kms;
+            document.getElementById('per-diem').checked = existingEntry.perDiem;
+            document.getElementById('notes').value = existingEntry.notes || '';
+            
+            // Populate expense fields
+            const expenses = existingEntry.expenses || {};
+            document.getElementById('hotel-expense').value = expenses.hotel || '';
+            document.getElementById('gas-expense').value = expenses.gas || '';
+            document.getElementById('food-expense').value = expenses.food || '';
+            
+            calculateEarnings();
+        } else {
+            // Clear form fields if no existing entry (except date)
+            document.getElementById('points').value = '';
+            document.getElementById('kms').value = '';
+            document.getElementById('per-diem').checked = false;
+            document.getElementById('notes').value = '';
+            document.getElementById('hotel-expense').value = '';
+            document.getElementById('gas-expense').value = '';
+            document.getElementById('food-expense').value = '';
+            
+            calculateEarnings();
+        }
+    } catch (error) {
+        console.error('Error checking for existing entry:', error);
+    }
 }
 
 async function loadEntries() {
