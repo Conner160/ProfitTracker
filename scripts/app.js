@@ -81,7 +81,6 @@ function initializeApp() {
         loadEntries();
         setupEventListeners();
         initializeDate();
-        calculateEarnings();
     }).catch(error => {
         console.error('DB initialization failed:', error);
         showNotification('Failed to initialize database', true);
@@ -133,14 +132,7 @@ function setupEventListeners() {
     document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
     document.getElementById('save-settings').addEventListener('click', saveSettings);
     
-    document.getElementById('points').addEventListener('input', calculateEarnings);
-    document.getElementById('kms').addEventListener('input', calculateEarnings);
-    document.getElementById('per-diem').addEventListener('change', calculateEarnings);
-    
     // Add expense input listeners
-    document.getElementById('hotel-expense').addEventListener('input', calculateEarnings);
-    document.getElementById('gas-expense').addEventListener('input', calculateEarnings);
-    document.getElementById('food-expense').addEventListener('input', calculateEarnings);
     
     // Add date change listener for auto-population
     document.getElementById('work-date').addEventListener('change', (e) => {
@@ -148,19 +140,15 @@ function setupEventListeners() {
     });
     
     document.getElementById('point-rate').addEventListener('change', () => {
-        calculateEarnings();
         loadEntries();
     });
     document.getElementById('km-rate').addEventListener('change', () => {
-        calculateEarnings();
         loadEntries();
     });
     document.getElementById('per-diem-rate').addEventListener('change', () => {
-        calculateEarnings();
         loadEntries();
     });
     document.getElementById('gst-enabled').addEventListener('change', () => {
-        calculateEarnings();
         loadEntries();
     });
 }
@@ -197,56 +185,7 @@ function calculateEntryTotal(points, kms, perDiem, expenses = {}) {
     };
 }
 
-function calculateEarnings() {
-    const points = parseFloat(document.getElementById('points').value) || 0;
-    const kms = parseFloat(document.getElementById('kms').value) || 0;
-    const perDiem = document.getElementById('per-diem').checked;
-    
-    // Get expense values
-    const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
-    const gasExpense = parseFloat(document.getElementById('gas-expense').value) || 0;
-    const foodExpense = parseFloat(document.getElementById('food-expense').value) || 0;
-    
-    const expenses = {
-        hotel: hotelExpense,
-        gas: gasExpense,
-        food: foodExpense
-    };
-    
-    const totals = calculateEntryTotal(points, kms, perDiem, expenses);
-    
-    const earningsDisplay = document.getElementById('earnings-display');
-    earningsDisplay.innerHTML = `
-        <div><strong>Points Earnings:</strong> $${totals.pointsEarnings.toFixed(2)} (${points} pts)</div>
-        <div><strong>KM Earnings:</strong> $${totals.kmEarnings.toFixed(2)} (${kms} km)</div>
-        ${perDiem ? `<div><strong>Per Diem:</strong> $${totals.perDiemEarnings.toFixed(2)}</div>` : ''}
-        ${document.getElementById('gst-enabled').checked ? `<div><strong>GST:</strong> $${totals.gstAmount.toFixed(2)}</div>` : ''}
-        <div class="total-earnings"><strong>Gross Total:</strong> $${totals.grossTotal.toFixed(2)}</div>
-        ${totals.totalExpenses > 0 ? `
-        <div class="net-gross-summary">
-            <div class="summary-row">
-                <span>Hotel:</span>
-                <span>-$${expenses.hotel.toFixed(2)}</span>
-            </div>
-            <div class="summary-row">
-                <span>Gas:</span>
-                <span>-$${expenses.gas.toFixed(2)}</span>
-            </div>
-            <div class="summary-row">
-                <span>Food:</span>
-                <span>-$${expenses.food.toFixed(2)}</span>
-            </div>
-            <div class="summary-row">
-                <span>Total Expenses:</span>
-                <span>-$${totals.totalExpenses.toFixed(2)}</span>
-            </div>
-            <div class="summary-row net-total">
-                <span><strong>Net Total:</strong></span>
-                <span><strong>$${totals.netTotal.toFixed(2)}</strong></span>
-            </div>
-        </div>` : ''}
-    `;
-}
+
 
 async function saveEntry() {
     const dateInput = document.getElementById('work-date').value;
@@ -295,7 +234,6 @@ async function saveEntry() {
 
     try {
         await window.dbFunctions.saveToDB('entries', entry);
-        calculateEarnings();
         loadEntries();
         clearForm();
         showNotification('Entry saved successfully!');
@@ -317,7 +255,6 @@ function clearForm() {
     document.getElementById('food-expense').value = '';
     
     initializeDate();
-    calculateEarnings();
 }
 
 function populateFormForEdit(entry) {
@@ -332,8 +269,6 @@ function populateFormForEdit(entry) {
     document.getElementById('hotel-expense').value = expenses.hotel || '';
     document.getElementById('gas-expense').value = expenses.gas || '';
     document.getElementById('food-expense').value = expenses.food || '';
-    
-    calculateEarnings();
     
     // Scroll to the form for better user experience
     document.getElementById('daily-entry').scrollIntoView({ behavior: 'smooth' });
@@ -668,7 +603,6 @@ async function saveSettings() {
     
     try {
         await window.dbFunctions.saveToDB('settings', settings);
-        calculateEarnings();
         loadEntries();
         showNotification('Settings saved');
         toggleSettings();
