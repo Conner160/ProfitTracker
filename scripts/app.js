@@ -179,6 +179,17 @@ function addLandLocation() {
         locationElement.id = "ll_" + landlocsDiv.childElementCount;
         console.log(locationElement.id);
         locationElement.textContent = location.trim();
+        
+        // Add delete button for this location
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '×';
+        deleteBtn.className = 'delete-landloc-btn';
+        deleteBtn.onclick = (e) => {
+            e.preventDefault();
+            locationElement.remove();
+        };
+        
+        locationElement.appendChild(deleteBtn);
         landlocsDiv.appendChild(locationElement);
 
         //add click event listener to that id
@@ -192,6 +203,56 @@ function deleteLocation(id){
     if(confirm("Delete this location?")){
         document.getElementById(id).remove();
     }
+}
+
+// Function to get current land locations from DOM
+function getLandLocations() {
+    const landlocsDiv = document.getElementById('landlocs');
+    const locationElements = landlocsDiv.querySelectorAll('p');
+    const locations = [];
+    
+    locationElements.forEach(element => {
+        // Get text content excluding the delete button
+        const text = element.childNodes[0]?.textContent?.trim();
+        if (text) {
+            locations.push(text);
+        }
+    });
+    
+    return locations;
+}
+
+// Function to clear all land locations
+function clearLandLocations() {
+    const landlocsDiv = document.getElementById('landlocs');
+    landlocsDiv.innerHTML = '';
+}
+
+// Function to populate land locations in the form
+function populateLandLocations(locations) {
+    clearLandLocations();
+    
+    if (!locations || locations.length === 0) {
+        return;
+    }
+    
+    const landlocsDiv = document.getElementById('landlocs');
+    locations.forEach(location => {
+        const locationElement = document.createElement('p');
+        locationElement.textContent = location;
+        
+        // Add delete button for this location
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '×';
+        deleteBtn.className = 'delete-landloc-btn';
+        deleteBtn.onclick = (e) => {
+            e.preventDefault();
+            locationElement.remove();
+        };
+        
+        locationElement.appendChild(deleteBtn);
+        landlocsDiv.appendChild(locationElement);
+    });
 }
 
 // Utility function to calculate entry total based on current settings
@@ -294,6 +355,9 @@ async function saveEntry() {
         gas: gasExpense,
         food: foodExpense
     };
+    
+    // Get land locations
+    const landLocations = getLandLocations();
 
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
@@ -319,6 +383,7 @@ async function saveEntry() {
         perDiem,
         notes,
         expenses,
+        landLocations,
         timestamp: new Date().getTime()
     };
 
@@ -345,6 +410,9 @@ function clearForm() {
     document.getElementById('gas-expense').value = '';
     document.getElementById('food-expense').value = '';
     
+    // Clear land locations
+    clearLandLocations();
+    
     initializeDate();
     calculateEarnings();
 }
@@ -361,6 +429,9 @@ function populateFormForEdit(entry) {
     document.getElementById('hotel-expense').value = expenses.hotel || '';
     document.getElementById('gas-expense').value = expenses.gas || '';
     document.getElementById('food-expense').value = expenses.food || '';
+    
+    // Populate land locations
+    populateLandLocations(entry.landLocations || []);
     
     calculateEarnings();
     
@@ -386,6 +457,9 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('gas-expense').value = expenses.gas || '';
             document.getElementById('food-expense').value = expenses.food || '';
             
+            // Populate land locations
+            populateLandLocations(existingEntry.landLocations || []);
+            
             calculateEarnings();
         } else {
             // Clear form fields if no existing entry (except date)
@@ -396,6 +470,9 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';
             document.getElementById('food-expense').value = '';
+            
+            // Clear land locations
+            clearLandLocations();
             
             calculateEarnings();
         }
@@ -438,6 +515,9 @@ async function loadEntries() {
             // Prepare expense data for editing
             const expenseData = JSON.stringify(expenses).replace(/"/g, '&quot;');
             
+            // Prepare land locations data for editing
+            const landLocationsData = JSON.stringify(entry.landLocations || []).replace(/"/g, '&quot;');
+            
             return `
                 <div class="entry-item editable-entry" 
                      data-id="${entry.id}"
@@ -446,7 +526,8 @@ async function loadEntries() {
                      data-kms="${entry.kms}" 
                      data-per-diem="${entry.perDiem}" 
                      data-notes="${entry.notes || ''}"
-                     data-expenses="${expenseData}">
+                     data-expenses="${expenseData}"
+                     data-land-locations="${landLocationsData}">
                     <div class="entry-header">
                         <span class="entry-date">${formatDateForDisplay(entry.date)}</span>
                         <span class="entry-total">Net: $${entryTotals.netTotal.toFixed(2)}</span>
@@ -522,6 +603,14 @@ async function loadEntries() {
                     expenses = {};
                 }
                 
+                const landLocationsData = entryElement.dataset.landLocations;
+                let landLocations = [];
+                try {
+                    landLocations = JSON.parse(landLocationsData.replace(/&quot;/g, '"'));
+                } catch (error) {
+                    landLocations = [];
+                }
+                
                 const entryData = {
                     id: parseInt(entryElement.dataset.id),
                     date: entryElement.dataset.date,
@@ -529,7 +618,8 @@ async function loadEntries() {
                     kms: parseFloat(entryElement.dataset.kms),
                     perDiem: entryElement.dataset.perDiem === 'true',
                     notes: entryElement.dataset.notes,
-                    expenses: expenses
+                    expenses: expenses,
+                    landLocations: landLocations
                 };
                 populateFormForEdit(entryData);
             });
