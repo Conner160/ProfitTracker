@@ -41,8 +41,76 @@ section {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
+#daily-entry{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
 .form-group {
+    flex-grow: 1;
     margin-bottom: 15px;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+#de-heading {
+    order: 1;
+    width: 100%;
+}
+
+#de-date{
+    order: 2;
+    min-width: 90%;
+}
+
+#de-points{
+    order: 3;
+    min-width: 30%;
+}
+
+#de-kms{
+    order: 3;
+    min-width: 30%;
+}
+
+#de-perdiem{
+    align-items:center;
+    order: 3;
+    min-width: 30%;
+}
+
+#de-expenses{
+    min-width: 20%;
+    order: 4;
+}
+
+#de-landlocs{
+    order: 4;
+    min-width: 65%;
+}
+
+#landlocs{
+    border: 2px solid black;
+    height: 120px;
+    overflow-y: scroll;
+    margin: 3px;
+}
+
+#landlocs p{
+    border-bottom: 1px solid gainsboro;
+    margin: 2px;
+}
+
+#de-notes{
+    order: 5;
+    min-width: 90%;
+}
+
+#de-buttons{
+    order: 6;
+    min-width: 90%;
 }
 
 label {
