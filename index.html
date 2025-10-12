@@ -44,6 +44,22 @@
             </div>
         </section>
 
+        <!-- PDF Upload Section -->
+        <section id="pdf-upload">
+            <h2>Upload Work Orders PDF</h2>
+            <div class="form-group">
+                <label for="pdf-file">Select PDF File:</label>
+                <input type="file" id="pdf-file" accept=".pdf" />
+            </div>
+            <button id="upload-pdf" disabled>Process PDF</button>
+            <div id="pdf-status" class="hidden">
+                <!-- PDF processing status will be displayed here -->
+            </div>
+            <div id="pdf-preview" class="hidden">
+                <!-- PDF content preview will be displayed here -->
+            </div>
+        </section>
+
         <!-- Daily Entry Form -->
         <section id="daily-entry">
             <h2 class="form-group" id="de-heading">Daily Entry</h2>
@@ -146,6 +162,8 @@
         </div>
     </footer>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="scripts/pdf-parser.js"></script>
     <script src="scripts/db.js"></script>
     <script src="scripts/app.js"></script>
 </body>
