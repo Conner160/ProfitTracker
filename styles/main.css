@@ -62,19 +62,23 @@ section {
 
 #de-date{
     order: 2;
+    min-width: 40%;
 }
 
 #de-points{
     order: 3;
+    min-width: 40%;
 }
 #de-kms{
     order: 3;
+    min-width: 40%;
 }
 #de-perdiem{
     order: 3;
+    min-width: 40%;
 }
 #de-expenses{
-    min-width:40%;
+    min-width: 40%;
     order: 4;
 }
 #de-landlocs{
