@@ -41,7 +41,15 @@ section {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
+#daily-entry{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
 .form-group {
+    flex-grow: 1;
     margin-bottom: 15px;
 }
 
