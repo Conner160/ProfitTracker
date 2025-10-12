@@ -105,6 +105,30 @@
             </div>
         </section>
         
+        <!-- PDF Upload Section -->
+        <section id="pdf-upload">
+            <h2>Upload Work Orders Data</h2>
+            <p>Upload a CSV or text file containing your work orders to automatically populate daily entries. PDF support coming soon.</p>
+            
+            <div class="form-group">
+                <label for="pdf-file">Select File (CSV/TXT):</label>
+                <input type="file" id="pdf-file" accept=".csv,.txt,.pdf" class="file-input">
+            </div>
+            
+            <div class="form-group">
+                <button id="process-pdf" disabled>Process File</button>
+                <button id="clear-pdf">Clear File</button>
+            </div>
+            
+            <div id="pdf-status" class="pdf-status hidden">
+                <!-- Status messages will appear here -->
+            </div>
+            
+            <div id="pdf-preview" class="pdf-preview hidden">
+                <!-- Parsed data preview will appear here -->
+            </div>
+        </section>
+        
         <!-- Today's Earnings Display -->
         <section id="earnings-summary">
             <h2>Today's Earnings</h2>

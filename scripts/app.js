@@ -166,6 +166,11 @@ function setupEventListeners() {
         calculateEarnings();
         loadEntries();
     });
+    
+    // PDF upload event listeners
+    document.getElementById('pdf-file').addEventListener('change', handleFileSelect);
+    document.getElementById('process-pdf').addEventListener('click', processPDF);
+    document.getElementById('clear-pdf').addEventListener('click', clearPDFUpload);
 }
 
 // Function to add land location
@@ -721,4 +726,427 @@ function showNotification(message, isError = false) {
     setTimeout(() => {
         notification.remove();
     }, 3000);
+}
+
+// PDF Processing Functions
+let selectedFile = null;
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    const processBtn = document.getElementById('process-pdf');
+    const statusDiv = document.getElementById('pdf-status');
+    
+    if (file && (file.type === 'text/csv' || file.type === 'text/plain' || file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
+        selectedFile = file;
+        processBtn.disabled = false;
+        showPDFStatus(`File selected: ${file.name}`, 'info');
+    } else if (file && file.type === 'application/pdf') {
+        selectedFile = file;
+        processBtn.disabled = false;
+        showPDFStatus(`PDF file selected: ${file.name} (PDF parsing will be available in a future update)`, 'info');
+    } else {
+        selectedFile = null;
+        processBtn.disabled = true;
+        if (file) {
+            showPDFStatus('Please select a valid CSV, TXT, or PDF file.', 'error');
+        } else {
+            statusDiv.classList.add('hidden');
+        }
+    }
+}
+
+function clearPDFUpload() {
+    selectedFile = null;
+    document.getElementById('pdf-file').value = '';
+    document.getElementById('process-pdf').disabled = true;
+    document.getElementById('pdf-status').classList.add('hidden');
+    document.getElementById('pdf-preview').classList.add('hidden');
+}
+
+function showPDFStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('pdf-status');
+    statusDiv.className = `pdf-status ${type}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('hidden');
+}
+
+async function processPDF() {
+    if (!selectedFile) {
+        showPDFStatus('No file selected.', 'error');
+        return;
+    }
+    
+    try {
+        showPDFStatus('Processing file...', 'info');
+        
+        if (selectedFile.type === 'application/pdf') {
+            showPDFStatus('PDF processing not yet implemented. Please export your data as CSV or text file.', 'error');
+            return;
+        }
+        
+        // Read the text/CSV file
+        const text = await selectedFile.text();
+        
+        // Validate the file content
+        const isValid = validateFileContent(text);
+        if (!isValid) {
+            showPDFStatus('Invalid file: This does not appear to be a TRA work orders report.', 'error');
+            return;
+        }
+        
+        // Extract data from CSV/text
+        const workOrderData = extractWorkOrderDataFromText(text);
+        
+        if (workOrderData.length === 0) {
+            showPDFStatus('No work order data found in the file.', 'error');
+            return;
+        }
+        
+        // Process and group data by date
+        const groupedData = processWorkOrderData(workOrderData);
+        
+        // Show preview
+        showDataPreview(groupedData);
+        
+        // Auto-populate entries
+        await populateEntriesFromData(groupedData);
+        
+        showPDFStatus(`Successfully processed ${workOrderData.length} work orders across ${Object.keys(groupedData).length} days.`, 'success');
+        
+    } catch (error) {
+        console.error('Error processing file:', error);
+        showPDFStatus(`Error processing file: ${error.message}`, 'error');
+    }
+}
+
+function validateFileContent(text) {
+    try {
+        // Check for TRA report footer
+        return text.includes('https://account.myaccess.ca/TRA/WO_report.php') ||
+               text.includes('Work Order') ||
+               text.includes('WO_') ||
+               text.includes('Date') && text.includes('Points');
+    } catch (error) {
+        console.error('Error validating file:', error);
+        return false;
+    }
+}
+
+function extractWorkOrderDataFromText(text) {
+    const workOrders = [];
+    
+    try {
+        // Split into lines
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        // Try to detect if it's CSV or detect headers
+        let isCSV = text.includes(',') && text.includes('Date');
+        
+        if (isCSV) {
+            workOrders.push(...parseCSVData(lines));
+        } else {
+            workOrders.push(...parseTextData(lines));
+        }
+        
+    } catch (error) {
+        console.error('Error extracting work order data:', error);
+    }
+    
+    return workOrders;
+}
+
+function parseCSVData(lines) {
+    const workOrders = [];
+    let headers = [];
+    
+    // Find header line
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.toLowerCase().includes('wo_number') || 
+            line.toLowerCase().includes('date') || 
+            line.toLowerCase().includes('work order')) {
+            headers = line.split(',').map(h => h.trim().toLowerCase());
+            lines.splice(0, i + 1); // Remove header and everything before it
+            break;
+        }
+    }
+    
+    if (headers.length === 0) {
+        // Assume standard format if no headers found
+        headers = ['wo_number', 'date', 'time', 'subno', 'phone', 'address', 'cc', 'doneflag', 'totalpnts', 'activitycodes', 'reportedcodes', 'solutioncodes', 'notes', 'ped_address', 'ped_location'];
+    }
+    
+    // Parse data lines
+    for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        const values = parseCSVLine(line);
+        if (values.length >= 3) { // Minimum: wo_number, date, points
+            const workOrder = parseWorkOrderFromValues(headers, values);
+            if (workOrder) {
+                workOrders.push(workOrder);
+            }
+        }
+    }
+    
+    return workOrders;
+}
+
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    values.push(current.trim());
+    return values;
+}
+
+function parseWorkOrderFromValues(headers, values) {
+    try {
+        const workOrder = {
+            woNumber: '',
+            date: '',
+            time: 'AV',
+            totalPoints: 0,
+            activityCodes: '',
+            reportedCodes: '',
+            solutionCodes: '',
+            doneflag: 'Y'
+        };
+        
+        // Map values to work order properties
+        for (let i = 0; i < headers.length && i < values.length; i++) {
+            const header = headers[i];
+            const value = values[i];
+            
+            if (header.includes('wo_number') || header.includes('wo number') || header.includes('work_order')) {
+                workOrder.woNumber = value;
+            } else if (header.includes('date')) {
+                workOrder.date = parseDate(value);
+            } else if (header.includes('time')) {
+                workOrder.time = value || 'AV';
+            } else if (header.includes('totalpnts') || header.includes('total_points') || header.includes('points')) {
+                workOrder.totalPoints = parseFloat(value) || 0;
+            } else if (header.includes('activitycodes') || header.includes('activity_codes')) {
+                workOrder.activityCodes = value || '';
+            } else if (header.includes('reportedcodes') || header.includes('reported_codes')) {
+                workOrder.reportedCodes = value || '';
+            } else if (header.includes('solutioncodes') || header.includes('solution_codes')) {
+                workOrder.solutionCodes = value || '';
+            } else if (header.includes('doneflag') || header.includes('done_flag') || header.includes('complete')) {
+                workOrder.doneflag = value || 'Y';
+            }
+        }
+        
+        // Validate minimum required fields
+        if (workOrder.woNumber && workOrder.date) {
+            return workOrder;
+        }
+        
+    } catch (error) {
+        console.error('Error parsing work order from values:', error);
+    }
+    
+    return null;
+}
+
+function parseTextData(lines) {
+    const workOrders = [];
+    
+    // Try to parse simple text format
+    for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        // Look for lines that might contain work order data
+        // Simple pattern: WO_NUMBER DATE TIME POINTS
+        const parts = line.split(/\s+/);
+        
+        if (parts.length >= 3) {
+            const workOrder = parseWorkOrderLine(line, [], 0);
+            if (workOrder) {
+                workOrders.push(workOrder);
+            }
+        }
+    }
+    
+    return workOrders;
+}
+
+function parseWorkOrderLine(line, allLines, startIndex) {
+    // This is a simplified parser - in practice, you'd need more robust parsing
+    const parts = line.split(/\s+/);
+    
+    if (parts.length < 5) return null;
+    
+    try {
+        const workOrder = {
+            woNumber: parts[0],
+            date: parseDate(parts[1]),
+            time: parts[2] || 'AV',
+            totalPoints: parseFloat(parts[3]) || 0,
+            activityCodes: '',
+            reportedCodes: '',
+            solutionCodes: '',
+            doneflag: 'Y' // Default to complete
+        };
+        
+        // Look for additional data in subsequent lines
+        for (let j = startIndex + 1; j < Math.min(startIndex + 3, allLines.length); j++) {
+            const nextLine = allLines[j].trim();
+            
+            // Look for solution codes (4D, 4E, 4F, 4G)
+            if (/4[DEFG]/.test(nextLine)) {
+                workOrder.solutionCodes = nextLine;
+            }
+            
+            // Look for reported codes
+            if (/^[A-Z0-9]{2,}/.test(nextLine) && !workOrder.reportedCodes) {
+                workOrder.reportedCodes = nextLine;
+            }
+        }
+        
+        return workOrder;
+    } catch (error) {
+        console.error('Error parsing work order line:', error);
+        return null;
+    }
+}
+
+function parseDate(dateStr) {
+    // Handle various date formats
+    try {
+        // Assume format is MM/DD/YYYY or similar
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            // Try alternative parsing
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+                // Assume MM/DD/YYYY
+                return formatDateForInput(new Date(parts[2], parts[0] - 1, parts[1]));
+            }
+        }
+        return formatDateForInput(date);
+    } catch (error) {
+        console.error('Error parsing date:', dateStr, error);
+        return formatDateForInput(new Date()); // Default to today
+    }
+}
+
+function processWorkOrderData(workOrders) {
+    const groupedData = {};
+    
+    workOrders.forEach(workOrder => {
+        const date = workOrder.date;
+        
+        if (!groupedData[date]) {
+            groupedData[date] = {
+                totalPoints: 0,
+                workOrders: []
+            };
+        }
+        
+        // Calculate actual points (handle service call special cases)
+        let actualPoints = workOrder.totalPoints;
+        
+        // Check for service call reduction codes
+        if (workOrder.solutionCodes && /4[DEFG]/.test(workOrder.solutionCodes)) {
+            // If it shows 6 points but has reduction codes, make it 3
+            if (actualPoints === 6) {
+                actualPoints = 3;
+            }
+        }
+        
+        groupedData[date].totalPoints += actualPoints;
+        groupedData[date].workOrders.push({
+            ...workOrder,
+            actualPoints
+        });
+    });
+    
+    return groupedData;
+}
+
+function showDataPreview(groupedData) {
+    const previewDiv = document.getElementById('pdf-preview');
+    const dates = Object.keys(groupedData).sort();
+    
+    let previewHTML = '<h4>Parsed Work Order Data Preview</h4><div class="pdf-preview-content">';
+    
+    dates.forEach(date => {
+        const dayData = groupedData[date];
+        previewHTML += `
+            <div class="preview-entry">
+                <h5>${formatDateForDisplay(date)}</h5>
+                <div class="entry-details">
+                    Total Points: ${dayData.totalPoints}<br>
+                    Work Orders: ${dayData.workOrders.length}<br>
+                    WO Numbers: ${dayData.workOrders.map(wo => wo.woNumber).join(', ')}
+                </div>
+            </div>
+        `;
+    });
+    
+    previewHTML += '</div>';
+    previewDiv.innerHTML = previewHTML;
+    previewDiv.classList.remove('hidden');
+}
+
+async function populateEntriesFromData(groupedData) {
+    const dates = Object.keys(groupedData);
+    let entriesCreated = 0;
+    let entriesSkipped = 0;
+    
+    for (const date of dates) {
+        try {
+            const dayData = groupedData[date];
+            
+            // Check if entry already exists
+            const existingEntries = await window.dbFunctions.getAllFromDB('entries');
+            const existingEntry = existingEntries.find(entry => entry.date === date);
+            
+            if (existingEntry) {
+                entriesSkipped++;
+                continue;
+            }
+            
+            // Create new entry
+            const entry = {
+                date: date,
+                points: dayData.totalPoints,
+                kms: 0, // PDF doesn't contain KM data
+                perDiem: false, // PDF doesn't contain per diem data
+                notes: `Auto-imported from PDF: ${dayData.workOrders.length} work orders (${dayData.workOrders.map(wo => wo.woNumber).join(', ')})`,
+                expenses: {
+                    hotel: 0,
+                    gas: 0,
+                    food: 0
+                },
+                timestamp: new Date().getTime()
+            };
+            
+            await window.dbFunctions.saveToDB('entries', entry);
+            entriesCreated++;
+            
+        } catch (error) {
+            console.error(`Error creating entry for ${date}:`, error);
+        }
+    }
+    
+    // Refresh the entries display
+    loadEntries();
+    
+    showNotification(`Created ${entriesCreated} new entries. ${entriesSkipped} entries skipped (already exist).`);
 }
