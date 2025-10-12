@@ -85,6 +85,14 @@ section {
     order: 4;
     min-width: 40%;
 }
+#landlocs{
+    border: 2px solid black;
+    margin: 3px;
+}
+#landlocs p{
+    border-bottom: 1px solid gainsboro;
+    margin: 2px;
+}
 #de-notes{
     order: 5;
     min-width: 90%;
