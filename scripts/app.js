@@ -180,6 +180,15 @@ function addLandLocation() {
         console.log(locationElement.id);
         locationElement.textContent = location.trim();
         landlocsDiv.appendChild(locationElement);
+
+        //add click event listener to that id
+        locationElement.addEventListener('click', deleteLocation(id));
+    }
+}
+
+function deleteLocation(id){
+    if(confirm("Delete this location?")){
+        document.getElementById(id).remove();
     }
 }
 
