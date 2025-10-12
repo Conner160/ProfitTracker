@@ -53,6 +53,15 @@ section {
     margin-bottom: 15px;
 }
 
+#de-heading {
+    order: 1;
+    width: 100%;
+}
+
+#de-date{
+    order: 2
+}
+
 label {
     display: block;
     margin-bottom: 5px;
