@@ -76,6 +76,7 @@ section {
 }
 
 #de-perdiem{
+    align-items:center;
     order: 3;
     min-width: 30%;
 }
