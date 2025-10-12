@@ -182,7 +182,7 @@ function addLandLocation() {
         landlocsDiv.appendChild(locationElement);
 
         //add click event listener to that id
-        locationElement.addEventListener('click', deleteLocation(id));
+        locationElement.addEventListener('click', deleteLocation(locationElement.id));
     }
 }
 
