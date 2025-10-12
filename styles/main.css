@@ -69,36 +69,44 @@ section {
     order: 3;
     min-width: 30%;
 }
+
 #de-kms{
     order: 3;
     min-width: 30%;
 }
+
 #de-perdiem{
     order: 3;
     min-width: 30%;
 }
+
 #de-expenses{
-    min-width: 40%;
+    min-width: 30%;
     order: 4;
 }
+
 #de-landlocs{
     order: 4;
-    min-width: 40%;
+    min-width: 50%;
 }
+
 #landlocs{
     border: 2px solid black;
     height: 200px;
     overflow-y: scroll;
     margin: 3px;
 }
+
 #landlocs p{
     border-bottom: 1px solid gainsboro;
     margin: 2px;
 }
+
 #de-notes{
     order: 5;
     min-width: 90%;
 }
+
 #de-buttons{
     order: 6;
     min-width: 90%;
