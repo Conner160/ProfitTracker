@@ -74,14 +74,20 @@ section {
     order: 3;
 }
 #de-expenses{
+    min-width:40%;
     order: 4;
+}
+#de-lanlocs{
+    order: 4;
+    min-width: 40%;
 }
 #de-notes{
     order: 5;
-
+    min-width: 90%;
 }
 #de-buttons{
     order: 6;
+    min-width: 90%;
 }
 
 label {
