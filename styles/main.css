@@ -82,18 +82,18 @@ section {
 }
 
 #de-expenses{
-    min-width: 30%;
+    min-width: 20%;
     order: 4;
 }
 
 #de-landlocs{
     order: 4;
-    min-width: 50%;
+    min-width: 65%;
 }
 
 #landlocs{
     border: 2px solid black;
-    height: 200px;
+    height: 120px;
     overflow-y: scroll;
     margin: 3px;
 }
