@@ -147,6 +147,9 @@ function setupEventListeners() {
         checkAndPopulateExistingEntry(e.target.value);
     });
     
+    // Add land location button listener
+    document.getElementById('addloc').addEventListener('click', addLandLocation);
+    
     document.getElementById('point-rate').addEventListener('change', () => {
         calculateEarnings();
         loadEntries();
@@ -163,6 +166,18 @@ function setupEventListeners() {
         calculateEarnings();
         loadEntries();
     });
+}
+
+// Function to add land location
+function addLandLocation() {
+    const location = prompt('Enter land location:');
+    
+    if (location && location.trim() !== '') {
+        const landlocsDiv = document.getElementById('landlocs');
+        const locationElement = document.createElement('p');
+        locationElement.textContent = location.trim();
+        landlocsDiv.appendChild(locationElement);
+    }
 }
 
 // Utility function to calculate entry total based on current settings
