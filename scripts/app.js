@@ -175,6 +175,9 @@ function addLandLocation() {
     if (location && location.trim() !== '') {
         const landlocsDiv = document.getElementById('landlocs');
         const locationElement = document.createElement('p');
+        locationElement.classList.add("landloc_p");
+        locationElement.id = "ll_" + landlocsDiv.childElementCount;
+        console.log(locationElement.id);
         locationElement.textContent = location.trim();
         landlocsDiv.appendChild(locationElement);
     }
