@@ -101,6 +101,32 @@ section {
 #landlocs p{
     border-bottom: 1px solid gainsboro;
     margin: 2px;
+    padding: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.delete-landloc-btn {
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.delete-landloc-btn:hover {
+    background-color: #cc0000;
 }
 
 #de-notes{
