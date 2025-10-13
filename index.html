@@ -1,23 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProfitTracker</title>
     <meta name="description" content="Track your piece-rate earnings and expenses">
     <meta name="theme-color" content="#2b5797">
-    
+
     <!-- iOS PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192x192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512x512.png">
     <link rel="apple-touch-icon" sizes="180x180" href="images/icon-180x180.png">
-    
+
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="icon" href="images/favicon.ico">
 </head>
+
 <body>
     <header>
         <h1>ProfitTracker</h1>
@@ -52,22 +54,22 @@
                 <label for="work-date">Date:</label>
                 <input type="date" id="work-date" required>
             </div>
-            
+
             <div class="form-group" id="de-points">
                 <label for="points">Points Earned:</label>
                 <input type="number" id="points" min="0" step="0.01">
             </div>
-            
+
             <div class="form-group" id="de-kms">
                 <label for="kms">Kilometers Driven:</label>
                 <input type="number" id="kms" min="0" step="0.1">
             </div>
-            
+
             <div class="form-group" id="de-perdiem">
                 <label for="per-diem">Per Diem Earned:</label>
                 <input type="checkbox" id="per-diem">
             </div>
-            
+
             <!-- Expenses Section -->
             <div class="form-group" id="de-expenses">
                 <h3>Expenses</h3>
@@ -94,7 +96,7 @@
                 </div>
                 <button id="addloc">Add Land Location</button>
             </div>
-            
+
             <div class="form-group" id="de-notes">
                 <label for="notes">Notes:</label>
                 <textarea id="notes" rows="3"></textarea>
@@ -104,7 +106,7 @@
                 <button id="clear-form">Clear Form</button>
             </div>
         </section>
-        
+
         <!-- Today's Earnings Display -->
         <section id="earnings-summary">
             <h2>Today's Earnings</h2>
@@ -112,7 +114,7 @@
                 <!-- Earnings will be displayed here -->
             </div>
         </section>
-        
+
         <!-- Past Entries List -->
         <section id="past-entries">
             <h2>Pay Period Entries</h2>
@@ -146,7 +148,21 @@
         </div>
     </footer>
 
+    <!-- Database module -->
     <script src="scripts/db.js"></script>
+
+    <!-- Utility modules -->
+    <script src="scripts/dateUtils.js"></script>
+    <script src="scripts/calculations.js"></script>
+
+    <!-- Feature modules -->
+    <script src="scripts/uiManager.js"></script>
+    <script src="scripts/settingsManager.js"></script>
+    <script src="scripts/locationManager.js"></script>
+    <script src="scripts/entryManager.js"></script>
+
+    <!-- Main application -->
     <script src="scripts/app.js"></script>
 </body>
+
 </html>

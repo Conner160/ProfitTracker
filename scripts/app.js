@@ -344,6 +344,7 @@ function clearForm() {
     document.getElementById('hotel-expense').value = '';
     document.getElementById('gas-expense').value = '';
     document.getElementById('food-expense').value = '';
+    document.getElementsByClassName
     
     initializeDate();
     calculateEarnings();
