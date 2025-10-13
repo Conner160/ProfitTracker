@@ -370,6 +370,7 @@ footer {
     cursor: move;
     user-select: none;
     transition: all 0.2s ease;
+    position: relative;
 }
 
 .landloc_p:hover {
@@ -381,6 +382,53 @@ footer {
     opacity: 0.5;
     transform: rotate(5deg);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+/* Mobile touch drag styles */
+.landloc_p.long-press-pending {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    animation: longPressPulse 2s ease-in-out;
+}
+
+.landloc_p.touch-dragging {
+    opacity: 0.8;
+    transform: rotate(3deg) scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    z-index: 1001;
+    transition: none;
+}
+
+@keyframes longPressPulse {
+    0% {
+        background-color: #f8f9fa;
+        border-color: var(--border-color);
+    }
+    50% {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+    }
+    100% {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+    }
+}
+
+/* Touch-specific adjustments */
+@media (hover: none) and (pointer: coarse) {
+    .landloc_p {
+        padding: 15px;
+        margin: 8px 0;
+        font-size: 16px;
+        touch-action: manipulation;
+    }
+    
+    .landloc_p:hover {
+        /* Remove hover effects on touch devices */
+        background-color: #f8f9fa;
+        border-color: var(--border-color);
+    }
 }
 
 #landlocs {
