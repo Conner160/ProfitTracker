@@ -359,3 +359,42 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
+/* Land Location Drag and Drop Styles */
+.landloc_p {
+    padding: 10px;
+    margin: 5px 0;
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: move;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.landloc_p:hover {
+    background-color: #e9ecef;
+    border-color: var(--primary-color);
+}
+
+.landloc_p.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+#landlocs {
+    min-height: 50px;
+    border: 2px dashed transparent;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+#landlocs:empty::before {
+    content: "No land locations added yet. Click 'Add Location' to get started.";
+    color: #6c757d;
+    font-style: italic;
+    display: block;
+    text-align: center;
+    padding: 20px;
+}

@@ -33,6 +33,8 @@ function initializeApp() {
         setupEventListeners();
         window.entryManager.initializeDate();
         window.calculations.calculateEarnings();
+        // Initialize drag and drop for any existing land locations
+        window.locationManager.initializeDragAndDrop();
     }).catch(error => {
         console.error('DB initialization failed:', error);
         window.uiManager.showNotification('Failed to initialize database', true);
