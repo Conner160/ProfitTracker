@@ -112,7 +112,7 @@ function handleTouchStart(e) {
     // Start long press timer (2 seconds)
     touchState.longPressTimer = setTimeout(() => {
         startTouchDrag(e.target);
-    }, 2000);
+    }, 500);
     
     // Add visual feedback for long press
     e.target.classList.add('long-press-pending');
@@ -189,6 +189,16 @@ function startTouchDrag(element) {
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
     
+    // Disable text selection
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.mozUserSelect = 'none';
+    document.body.style.msUserSelect = 'none';
+    
+    // Prevent text selection events
+    document.addEventListener('selectstart', preventSelection);
+    document.addEventListener('dragstart', preventSelection);
+    
     // Add haptic feedback if available
     if (navigator.vibrate) {
         navigator.vibrate(50);
@@ -204,9 +214,25 @@ function endTouchDrag() {
         document.body.style.overflow = '';
         document.body.style.touchAction = '';
         
+        // Re-enable text selection
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        document.body.style.mozUserSelect = '';
+        document.body.style.msUserSelect = '';
+        
+        // Remove text selection event prevention
+        document.removeEventListener('selectstart', preventSelection);
+        document.removeEventListener('dragstart', preventSelection);
+        
         // Update IDs after drop
         updateLocationIds();
     }
+}
+
+// Helper function to prevent text selection during drag
+function preventSelection(e) {
+    e.preventDefault();
+    return false;
 }
 
 // Helper function for touch drag targeting
