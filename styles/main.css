@@ -429,14 +429,19 @@ footer {
         background-color: #f8f9fa;
         border-color: var(--border-color);
     }
+    
+    #landlocs {
+        min-height: 100px;
+        overflow-y:auto;
+    }
 }
-
+/*
 #landlocs {
     min-height: 50px;
     border: 2px dashed transparent;
     border-radius: 4px;
     padding: 10px;
-}
+}*/
 
 #landlocs:empty::before {
     content: "No land locations added yet. Click 'Add Location' to get started.";
