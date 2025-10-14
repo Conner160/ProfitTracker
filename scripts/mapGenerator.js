@@ -23,7 +23,7 @@ async function generateMaps(entries, grouping = 'day') {
             }
             
             const mapUrls = generateMapUrls(locations);
-            window.uiManager.showNotification(mapUrls);
+            window.uiManager.showNotification(`${mapUrls}`);
             
             mapUrls.forEach((url, urlIndex) => {
                 setTimeout(() => {
