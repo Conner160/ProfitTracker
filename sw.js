@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v4.21';
+const CACHE_NAME = 'profittracker-v4.20.01';
 const ASSETS = [
   './',
   './index.html',
