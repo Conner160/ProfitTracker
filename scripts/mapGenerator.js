@@ -92,8 +92,8 @@ function extractLocationsFromGroup(group) {
         }
     });
     
-    const uniqueLocations = [...new Set(allLocations)];
-    return uniqueLocations
+    // Preserve order and allow duplicates - process each location in sequence
+    return allLocations
         .map(location => window.communityCodes.processLocationForMaps(location))
         .filter(location => location);
 }
