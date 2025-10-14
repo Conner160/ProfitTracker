@@ -380,7 +380,7 @@ footer {
 
 .landloc_p.dragging {
     opacity: 0.5;
-    transform: rotate(5deg);
+    /*transform: rotate(5deg);*/
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     z-index: 1000;
 }
@@ -389,12 +389,12 @@ footer {
 .landloc_p.long-press-pending {
     background-color: #fff3cd;
     border-color: #ffeaa7;
-    animation: longPressPulse 2s ease-in-out;
+    animation: longPressPulse 0.5s ease-in-out;
 }
 
 .landloc_p.touch-dragging {
     opacity: 0.8;
-    transform: rotate(3deg) scale(1.05);
+    /*transform: rotate(3deg) scale(1.05);*/
     box-shadow: 0 6px 12px rgba(0,0,0,0.3);
     z-index: 1001;
     transition: none;

@@ -109,7 +109,7 @@ function handleTouchStart(e) {
     const siblings = Array.from(parent.children);
     touchState.originalPosition = siblings.indexOf(e.target);
     
-    // Start long press timer (2 seconds)
+    // Start long press timer (0.5 seconds)
     touchState.longPressTimer = setTimeout(() => {
         startTouchDrag(e.target);
     }, 500);
