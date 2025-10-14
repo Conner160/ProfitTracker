@@ -187,7 +187,7 @@ async function loadEntries() {
                      data-per-diem="${entry.perDiem}" 
                      data-notes="${entry.notes || ''}"
                      data-expenses="${expenseData}"
-                     data-land-locations="${landLocationsData}">`
+                     data-land-locations="${landLocationsData}">
                     <div class="entry-header">
                         <span class="entry-date">${window.dateUtils.formatDateForDisplay(entry.date)}</span>
                         <span class="entry-total">Net: $${entryTotals.netTotal.toFixed(2)}</span>
