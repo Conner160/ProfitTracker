@@ -121,7 +121,17 @@ async function checkAndPopulateExistingEntry(date) {
             window.locationManager.setLandLocations(existingEntry.landLocations || []);
             
             window.calculations.calculateEarnings();
-        } else {
+        } else if((document.getElementById('points').value !== '' ||
+                  document.getElementById('kms').value !== '' ||
+                  document.getElementById('notes').value !== '' ||
+                  document.getElementById('hotel-expense').value !== '' ||
+                  document.getElementById('gas-expense').value !== '' ||
+                  document.getElementById('food-expense').value !== '' ||
+                  window.locationManager.getLandLocations().length > 0 ) && confirm('No entry exists for this date. Keep data currently in form? (Confirm for yes, cancel to clear entries)')){
+            // Keep current form data
+            window.calculations.calculateEarnings();
+        } else {    
+
             // Clear form fields if no existing entry (except date)
             document.getElementById('points').value = '';
             document.getElementById('kms').value = '';
