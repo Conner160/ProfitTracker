@@ -1,4 +1,19 @@
-// Function to add land location
+/**
+ * Location Manager Module
+ * Handles land location management with drag-and-drop functionality.
+ * Supports both desktop drag-and-drop and mobile touch-based dragging
+ * with long-press activation. Manages location creation, deletion,
+ * reordering, and form integration for daily entries.
+ */
+
+/**
+ * Prompts user to add a new land location and creates draggable element
+ * Shows input prompt, creates new location element with drag functionality,
+ * and updates location IDs. Called when user clicks the "Add Location" button.
+ * 
+ * @function addLandLocation
+ * @returns {void}
+ */
 function addLandLocation() {
     const location = prompt('Enter land location:');
     
@@ -8,25 +23,43 @@ function addLandLocation() {
         locationElement.classList.add("landloc_p");
         locationElement.textContent = location.trim();
         
-        // Make element draggable
+        // Enable drag-and-drop functionality
         makeDraggable(locationElement);
         
         landlocsDiv.appendChild(locationElement);
         
-        // Update all IDs after adding
+        // Update sequential IDs after adding new location
         updateLocationIds();
     }
 }
 
+/**
+ * Deletes a land location after user confirmation
+ * Shows confirmation dialog and removes the location element from DOM.
+ * Updates remaining location IDs to maintain sequential order.
+ * 
+ * @function deleteLocation
+ * @param {string} id - Element ID of the location to delete
+ * @returns {void}
+ */
 function deleteLocation(id) {
     if (confirm("Delete this location?")) {
         document.getElementById(id).remove();
-        // Update all IDs after deletion
+        // Update all IDs after deletion to maintain sequence
         updateLocationIds();
     }
 }
 
-// Function to make a location element draggable
+/**
+ * Adds drag-and-drop functionality to a location element
+ * Sets up both desktop drag events and mobile touch events with long-press
+ * activation. Includes click handling for deletion and prevents conflicts
+ * between drag and click operations.
+ * 
+ * @function makeDraggable
+ * @param {HTMLElement} element - The location element to make draggable
+ * @returns {void}
+ */
 function makeDraggable(element) {
     element.draggable = true;
     element.style.cursor = 'move';
@@ -51,20 +84,29 @@ function makeDraggable(element) {
     });
 }
 
-// Drag and drop event handlers
-let draggedElement = null;
+// Desktop drag-and-drop state management
+let draggedElement = null; // Currently dragged element reference
 
-// Touch drag state
+// Mobile touch drag state object - tracks touch interaction details
 let touchState = {
-    element: null,
-    isDragging: false,
-    longPressTimer: null,
-    startY: 0,
-    currentY: 0,
-    scrollEnabled: true,
-    originalPosition: null
+    element: null,        // Element being touched/dragged
+    isDragging: false,    // Whether active drag is in progress
+    longPressTimer: null, // Timer for long-press activation
+    startY: 0,           // Initial touch Y coordinate
+    currentY: 0,         // Current touch Y coordinate
+    scrollEnabled: true,  // Whether page scrolling is enabled
+    originalPosition: null // Original element position for restoration
 };
 
+/**
+ * Handles the start of a desktop drag operation
+ * Sets up drag state and applies visual feedback. Called when user
+ * starts dragging an element on desktop browsers.
+ * 
+ * @function handleDragStart
+ * @param {DragEvent} e - Browser drag event
+ * @returns {void}
+ */
 function handleDragStart(e) {
     draggedElement = e.target;
     e.target.classList.add('dragging');
@@ -96,7 +138,15 @@ function handleDragEnd(e) {
     draggedElement = null;
 }
 
-// Touch event handlers for mobile drag and drop
+/**
+ * Handles the start of a mobile touch interaction
+ * Begins long-press timer for drag activation and stores touch coordinates.
+ * Provides visual feedback during long-press detection period.
+ * 
+ * @function handleTouchStart
+ * @param {TouchEvent} e - Browser touch event
+ * @returns {void}
+ */
 function handleTouchStart(e) {
     const touch = e.touches[0];
     touchState.element = e.target;
@@ -277,7 +327,15 @@ function updateLocationIds() {
     });
 }
 
-// Function to initialize drag and drop for existing locations
+/**
+ * Initializes drag-and-drop functionality for all existing location elements
+ * Scans for existing location elements and applies drag functionality to each.
+ * Also ensures all elements have proper sequential IDs. Called during app
+ * initialization to set up any pre-existing locations.
+ * 
+ * @function initializeDragAndDrop
+ * @returns {void}
+ */
 function initializeDragAndDrop() {
     const landlocsDiv = document.getElementById('landlocs');
     if (landlocsDiv) {
@@ -289,14 +347,29 @@ function initializeDragAndDrop() {
     }
 }
 
-// Function to get all current land locations
+/**
+ * Retrieves all current land location names as an array
+ * Extracts text content from all location elements in current order.
+ * Used when saving daily entries to capture current locations.
+ * 
+ * @function getLandLocations
+ * @returns {Array<string>} Array of location names in current order
+ */
 function getLandLocations() {
     const landlocsDiv = document.getElementById('landlocs');
     const locationElements = landlocsDiv.querySelectorAll('.landloc_p');
     return Array.from(locationElements).map(element => element.textContent.trim());
 }
 
-// Function to set land locations (for form population)
+/**
+ * Populates the land locations section with provided location names
+ * Clears existing locations and creates new draggable elements for each
+ * location in the provided array. Used when editing existing entries.
+ * 
+ * @function setLandLocations
+ * @param {Array<string>} locations - Array of location names to display
+ * @returns {void}
+ */
 function setLandLocations(locations) {
     const landlocsDiv = document.getElementById('landlocs');
     // Clear existing locations
@@ -322,13 +395,20 @@ function setLandLocations(locations) {
     }
 }
 
-// Function to clear all land locations
+/**
+ * Removes all land locations from the display
+ * Clears the land locations container completely. Used when
+ * clearing the form or starting fresh entry.
+ * 
+ * @function clearLandLocations
+ * @returns {void}
+ */
 function clearLandLocations() {
     const landlocsDiv = document.getElementById('landlocs');
     landlocsDiv.innerHTML = '';
 }
 
-// Make functions available globally
+// Export functions for global access
 window.locationManager = {
     addLandLocation,
     deleteLocation,

@@ -1,10 +1,29 @@
-// Database initialization and functions
-const DB_NAME = 'ProfitTrackerDB';
-const DB_VERSION = 1;
-let db;
+/**
+ * Database Module
+ * Manages IndexedDB operations for persistent storage of daily entries
+ * and user settings. Provides Promise-based API for create, read, update,
+ * and delete operations on the ProfitTracker database.
+ */
 
+// Database configuration constants
+const DB_NAME = 'ProfitTrackerDB';  // IndexedDB database name
+const DB_VERSION = 1;               // Database schema version
+let db;                            // Global database connection reference
+
+/**
+ * Initializes the IndexedDB database with required object stores
+ * Creates 'entries' store for daily entry data and 'settings' store for
+ * user preferences. Sets up indexes and handles database upgrades.
+ * Must be called before any other database operations.
+ * 
+ * @async
+ * @function initDB
+ * @returns {Promise<void>} Resolves when database is ready for use
+ * @throws {string} Rejects with error message if IndexedDB not supported
+ */
 function initDB() {
     return new Promise((resolve, reject) => {
+        // Check for IndexedDB browser support
         if (!window.indexedDB) {
             reject('IndexedDB not supported');
             return;
@@ -40,6 +59,19 @@ function initDB() {
     });
 }
 
+/**
+ * Saves data to specified database store using upsert operation
+ * Uses IndexedDB put() method which inserts new records or updates
+ * existing records based on the primary key. Handles both daily
+ * entries and settings storage.
+ * 
+ * @async
+ * @function saveToDB
+ * @param {string} storeName - Name of the object store ('entries' or 'settings')
+ * @param {Object} data - Data object to save (must include appropriate key field)
+ * @returns {Promise<void>} Resolves when save operation completes
+ * @throws {Error} Rejects with database error if save fails
+ */
 function saveToDB(storeName, data) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([storeName], 'readwrite');
@@ -52,6 +84,18 @@ function saveToDB(storeName, data) {
     });
 }
 
+/**
+ * Retrieves a single record from database by primary key
+ * Performs indexed lookup for fast retrieval of specific entries
+ * or settings records.
+ * 
+ * @async
+ * @function getFromDB
+ * @param {string} storeName - Name of the object store to query
+ * @param {string|number} key - Primary key value to retrieve
+ * @returns {Promise<Object|undefined>} Resolves with found record or undefined
+ * @throws {Error} Rejects with database error if query fails
+ */
 function getFromDB(storeName, key) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([storeName], 'readonly');
@@ -64,6 +108,17 @@ function getFromDB(storeName, key) {
     });
 }
 
+/**
+ * Retrieves all records from the specified database store
+ * Performs full table scan to return every record in the store.
+ * Used for loading complete entry lists and bulk operations.
+ * 
+ * @async
+ * @function getAllFromDB
+ * @param {string} storeName - Name of the object store to query
+ * @returns {Promise<Array<Object>>} Resolves with array of all records in store
+ * @throws {Error} Rejects with database error if query fails
+ */
 function getAllFromDB(storeName) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([storeName], 'readonly');
@@ -76,6 +131,18 @@ function getAllFromDB(storeName) {
     });
 }
 
+/**
+ * Deletes a single record from database by primary key
+ * Permanently removes the specified record from the database store.
+ * Used for entry deletion and settings cleanup.
+ * 
+ * @async
+ * @function deleteFromDB
+ * @param {string} storeName - Name of the object store to modify
+ * @param {string|number} key - Primary key of record to delete
+ * @returns {Promise<void>} Resolves when deletion completes
+ * @throws {Error} Rejects with database error if deletion fails
+ */
 function deleteFromDB(storeName, key) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([storeName], 'readwrite');

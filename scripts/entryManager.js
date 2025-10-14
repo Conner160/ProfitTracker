@@ -1,41 +1,67 @@
+/**
+ * Entry Manager Module
+ * Handles all daily entry CRUD operations, form management, and data validation
+ * for the ProfitTracker application. This module manages the creation, editing,
+ * deletion, and display of daily work entries including points, kilometers,
+ * per diem, expenses, and land locations.
+ */
+
+/**
+ * Saves a new daily entry or updates an existing one with form data
+ * Collects all form inputs including points, kilometers, expenses, notes,
+ * and land locations, then saves to IndexedDB. Handles duplicate date
+ * checking and user confirmation for overwrites.
+ * 
+ * @async
+ * @function saveEntry
+ * @returns {Promise<void>} Resolves when entry is successfully saved
+ * @throws {Error} If database save operation fails
+ */
 async function saveEntry() {
+    // Extract form input values with safe parsing and defaults
     const dateInput = document.getElementById('work-date').value;
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
     const perDiem = document.getElementById('per-diem').checked;
     const notes = document.getElementById('notes').value;
     
-    // Get expense values
+    // Extract expense values from form inputs with fallback to 0
     const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
     const gasExpense = parseFloat(document.getElementById('gas-expense').value) || 0;
     const foodExpense = parseFloat(document.getElementById('food-expense').value) || 0;
     
+    // Structure expense data for database storage
     const expenses = {
         hotel: hotelExpense,
         gas: gasExpense,
         food: foodExpense
     };
 
-    // Get land locations
+    // Get current land locations from the location manager
     const landLocations = window.locationManager.getLandLocations();
 
+    // Check for existing entries on the same date to prevent duplicates
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
 
+    // Handle duplicate date scenario with user confirmation
     if (existingEntry) {
         const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
                               `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
                               `New: ${points} pts, ${kms} km\n\n` +
                               `Keep new entry? (Cancel to keep old entry)`);
         
+        // If user cancels, abort save operation
         if (!keepNew) {
             window.uiManager.showNotification('Entry not saved - kept existing entry');
             return;
         }
 
+        // Delete existing entry to replace with new data
         await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
     }
 
+    // Create complete entry object with all form data and metadata
     const entry = {
         date: dateInput,
         points,
@@ -44,14 +70,18 @@ async function saveEntry() {
         notes,
         expenses,
         landLocations,
-        timestamp: new Date().getTime()
+        timestamp: new Date().getTime() // Track when entry was created/modified
     };
 
+    // Attempt to save entry to database with error handling
     try {
         await window.dbFunctions.saveToDB('entries', entry);
+        
+        // Refresh UI components after successful save
         window.calculations.calculateEarnings();
-        loadEntries();
-        clearForm();
+        loadEntries(); // Reload entries list to show updated data
+        clearForm();   // Reset form for next entry
+        
         window.uiManager.showNotification('Entry saved successfully!');
     } catch (error) {
         console.error('Error saving entry:', error);
@@ -59,67 +89,111 @@ async function saveEntry() {
     }
 }
 
+/**
+ * Clears all form inputs and resets the daily entry form to default state
+ * Resets all input fields, checkboxes, expenses, land locations, and 
+ * recalculates earnings display. Typically called after successful save
+ * or when user wants to start fresh.
+ * 
+ * @function clearForm
+ * @returns {void}
+ */
 function clearForm() {
+    // Clear primary input fields
     document.getElementById('points').value = '';
     document.getElementById('kms').value = '';
     document.getElementById('per-diem').checked = false;
     document.getElementById('notes').value = '';
     
-    // Clear expense fields
+    // Clear all expense input fields
     document.getElementById('hotel-expense').value = '';
     document.getElementById('gas-expense').value = '';
     document.getElementById('food-expense').value = '';
     
-    // Clear land locations
+    // Clear land locations section
     window.locationManager.clearLandLocations();
     
+    // Reset date to today and recalculate earnings display
     initializeDate();
     window.calculations.calculateEarnings();
 }
 
+/**
+ * Populates the daily entry form with data from an existing entry for editing
+ * Takes an entry object and fills all form fields with its data including
+ * points, kilometers, expenses, notes, and land locations. Used when user
+ * clicks on an existing entry to modify it.
+ * 
+ * @function populateFormForEdit
+ * @param {Object} entry - The entry object containing all saved data
+ * @param {string} entry.date - ISO date string (YYYY-MM-DD)
+ * @param {number} entry.points - Number of points earned
+ * @param {number} entry.kms - Number of kilometers driven
+ * @param {boolean} entry.perDiem - Whether per diem was earned
+ * @param {string} entry.notes - Optional notes text
+ * @param {Object} entry.expenses - Expense breakdown object
+ * @param {Array<string>} entry.landLocations - Array of land location names
+ * @returns {void}
+ */
 function populateFormForEdit(entry) {
+    // Populate primary form fields with entry data
     document.getElementById('work-date').value = entry.date;
     document.getElementById('points').value = entry.points;
     document.getElementById('kms').value = entry.kms;
     document.getElementById('per-diem').checked = entry.perDiem;
     document.getElementById('notes').value = entry.notes || '';
     
-    // Populate expense fields
+    // Populate expense fields with fallback to empty values
     const expenses = entry.expenses || {};
     document.getElementById('hotel-expense').value = expenses.hotel || '';
     document.getElementById('gas-expense').value = expenses.gas || '';
     document.getElementById('food-expense').value = expenses.food || '';
     
-    // Populate land locations
+    // Populate land locations section with saved locations
     window.locationManager.setLandLocations(entry.landLocations || []);
     
+    // Recalculate and display updated earnings
     window.calculations.calculateEarnings();
     
-    // Scroll to the form for better user experience
+    // Scroll form into view for better user experience on mobile
     document.getElementById('daily-entry').scrollIntoView({ behavior: 'smooth' });
 }
 
+/**
+ * Checks if an entry exists for the given date and auto-populates the form
+ * Used when user changes the date picker to automatically load existing
+ * data for that date or clear the form if no entry exists. Includes smart
+ * data preservation - asks user if they want to keep current form data
+ * when switching to a date with no existing entry.
+ * 
+ * @async
+ * @function checkAndPopulateExistingEntry
+ * @param {string} date - ISO date string (YYYY-MM-DD) to check for existing entry
+ * @returns {Promise<void>} Resolves when form population is complete
+ */
 async function checkAndPopulateExistingEntry(date) {
     try {
+        // Retrieve all entries and search for matching date
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
         const existingEntry = allEntries.find(entry => entry.date === date);
         
         if (existingEntry) {
-            // Populate form with existing entry data, but don't scroll
+            // Auto-populate form with existing entry data (no scrolling)
             document.getElementById('points').value = existingEntry.points;
             document.getElementById('kms').value = existingEntry.kms;
             document.getElementById('per-diem').checked = existingEntry.perDiem;
             document.getElementById('notes').value = existingEntry.notes || '';
             
-            // Populate expense fields
+            // Populate expense fields with existing data
             const expenses = existingEntry.expenses || {};
             document.getElementById('hotel-expense').value = expenses.hotel || '';
             document.getElementById('gas-expense').value = expenses.gas || '';
             document.getElementById('food-expense').value = expenses.food || '';
             
-            // Populate land locations
+            // Populate saved land locations for this date
             window.locationManager.setLandLocations(existingEntry.landLocations || []);
             
+            // Update earnings display with loaded data
             window.calculations.calculateEarnings();
         } else if((document.getElementById('points').value !== '' ||
                   document.getElementById('kms').value !== '' ||
@@ -127,12 +201,14 @@ async function checkAndPopulateExistingEntry(date) {
                   document.getElementById('hotel-expense').value !== '' ||
                   document.getElementById('gas-expense').value !== '' ||
                   document.getElementById('food-expense').value !== '' ||
-                  window.locationManager.getLandLocations().length > 0 ) && confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')){
-            // Keep current form data
+                  window.locationManager.getLandLocations().length > 0 ) && 
+                 confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')){
+            
+            // User chose to keep current form data - just recalculate earnings
             window.calculations.calculateEarnings();
         } else {    
-
-            // Clear form fields if no existing entry (except date)
+            // No existing entry and user wants fresh form OR no current data exists
+            // Clear all form fields for new entry (preserve date)
             document.getElementById('points').value = '';
             document.getElementById('kms').value = '';
             document.getElementById('per-diem').checked = false;
@@ -141,9 +217,10 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('gas-expense').value = '';
             document.getElementById('food-expense').value = '';
             
-            // Clear land locations
+            // Clear land locations for fresh entry
             window.locationManager.clearLandLocations();
             
+            // Reset earnings display to zero values
             window.calculations.calculateEarnings();
         }
     } catch (error) {
@@ -151,9 +228,23 @@ async function checkAndPopulateExistingEntry(date) {
     }
 }
 
+/**
+ * Loads and displays all entries for the current pay period
+ * Retrieves entries from database, filters by current pay period dates,
+ * generates HTML for each entry including all data (points, expenses, 
+ * land locations), and sets up click handlers for editing. Also calculates
+ * and displays pay period summary totals.
+ * 
+ * @async
+ * @function loadEntries
+ * @returns {Promise<void>} Resolves when entries are loaded and displayed
+ */
 async function loadEntries() {
     try {
+        // Get all entries from database
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        
+        // Filter entries to current pay period date range
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
         const entries = allEntries.filter(entry => 
             entry.date >= window.appState.currentPayPeriodStart && entry.date <= payPeriodEnd
@@ -161,14 +252,17 @@ async function loadEntries() {
         
         const entriesList = document.getElementById('entries-list');
         
+        // Handle empty pay period case
         if (entries.length === 0) {
             entriesList.innerHTML = '<p>No entries for this pay period</p>';
             window.uiManager.updatePayPeriodSummary(null);
             return;
         }
         
+        // Sort entries by date (most recent first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         
+        // Calculate totals for pay period summary
         const payPeriodTotals = window.calculations.calculatePayPeriodTotals(entries);
         window.uiManager.updatePayPeriodSummary(payPeriodTotals);
         
@@ -306,7 +400,19 @@ async function loadEntries() {
     }
 }
 
+/**
+ * Deletes an entry from the database after user confirmation
+ * Shows confirmation dialog to prevent accidental deletions, then removes
+ * the entry from database and refreshes the entries display. Includes
+ * error handling and user feedback notifications.
+ * 
+ * @async
+ * @function deleteEntry
+ * @param {number} id - The unique database ID of the entry to delete
+ * @returns {Promise<void>} Resolves when deletion is complete
+ */
 async function deleteEntry(id) {
+    // Get user confirmation before proceeding with irreversible deletion
     const confirmDelete = confirm('Are you sure you want to delete this entry?\nThis action cannot be undone.');
     if (!confirmDelete) {
         window.uiManager.showNotification('Deletion cancelled');
@@ -323,13 +429,24 @@ async function deleteEntry(id) {
     }
 }
 
+/**
+ * Initializes the date picker with today's date and auto-loads existing entry
+ * Sets both the date input field and display text to today's date, then
+ * checks if an entry already exists for today and populates the form
+ * if found. Called during app initialization and form clearing.
+ * 
+ * @function initializeDate
+ * @returns {void}
+ */
 function initializeDate() {
     const today = new Date();
     const todayFormatted = window.dateUtils.formatDateForInput(today);
+    
+    // Set date picker and display to today's date
     document.getElementById('work-date').value = todayFormatted;
     document.getElementById('date-display').textContent = window.dateUtils.formatDateForDisplay(todayFormatted);
     
-    // Check if there's already an entry for today and populate if so
+    // Auto-populate form if entry already exists for today
     checkAndPopulateExistingEntry(todayFormatted);
 }
 
