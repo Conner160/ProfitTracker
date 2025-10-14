@@ -127,7 +127,7 @@ async function checkAndPopulateExistingEntry(date) {
                   document.getElementById('hotel-expense').value !== '' ||
                   document.getElementById('gas-expense').value !== '' ||
                   document.getElementById('food-expense').value !== '' ||
-                  window.locationManager.getLandLocations().length > 0 ) && confirm('No entry exists for this date. Keep data currently in form? (Confirm for yes, cancel to clear entries)')){
+                  window.locationManager.getLandLocations().length > 0 ) && confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')){
             // Keep current form data
             window.calculations.calculateEarnings();
         } else {    
