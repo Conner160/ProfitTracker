@@ -16,6 +16,9 @@ async function saveEntry() {
         food: foodExpense
     };
 
+    // Get land locations
+    const landLocations = window.locationManager.getLandLocations();
+
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
 
@@ -40,6 +43,7 @@ async function saveEntry() {
         perDiem,
         notes,
         expenses,
+        landLocations,
         timestamp: new Date().getTime()
     };
 
@@ -66,6 +70,9 @@ function clearForm() {
     document.getElementById('gas-expense').value = '';
     document.getElementById('food-expense').value = '';
     
+    // Clear land locations
+    window.locationManager.clearLandLocations();
+    
     initializeDate();
     window.calculations.calculateEarnings();
 }
@@ -82,6 +89,9 @@ function populateFormForEdit(entry) {
     document.getElementById('hotel-expense').value = expenses.hotel || '';
     document.getElementById('gas-expense').value = expenses.gas || '';
     document.getElementById('food-expense').value = expenses.food || '';
+    
+    // Populate land locations
+    window.locationManager.setLandLocations(entry.landLocations || []);
     
     window.calculations.calculateEarnings();
     
@@ -107,6 +117,9 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('gas-expense').value = expenses.gas || '';
             document.getElementById('food-expense').value = expenses.food || '';
             
+            // Populate land locations
+            window.locationManager.setLandLocations(existingEntry.landLocations || []);
+            
             window.calculations.calculateEarnings();
         } else {
             // Clear form fields if no existing entry (except date)
@@ -117,6 +130,9 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';
             document.getElementById('food-expense').value = '';
+            
+            // Clear land locations
+            window.locationManager.clearLandLocations();
             
             window.calculations.calculateEarnings();
         }
@@ -159,6 +175,9 @@ async function loadEntries() {
             // Prepare expense data for editing
             const expenseData = JSON.stringify(expenses).replace(/"/g, '&quot;');
             
+            // Prepare land locations data for editing
+            const landLocationsData = JSON.stringify(entry.landLocations || []).replace(/"/g, '&quot;');
+            
             return `
                 <div class="entry-item editable-entry" 
                      data-id="${entry.id}"
@@ -167,7 +186,8 @@ async function loadEntries() {
                      data-kms="${entry.kms}" 
                      data-per-diem="${entry.perDiem}" 
                      data-notes="${entry.notes || ''}"
-                     data-expenses="${expenseData}">
+                     data-expenses="${expenseData}"
+                     data-land-locations="${landLocationsData}">`
                     <div class="entry-header">
                         <span class="entry-date">${window.dateUtils.formatDateForDisplay(entry.date)}</span>
                         <span class="entry-total">Net: $${entryTotals.netTotal.toFixed(2)}</span>
@@ -213,6 +233,13 @@ async function loadEntries() {
                             <span>-$${entryTotals.totalExpenses.toFixed(2)}</span>
                         </div>` : ''}
                         ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
+                        ${entry.landLocations && entry.landLocations.length > 0 ? `
+                        <div class="entry-land-locations">
+                            <strong>Land Locations:</strong>
+                            <div class="land-locations-list">
+                                ${entry.landLocations.map(location => `<span class="location-tag">${location}</span>`).join('')}
+                            </div>
+                        </div>` : ''}
                         <button class="delete-entry" data-id="${entry.id}">Delete</button>
                     </div>
                 </div>
@@ -243,6 +270,14 @@ async function loadEntries() {
                     expenses = {};
                 }
                 
+                const landLocationsData = entryElement.dataset.landLocations;
+                let landLocations = [];
+                try {
+                    landLocations = JSON.parse(landLocationsData.replace(/&quot;/g, '"'));
+                } catch (error) {
+                    landLocations = [];
+                }
+                
                 const entryData = {
                     id: parseInt(entryElement.dataset.id),
                     date: entryElement.dataset.date,
@@ -250,7 +285,8 @@ async function loadEntries() {
                     kms: parseFloat(entryElement.dataset.kms),
                     perDiem: entryElement.dataset.perDiem === 'true',
                     notes: entryElement.dataset.notes,
-                    expenses: expenses
+                    expenses: expenses,
+                    landLocations: landLocations
                 };
                 populateFormForEdit(entryData);
             });

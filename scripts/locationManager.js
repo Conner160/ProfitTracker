@@ -289,9 +289,51 @@ function initializeDragAndDrop() {
     }
 }
 
+// Function to get all current land locations
+function getLandLocations() {
+    const landlocsDiv = document.getElementById('landlocs');
+    const locationElements = landlocsDiv.querySelectorAll('.landloc_p');
+    return Array.from(locationElements).map(element => element.textContent.trim());
+}
+
+// Function to set land locations (for form population)
+function setLandLocations(locations) {
+    const landlocsDiv = document.getElementById('landlocs');
+    // Clear existing locations
+    landlocsDiv.innerHTML = '';
+    
+    // Add each location
+    if (locations && Array.isArray(locations)) {
+        locations.forEach(locationText => {
+            if (locationText && locationText.trim()) {
+                const locationElement = document.createElement('p');
+                locationElement.classList.add("landloc_p");
+                locationElement.textContent = locationText.trim();
+                
+                // Make element draggable
+                makeDraggable(locationElement);
+                
+                landlocsDiv.appendChild(locationElement);
+            }
+        });
+        
+        // Update all IDs after adding
+        updateLocationIds();
+    }
+}
+
+// Function to clear all land locations
+function clearLandLocations() {
+    const landlocsDiv = document.getElementById('landlocs');
+    landlocsDiv.innerHTML = '';
+}
+
 // Make functions available globally
 window.locationManager = {
     addLandLocation,
     deleteLocation,
-    initializeDragAndDrop
+    initializeDragAndDrop,
+    getLandLocations,
+    setLandLocations,
+    clearLandLocations
 };
