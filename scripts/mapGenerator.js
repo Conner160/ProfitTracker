@@ -18,7 +18,7 @@ async function generateMaps(entries, grouping = 'day') {
         
         groups.forEach((group, groupIndex) => {
             const locations = extractLocationsFromGroup(group);
-            
+            window.uiManager.showNotification(`${locations}`);
             if (locations.length === 0) {
                 return;
             }
