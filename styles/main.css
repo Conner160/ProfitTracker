@@ -476,3 +476,78 @@ footer {
     font-size: 0.85em;
     display: inline-block;
 }
+
+/* Map Generation Styles */
+#map-generation-section {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+#map-generation-section h4 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+#map-grouping-options {
+    margin-bottom: 15px;
+}
+
+#map-grouping-options label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.radio-group label {
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.radio-group input[type="radio"] {
+    margin: 0;
+}
+
+#generate-map {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+#generate-map:hover {
+    background-color: #218838;
+}
+
+#file-gen-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Responsive adjustments for map generation */
+@media (max-width: 600px) {
+    .radio-group {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    #file-gen-buttons {
+        align-items: stretch;
+    }
+}

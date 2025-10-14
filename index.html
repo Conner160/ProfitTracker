@@ -46,16 +46,18 @@
             </div>
             <div id="file-gen-buttons">
                 <button id="generate-csv">Generate CSV</button>
-                <!--TODO
-                    -Generate Map by opening a new tab with a link to Google Maps with the locations in the csv as waypoints. Allow user to predefine if there should be a new map for every day, week, or pay period in the form of radio buttons. 
-                        - The link should be in the format:
-                        if the CSV has locations NB, R, WC, the link will be:
-                        https://www.google.com/maps/dir/North+Battleford,+SK/Regina,+SK/White+City,+SK/, the csv will have the locations in order, in community code form or land locations coords. These will need to be converted to names or coords, and the ", +SK/" added to the end of each location.
-                        - If too many waypoints, split into multiple links. where the last stop on the prebious link is the first stop on the next link.
-                        - Points from the CSV file will be in multiple forms, there can be gps coords, and community codes that will need to be converted to names.
-                            - Build a const for common community codes to names.
-                        
-                    -->
+                <div id="map-generation-section">
+                    <h4>Map Generation</h4>
+                    <div id="map-grouping-options">
+                        <label>Group maps by:</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="map-grouping" value="day" checked> Day</label>
+                            <label><input type="radio" name="map-grouping" value="week"> Week</label>
+                            <label><input type="radio" name="map-grouping" value="period"> Pay Period</label>
+                        </div>
+                    </div>
+                    <button id="generate-map">Generate Maps</button>
+                </div>
             </div>
         </section>
 
@@ -173,6 +175,8 @@
     <script src="scripts/settingsManager.js"></script>
     <script src="scripts/locationManager.js"></script>
     <script src="scripts/entryManager.js"></script>
+    <script src="scripts/communityCodes.js"></script>
+    <script src="scripts/mapGenerator.js"></script>
 
     <!-- Main application -->
     <script src="scripts/app.js"></script>

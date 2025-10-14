@@ -149,6 +149,9 @@ function setupEventListeners() {
     // Land location management
     document.getElementById('addloc').addEventListener('click', window.locationManager.addLandLocation);
     
+    // Map generation
+    document.getElementById('generate-map').addEventListener('click', window.mapGenerator.handleGenerateMap);
+    
     // Settings changes that affect calculations and display
     // Recalculate current form AND reload entries list when rates change
     document.getElementById('point-rate').addEventListener('change', () => {
