@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
             .then(registration => {
-                console.log('ServiceWorker registered. Version:', registration.scope);
+                console.log('ServiceWorker registered. Version:', window.CACHE_NAME);
                 initializeApp();
             })
             .catch(err => {
