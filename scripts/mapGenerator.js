@@ -221,9 +221,16 @@ function createMapUrl(locations) {
     
     const baseUrl = 'https://www.google.com/maps/dir/';
     
-    const encodedLocations = locations.map(location => 
-        encodeURIComponent(location.replace(/\s+/g, '+'))
-    ).join('/');
+    const encodedLocations = locations.map(location => {
+        // Check if it's GPS coordinates (contains comma with numbers)
+        if (window.communityCodes.isGPSCoordinates(location)) {
+            // For coordinates: just remove spaces, don't add +
+            return encodeURIComponent(location.replace(/\s+/g, ''));
+        } else {
+            // For location names: replace spaces with +
+            return encodeURIComponent(location.replace(/\s+/g, '+'));
+        }
+    }).join('/');
     
     return baseUrl + encodedLocations + '/';
 }
