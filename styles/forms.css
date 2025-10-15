@@ -101,7 +101,7 @@ input[type="checkbox"] {
 
 #de-heading {
     order: 1;
-    width: 100%;
+    min-width: 95%;
 }
 
 #de-date {
