@@ -111,16 +111,15 @@ async function generateMaps(entries, grouping = 'day') {
                 groupLabel = 'Pay Period Maps';
             }
             
-            if (isMobile) {
-                // Mobile: Display clickable links
-                displayMapLinks(mapUrls, groupLabel);
-                totalMapsGenerated += mapUrls.length;
-            } else {
-                // Desktop: Open in new tabs
+            // Always display clickable links for all devices
+            displayMapLinks(mapUrls, groupLabel);
+            totalMapsGenerated += mapUrls.length;
+            
+            if (!isMobile) {
+                // Desktop: Also auto-open tabs (in addition to showing links)
                 mapUrls.forEach((url, urlIndex) => {
                     setTimeout(() => {
                         window.open(url, '_blank');
-                        totalMapsGenerated++;
                     }, (groupIndex * mapUrls.length + urlIndex) * 500);
                 });
             }
