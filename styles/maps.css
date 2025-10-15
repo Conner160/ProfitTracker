@@ -1,0 +1,139 @@
+/* Map generation styles */
+#map-generation-section {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: var(--light-bg);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+#map-generation-section h4 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+#map-grouping-options {
+    margin-bottom: 15px;
+}
+
+#map-grouping-options > label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+}
+
+#generate-map {
+    background-color: var(--success-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+#generate-map:hover {
+    background-color: var(--success-hover);
+}
+
+/* Map links display */
+#map-links-container {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid var(--primary-color);
+}
+
+#map-links-container h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.map-group {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: var(--light-bg);
+    border-radius: 6px;
+}
+
+.map-group:last-child {
+    margin-bottom: 0;
+}
+
+.map-group h4 {
+    margin: 0 0 10px 0;
+    color: var(--secondary-color);
+    font-size: 16px;
+}
+
+.map-link-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    transition: box-shadow 0.2s;
+}
+
+.map-link-item:hover {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.map-link-item:last-child {
+    margin-bottom: 0;
+}
+
+.map-link {
+    flex: 1;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.map-link:hover {
+    background-color: #f0f7ff;
+    text-decoration: underline;
+}
+
+.copy-link-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.copy-link-btn:hover {
+    background-color: var(--primary-color);
+}
+
+/* Responsive map generation adjustments */
+@media (max-width: 600px) {
+    .map-link-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+    }
+    
+    .map-link {
+        text-align: center;
+    }
+    
+    .copy-link-btn {
+        align-self: stretch;
+    }
+}

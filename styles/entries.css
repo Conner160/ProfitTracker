@@ -1,0 +1,193 @@
+/* Entry list and display styles */
+#entries-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.entry-item {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 15px;
+    background: white;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.entry-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.editable-entry {
+    cursor: pointer;
+}
+
+.editable-entry:hover {
+    border-color: var(--primary-color);
+}
+
+.entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
+}
+
+.entry-date {
+    color: var(--primary-color);
+}
+
+.entry-total {
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+.entry-details {
+    padding: 15px;
+}
+
+.entry-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.entry-row:last-child {
+    border-bottom: none;
+}
+
+.entry-row span:last-child {
+    font-weight: 500;
+}
+
+.entry-notes {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: var(--light-bg);
+    border-radius: 4px;
+    font-style: italic;
+    border-left: 3px solid var(--secondary-color);
+}
+
+/* Delete button */
+.delete-entry {
+    background-color: var(--error-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 10px;
+    transition: background-color 0.2s;
+}
+
+.delete-entry:hover {
+    background-color: #c82333;
+}
+
+/* Earnings display */
+#earnings-display {
+    background-color: var(--light-bg);
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid var(--success-color);
+}
+
+#earnings-display div {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#earnings-display div:last-child {
+    margin-bottom: 0;
+}
+
+.total-earnings {
+    font-size: 1.1em;
+    border-top: 2px solid var(--border-color);
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+/* Summary sections */
+.net-gross-summary {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+}
+
+.summary-row.net-total {
+    border-top: 2px solid var(--border-color);
+    padding-top: 8px;
+    margin-top: 8px;
+    font-size: 1.1em;
+}
+
+/* Pay period summary */
+#pay-period-summary {
+    background-color: var(--light-bg);
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-color);
+}
+
+#pay-period-summary h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Responsive entry adjustments */
+@media (max-width: 600px) {
+    .entry-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .entry-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    #earnings-display div {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .summary-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+}

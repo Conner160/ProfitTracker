@@ -1,0 +1,90 @@
+/* Land location management styles */
+#landlocs {
+    min-height: 120px;
+    padding: 10px;
+    border: 2px dashed var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: var(--light-bg);
+}
+
+.landloc_p {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 8px 12px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: move;
+    display: inline-block;
+    user-select: none;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.landloc_p:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.landloc_p.dragging {
+    opacity: 0.7;
+    transform: rotate(5deg);
+    z-index: 1000;
+}
+
+.landloc_p.touch-dragging {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transform: scale(1.05);
+}
+
+.landloc_p.long-press-pending {
+    animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Mobile responsive adjustments for land locations */
+@media (hover: none) and (pointer: coarse) {
+    #landlocs {
+        min-height: 300px;
+        touch-action: none;
+    }
+    
+    .landloc_p {
+        display: block;
+        margin: 8px 0;
+        padding: 12px;
+        font-size: 16px;
+        text-align: center;
+    }
+}
+
+/* Land location display in entries */
+.entry-land-locations {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: var(--light-bg);
+    border-radius: 4px;
+    border-left: 3px solid var(--primary-color);
+}
+
+.land-locations-list {
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.location-tag {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    display: inline-block;
+}

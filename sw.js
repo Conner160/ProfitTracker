@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v4.20.04';
+const CACHE_NAME = 'profittracker-v4.20.05';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
+        console.log('Fetching:', event.request.url);
         return response || fetch(event.request);
       })
   );
@@ -40,6 +41,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
+            console.log('Deleting old cache:', cache);
             return caches.delete(cache);
           }
         })
