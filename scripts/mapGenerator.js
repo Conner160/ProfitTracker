@@ -188,7 +188,7 @@ function extractLocationsFromGroup(group) {
     });
     
     // Convert to array of day objects with processed locations
-    return Object.keys(locationsByDate)
+    const dayGroups = Object.keys(locationsByDate)
         .sort() // Ensure chronological order
         .map(date => ({
             date,
@@ -197,6 +197,39 @@ function extractLocationsFromGroup(group) {
                 .filter(location => location)
         }))
         .filter(day => day.locations.length > 0);
+    
+    // Remove consecutive duplicates across day boundaries
+    return removeConsecutiveDuplicates(dayGroups);
+}
+
+/**
+ * Removes consecutive duplicate locations across day boundaries
+ * @param {Array} dayGroups - Array of {date, locations} objects
+ * @returns {Array} Day groups with consecutive duplicates removed
+ */
+function removeConsecutiveDuplicates(dayGroups) {
+    if (dayGroups.length <= 1) return dayGroups;
+    
+    const cleanedGroups = [...dayGroups];
+    
+    for (let i = 1; i < cleanedGroups.length; i++) {
+        const prevDay = cleanedGroups[i - 1];
+        const currentDay = cleanedGroups[i];
+        
+        if (prevDay.locations.length > 0 && currentDay.locations.length > 0) {
+            const lastLocationPrevDay = prevDay.locations[prevDay.locations.length - 1];
+            const firstLocationCurrentDay = currentDay.locations[0];
+            
+            // Compare locations (case-insensitive and trimmed)
+            if (lastLocationPrevDay.toLowerCase().trim() === firstLocationCurrentDay.toLowerCase().trim()) {
+                // Remove the first location of the current day (keep the last of previous day)
+                cleanedGroups[i].locations = currentDay.locations.slice(1);
+            }
+        }
+    }
+    
+    // Filter out any days that now have no locations
+    return cleanedGroups.filter(day => day.locations.length > 0);
 }
 
 function generateMapUrls(dayGroups) {

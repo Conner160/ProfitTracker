@@ -15,6 +15,19 @@ window.appState = {
  * Sets up service worker for PWA functionality, then starts app initialization
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // Display version info in console
+    console.log('🚀 ProfitTracker App Loading...');
+    
+    // Wait for service worker to be ready to get version
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(() => {
+            // Access the cache name from the service worker
+            if (self.CACHE_NAME) {
+                console.log('📦 App Version:', self.CACHE_NAME);
+            }
+        });
+    }
+    
     // Register service worker for offline functionality (PWA)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
