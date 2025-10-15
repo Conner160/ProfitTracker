@@ -94,12 +94,12 @@ async function generateMaps(entries, grouping = 'day') {
         }
         
         groups.forEach((group, groupIndex) => {
-            const locations = extractLocationsFromGroup(group);
-            if (locations.length === 0) {
+            const dayGroups = extractLocationsFromGroup(group);
+            if (dayGroups.length === 0) {
                 return;
             }
 
-            const mapUrls = generateMapUrls(locations);
+            const mapUrls = generateMapUrls(dayGroups);
             
             // Determine group label
             let groupLabel = 'Maps';
@@ -170,47 +170,87 @@ function getWeekStart(date) {
 }
 
 function extractLocationsFromGroup(group) {
-    const allLocations = [];
+    const locationsByDate = {};
     
+    // Group locations by date first
     group.forEach(entry => {
+        if (!locationsByDate[entry.date]) {
+            locationsByDate[entry.date] = [];
+        }
+        
         if (entry.landLocations && Array.isArray(entry.landLocations)) {
             entry.landLocations.forEach(location => {
                 if (location && location.trim()) {
-                    allLocations.push(location.trim());
+                    locationsByDate[entry.date].push(location.trim());
                 }
             });
         }
     });
     
-    // Preserve order and allow duplicates - process each location in sequence
-    return allLocations
-        .map(location => window.communityCodes.processLocationForMaps(location))
-        .filter(location => location);
+    // Convert to array of day objects with processed locations
+    return Object.keys(locationsByDate)
+        .sort() // Ensure chronological order
+        .map(date => ({
+            date,
+            locations: locationsByDate[date]
+                .map(location => window.communityCodes.processLocationForMaps(location))
+                .filter(location => location)
+        }))
+        .filter(day => day.locations.length > 0);
 }
 
-function generateMapUrls(locations) {
-    if (locations.length === 0) return [];
+function generateMapUrls(dayGroups) {
+    if (!dayGroups || dayGroups.length === 0) return [];
     
     const maxWaypoints = 10;
     const urls = [];
     
-    if (locations.length <= maxWaypoints) {
-        urls.push(createMapUrl(locations));
-    } else {
-        let startIndex = 0;
+    let currentMapLocations = [];
+    
+    for (let i = 0; i < dayGroups.length; i++) {
+        const day = dayGroups[i];
+        const dayLocations = day.locations;
         
-        while (startIndex < locations.length) {
-            let endIndex = Math.min(startIndex + maxWaypoints, locations.length);
-            let routeLocations = locations.slice(startIndex, endIndex);
-            
-            if (endIndex < locations.length) {
-                startIndex = endIndex - 1;
-            } else {
-                startIndex = endIndex;
+        // If this single day has more than 10 stops, it needs its own map(s)
+        if (dayLocations.length > maxWaypoints) {
+            // First, finish current map if it has locations
+            if (currentMapLocations.length > 0) {
+                urls.push(createMapUrl(currentMapLocations));
+                currentMapLocations = [];
             }
             
-            urls.push(createMapUrl(routeLocations));
+            // Split this day across multiple maps with overlapping waypoints
+            let startIndex = 0;
+            while (startIndex < dayLocations.length) {
+                let endIndex = Math.min(startIndex + maxWaypoints, dayLocations.length);
+                let routeLocations = dayLocations.slice(startIndex, endIndex);
+                
+                urls.push(createMapUrl(routeLocations));
+                
+                if (endIndex < dayLocations.length) {
+                    startIndex = endIndex - 1; // Overlap last stop with next map's first stop
+                } else {
+                    startIndex = endIndex;
+                }
+            }
+        } else {
+            // Check if adding this day would exceed waypoint limit
+            if (currentMapLocations.length + dayLocations.length > maxWaypoints) {
+                // Finish current map and start new one
+                if (currentMapLocations.length > 0) {
+                    urls.push(createMapUrl(currentMapLocations));
+                    currentMapLocations = [];
+                }
+            }
+            
+            // Add this day's locations to current map
+            currentMapLocations.push(...dayLocations);
         }
+    }
+    
+    // Don't forget the last map if it has locations
+    if (currentMapLocations.length > 0) {
+        urls.push(createMapUrl(currentMapLocations));
     }
     
     return urls;
