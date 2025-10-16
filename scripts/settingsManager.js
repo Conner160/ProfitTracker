@@ -33,6 +33,8 @@ async function loadSettings() {
             document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
             document.getElementById('gst-enabled').checked = settings.includeGST !== false;
             document.getElementById('tech-code').value = settings.techCode || '';
+            document.getElementById('gst-number').value = settings.gstNumber || '';
+            document.getElementById('business-name').value = settings.businessName || '';
         }
         
         // Update per diem labels with current rates
@@ -68,7 +70,9 @@ async function saveSettings() {
         perDiemFullRate: parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE,
         perDiemPartialRate: parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE,
         includeGST: document.getElementById('gst-enabled').checked,
-        techCode: techCodeInput.toUpperCase()
+        techCode: techCodeInput.toUpperCase(),
+        gstNumber: document.getElementById('gst-number').value.trim().toUpperCase(),
+        businessName: document.getElementById('business-name').value.trim()
     };
     
     try {
@@ -123,10 +127,44 @@ async function getTechCode() {
     }
 }
 
+/**
+ * Gets the current GST number from settings
+ * @async
+ * @function getGstNumber
+ * @returns {Promise<string>} The GST number or empty string if not set
+ */
+async function getGstNumber() {
+    try {
+        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
+        return settings?.gstNumber || '';
+    } catch (error) {
+        console.error('Error getting GST number:', error);
+        return '';
+    }
+}
+
+/**
+ * Gets the current business name from settings
+ * @async
+ * @function getBusinessName
+ * @returns {Promise<string>} The business name or empty string if not set
+ */
+async function getBusinessName() {
+    try {
+        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
+        return settings?.businessName || '';
+    } catch (error) {
+        console.error('Error getting business name:', error);
+        return '';
+    }
+}
+
 // Make functions available globally
 window.settingsManager = {
     loadSettings,
     saveSettings,
     updatePerDiemLabels,
-    getTechCode
+    getTechCode,
+    getGstNumber,
+    getBusinessName
 };

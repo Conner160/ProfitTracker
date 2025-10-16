@@ -53,6 +53,9 @@ async function generateTravelSheet() {
         // Process and write entry data to Excel
         await writeEntriesToExcel(worksheet, validEntries);
         
+        // Populate template fields with settings and calculated data (use all entries for per diem counts)
+        await populateTemplateFields(worksheet, entries);
+        
         // Generate filename and download
         const filename = await window.excelManager.generateFileName(window.appState.currentPayPeriodStart);
         await window.excelManager.downloadWorkbook(workbook, filename);
@@ -177,6 +180,70 @@ async function writeEntriesToExcel(worksheet, entries) {
 }
 
 /**
+ * Populates template fields with user settings and calculated data
+ * Maps data to specific cells: B3 (tech code), B4 (GST), B5 (current date),
+ * B10/B11 (date range), A15/A19 (per diem counts), B62 (business name)
+ * 
+ * @async
+ * @function populateTemplateFields
+ * @param {ExcelJS.Worksheet} worksheet - The worksheet to write to
+ * @param {Array} entries - Array of processed entries
+ * @returns {Promise<void>}
+ */
+async function populateTemplateFields(worksheet, entries) {
+    // B3: Tech Code
+    const techCode = await window.settingsManager.getTechCode();
+    if (techCode) {
+        window.excelManager.writeCell(worksheet, 'B3', techCode);
+    }
+    
+    // B4: GST Number (optional)
+    const gstNumber = await window.settingsManager.getGstNumber();
+    if (gstNumber) {
+        window.excelManager.writeCell(worksheet, 'B4', gstNumber);
+    }
+    
+    // B5: Current Date (today's date)
+    const currentDate = window.excelManager.formatDateForExcel(new Date().toISOString().split('T')[0]);
+    window.excelManager.writeCell(worksheet, 'B5', currentDate);
+    
+    if (entries.length > 0) {
+        // Sort entries by date to get first and last dates
+        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // B10: First entry date
+        const firstEntryDate = window.excelManager.formatDateForExcel(sortedEntries[0].date);
+        window.excelManager.writeCell(worksheet, 'B10', firstEntryDate);
+        
+        // B11: Final entry date
+        const lastEntryDate = window.excelManager.formatDateForExcel(sortedEntries[sortedEntries.length - 1].date);
+        window.excelManager.writeCell(worksheet, 'B11', lastEntryDate);
+        
+        // Count per diem types
+        const fullPerDiemCount = entries.filter(entry => entry.perDiem === 'full').length;
+        const partialPerDiemCount = entries.filter(entry => entry.perDiem === 'partial').length;
+        
+        // A15: Count of full per diems
+        if (fullPerDiemCount > 0) {
+            window.excelManager.writeCell(worksheet, 'A15', fullPerDiemCount);
+        }
+        
+        // A19: Count of partial per diems
+        if (partialPerDiemCount > 0) {
+            window.excelManager.writeCell(worksheet, 'A19', partialPerDiemCount);
+        }
+    }
+    
+    // B62: Business Name (optional)
+    const businessName = await window.settingsManager.getBusinessName();
+    if (businessName) {
+        window.excelManager.writeCell(worksheet, 'B62', businessName);
+    }
+    
+    console.log('Populated template fields with user settings and calculated data');
+}
+
+/**
  * Validates that entries have the required location data
  * 
  * @function validateEntryData
@@ -226,6 +293,7 @@ window.travelSheetGenerator = {
     generateTravelSheet,
     getPayPeriodEntries,
     writeEntriesToExcel,
+    populateTemplateFields,
     validateEntryData,
     handleGenerateTravelSheet
 };
