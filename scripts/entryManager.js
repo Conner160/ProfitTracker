@@ -236,7 +236,7 @@ async function checkAndPopulateExistingEntry(date) {
             // Clear all form fields for new entry (preserve date)
             document.getElementById('points').value = '';
             document.getElementById('kms').value = '';
-            document.getElementById('per-diem').checked = false;
+            document.querySelector('input[name="per-diem"][value="full"]').checked = true;
             document.getElementById('notes').value = '';
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';

@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Register service worker for offline functionality (PWA)
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
+        navigator.serviceWorker.register('sw.js') 
             .then(registration => {
                 console.log('ServiceWorker registered. Version:', window.CACHE_NAME);
                 initializeApp();
