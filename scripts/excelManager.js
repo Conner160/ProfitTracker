@@ -121,7 +121,7 @@ function writeCell(worksheet, cellAddress, value) {
 }
 
 /**
- * Inserts new rows into the worksheet at the specified position
+ * Inserts new rows into the worksheet at the specified position and copies formatting
  * @function insertRows
  * @param {ExcelJS.Worksheet} worksheet - The worksheet to modify
  * @param {number} startRow - Row number to start inserting at (1-based)
@@ -129,7 +129,29 @@ function writeCell(worksheet, cellAddress, value) {
  * @returns {void}
  */
 function insertRows(worksheet, startRow, rowCount) {
+    // Get the reference row for formatting (row above insertion point)
+    const referenceRow = startRow - 1;
+    
+    // Insert the new rows
     worksheet.spliceRows(startRow, 0, ...Array(rowCount).fill([]));
+    
+    // Copy formatting from reference row to new rows
+    for (let newRowIndex = 0; newRowIndex < rowCount; newRowIndex++) {
+        const targetRow = startRow + newRowIndex;
+        
+        // Copy formatting for columns A, B, C
+        ['A', 'B', 'C'].forEach(col => {
+            const refCell = worksheet.getCell(`${col}${referenceRow}`);
+            const newCell = worksheet.getCell(`${col}${targetRow}`);
+            
+            // Copy border, font, and other formatting
+            if (refCell.border) newCell.border = refCell.border;
+            if (refCell.font) newCell.font = refCell.font;
+            if (refCell.fill) newCell.fill = refCell.fill;
+            if (refCell.alignment) newCell.alignment = refCell.alignment;
+            if (refCell.numFmt) newCell.numFmt = refCell.numFmt;
+        });
+    }
 }
 
 /**
@@ -139,7 +161,8 @@ function insertRows(worksheet, startRow, rowCount) {
  * @returns {string} Formatted date string (DD-MMM-YYYY)
  */
 function formatDateForExcel(dateString) {
-    const date = new Date(dateString);
+    // Handle both ISO date strings and Date objects
+    const date = typeof dateString === 'string' ? new Date(dateString + 'T12:00:00') : new Date(dateString);
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     

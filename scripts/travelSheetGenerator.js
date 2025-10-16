@@ -171,10 +171,12 @@ async function writeEntriesToExcel(worksheet, entries) {
     entries.forEach((entry) => {
         if (!entry.landLocations || entry.landLocations.length < 2) {
             // Skip entries with fewer than 2 locations (no transitions to show)
+            console.log(`Skipping entry ${entry.date} - insufficient locations:`, entry.landLocations);
             return;
         }
         
         const formattedDate = window.excelManager.formatDateForExcel(entry.date);
+        console.log(`Processing entry: ${entry.date} -> ${formattedDate}, locations:`, entry.landLocations);
         let isFirstTransitionForDate = true;
         
         // Create transition rows: R→RB, RB→S, S→R
