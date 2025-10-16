@@ -133,14 +133,27 @@ function showNotification(message, isError = false) {
  * Toggles the visibility of the settings panel
  * Shows or hides the settings panel by toggling the 'hidden' CSS class.
  * Called when user clicks the settings toggle button to access rate
- * configuration and other app preferences.
+ * configuration and other app preferences. Also scrolls to settings when opened.
  * 
  * @function toggleSettings
  * @returns {void}
  */
 function toggleSettings() {
     const settingsPanel = document.getElementById('settings-panel');
+    const isCurrentlyHidden = settingsPanel.classList.contains('hidden');
+    
     settingsPanel.classList.toggle('hidden');
+    
+    // If we just opened the settings (was hidden, now visible), scroll to it
+    if (isCurrentlyHidden) {
+        setTimeout(() => {
+            settingsPanel.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
+        }, 100); // Small delay to ensure the panel is visible before scrolling
+    }
 }
 
 // Make functions available globally
