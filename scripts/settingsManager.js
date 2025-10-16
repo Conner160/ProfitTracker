@@ -144,17 +144,17 @@ async function getGstNumber() {
 }
 
 /**
- * Gets the current business name from settings
+ * Gets the current tech name from settings
  * @async
- * @function getBusinessName
- * @returns {Promise<string>} The business name or empty string if not set
+ * @function getTechName
+ * @returns {Promise<string>} The tech name or empty string if not set
  */
-async function getBusinessName() {
+async function getTechName() {
     try {
         const settings = await window.dbFunctions.getFromDB('settings', 'rates');
         return settings?.businessName || '';
     } catch (error) {
-        console.error('Error getting business name:', error);
+        console.error('Error getting tech name:', error);
         return '';
     }
 }
@@ -166,5 +166,5 @@ window.settingsManager = {
     updatePerDiemLabels,
     getTechCode,
     getGstNumber,
-    getBusinessName
+    getTechName
 };

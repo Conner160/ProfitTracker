@@ -181,8 +181,8 @@ async function writeEntriesToExcel(worksheet, entries) {
 
 /**
  * Populates template fields with user settings and calculated data
- * Maps data to specific cells: B3 (tech code), B4 (GST), B5 (current date),
- * B10/B11 (date range), A15/A19 (per diem counts), B62 (business name)
+ * Maps data to specific cells: B2 (tech name), B3 (tech code), B4 (GST), B5 (current date),
+ * B10/B11 (date range), A15/A19 (per diem counts)
  * 
  * @async
  * @function populateTemplateFields
@@ -234,10 +234,10 @@ async function populateTemplateFields(worksheet, entries) {
         }
     }
     
-    // B62: Business Name (optional)
-    const businessName = await window.settingsManager.getBusinessName();
-    if (businessName) {
-        window.excelManager.writeCell(worksheet, 'B62', businessName);
+    // B2: Tech Name (optional)
+    const techName = await window.settingsManager.getTechName();
+    if (techName) {
+        window.excelManager.writeCell(worksheet, 'B2', techName);
     }
     
     console.log('Populated template fields with user settings and calculated data');
