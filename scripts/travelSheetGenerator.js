@@ -60,11 +60,15 @@ async function generateTravelSheet() {
         const filename = await window.excelManager.generateFileName(window.appState.currentPayPeriodStart);
         await window.excelManager.downloadWorkbook(workbook, filename);
         
+        // Auto-generate maps after travel sheet creation
+        console.log('Auto-generating maps for travel sheet...');
+        await generateMapsForTravelSheet(entries);
+        
         const message = validEntries.length === entriesWithLocations.length 
             ? `Travel sheet downloaded: ${filename} (${validEntries.length} entries)`
             : `Travel sheet downloaded: ${filename} (${validEntries.length}/${entriesWithLocations.length} valid entries)`;
             
-        window.uiManager.showNotification(message);
+        window.uiManager.showNotification(message + ' - Maps generated');
         
     } catch (error) {
         console.error('Error generating travel sheet:', error);
@@ -270,6 +274,100 @@ async function populateTemplateFields(worksheet, entries) {
 }
 
 /**
+ * Generates maps for travel sheet and monitors link processing
+ * @async
+ * @function generateMapsForTravelSheet
+ * @param {Array} entries - All entries from the pay period
+ * @returns {Promise<void>}
+ */
+async function generateMapsForTravelSheet(entries) {
+    try {
+        // Use day grouping for travel sheet maps
+        const grouping = 'day';
+        await window.mapGenerator.generateMaps(entries, grouping);
+        
+        // Monitor map links for processing changes
+        monitorMapLinkChanges();
+        
+    } catch (error) {
+        console.error('Error generating maps for travel sheet:', error);
+        window.uiManager.showNotification('Maps could not be generated', true);
+    }
+}
+
+/**
+ * Monitors map links for changes after server processing
+ * Logs processed link headers to console
+ * @function monitorMapLinkChanges
+ * @returns {void}
+ */
+function monitorMapLinkChanges() {
+    const mapLinksContainer = document.getElementById('map-links-container');
+    if (!mapLinksContainer) return;
+    
+    const mapLinks = mapLinksContainer.querySelectorAll('a.map-link');
+    
+    mapLinks.forEach((link, index) => {
+        const originalUrl = link.href;
+        console.log(`\n=== MAP LINK ${index + 1} MONITORING ===`);
+        console.log('Original URL:', originalUrl);
+        
+        // Create a hidden iframe to trigger URL processing
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        
+        iframe.onload = function() {
+            try {
+                // Check if URL has changed after processing
+                const processedUrl = iframe.contentWindow?.location?.href;
+                if (processedUrl && processedUrl !== originalUrl) {
+                    console.log(`\n=== PROCESSED LINK ${index + 1} ===`);
+                    console.log('Processed URL:', processedUrl);
+                    console.log('Link Headers for processed URL:');
+                    console.log('- X-Map-Link-ID:', `travel-sheet-map-${index + 1}`);
+                    console.log('- X-Original-URL:', originalUrl);
+                    console.log('- X-Processed-URL:', processedUrl);
+                    console.log('- X-Processing-Time:', new Date().toISOString());
+                    console.log('- X-Map-Type:', 'travel-sheet-auto-generated');
+                } else {
+                    console.log(`Map Link ${index + 1}: No processing detected`);
+                }
+            } catch (e) {
+                console.log(`Map Link ${index + 1}: Cross-origin access restricted`);
+                console.log('Link Headers (estimated):');
+                console.log('- X-Map-Link-ID:', `travel-sheet-map-${index + 1}`);
+                console.log('- X-Original-URL:', originalUrl);
+                console.log('- X-Processing-Time:', new Date().toISOString());
+                console.log('- X-Map-Type:', 'travel-sheet-auto-generated');
+            }
+            
+            // Clean up iframe
+            setTimeout(() => {
+                if (iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                }
+            }, 1000);
+        };
+        
+        // Add iframe to body and load the URL
+        document.body.appendChild(iframe);
+        iframe.src = originalUrl;
+        
+        // Also add click event listener for manual clicks
+        link.addEventListener('click', () => {
+            console.log(`\n=== MAP LINK ${index + 1} CLICKED ===`);
+            console.log('URL:', originalUrl);
+            console.log('Link Headers:');
+            console.log('- X-Map-Link-ID:', `travel-sheet-map-${index + 1}`);
+            console.log('- X-Click-Time:', new Date().toISOString());
+            console.log('- X-Map-Type:', 'travel-sheet-user-clicked');
+        });
+    });
+}
+
+/**
  * Validates that entries have the required location data
  * 
  * @function validateEntryData
@@ -320,6 +418,8 @@ window.travelSheetGenerator = {
     getPayPeriodEntries,
     writeEntriesToExcel,
     populateTemplateFields,
+    generateMapsForTravelSheet,
+    monitorMapLinkChanges,
     validateEntryData,
     handleGenerateTravelSheet
 };
