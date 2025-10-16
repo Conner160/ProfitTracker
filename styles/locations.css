@@ -89,6 +89,21 @@
     display: inline-block;
 }
 
+/* Location subtext styling */
+#de-landlocs sub {
+    display: block;
+    font-size: 0.75em;
+    color: var(--text-muted, #666);
+    line-height: 1.2;
+    margin-bottom: 2px;
+    font-weight: normal;
+    opacity: 0.8;
+}
+
+#de-landlocs sub:last-of-type {
+    margin-bottom: 8px;
+}
+
 /* Disable hover effects on touch devices */
 @media (hover: none) {
     .landloc_p:hover {
