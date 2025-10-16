@@ -39,7 +39,7 @@ async function createWorkbook(templateBuffer = null) {
 async function loadTemplate() {
     try {
         // Try to load the template file from the project
-        const response = await fetch('./travel-sheet-template.xlsx');
+        const response = await fetch('./CCC_Travel_Sheet.xlsx');
         if (response.ok) {
             const buffer = await response.arrayBuffer();
             return await createWorkbook(buffer);
