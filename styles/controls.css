@@ -91,7 +91,7 @@
     gap: 10px;
 }
 
-#generate-csv {
+#generate-travel-sheet {
     background-color: var(--primary-color);
     color: white;
     border: none;
@@ -102,7 +102,7 @@
     transition: background-color 0.2s;
 }
 
-#generate-csv:hover {
+#generate-travel-sheet:hover {
     background-color: var(--secondary-color);
 }
 
@@ -140,7 +140,7 @@
         transform: none;
     }
     
-    #generate-csv:hover {
+    #generate-travel-sheet:hover {
         background-color: #28a745;
         transform: none;
     }

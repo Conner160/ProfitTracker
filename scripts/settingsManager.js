@@ -32,6 +32,7 @@ async function loadSettings() {
             document.getElementById('per-diem-full-rate').value = settings.perDiemFullRate || PER_DIEM_FULL_RATE;
             document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
             document.getElementById('gst-enabled').checked = settings.includeGST !== false;
+            document.getElementById('tech-code').value = settings.techCode || '';
         }
         
         // Update per diem labels with current rates
@@ -52,6 +53,13 @@ async function loadSettings() {
  * @returns {Promise<void>} Resolves when settings are saved and UI is updated
  */
 async function saveSettings() {
+    // Validate tech code format before saving
+    const techCodeInput = document.getElementById('tech-code').value.trim();
+    if (techCodeInput && !/^[A-Za-z]\d{3}$/.test(techCodeInput)) {
+        window.uiManager.showNotification('Tech code must be in format C### (letter followed by 3 digits)', true);
+        return;
+    }
+
     // Collect current form values into settings object
     const settings = {
         name: 'rates', // Database key identifier
@@ -59,7 +67,8 @@ async function saveSettings() {
         kmRate: parseFloat(document.getElementById('km-rate').value) || KM_BASE_RATE,
         perDiemFullRate: parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE,
         perDiemPartialRate: parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE,
-        includeGST: document.getElementById('gst-enabled').checked
+        includeGST: document.getElementById('gst-enabled').checked,
+        techCode: techCodeInput.toUpperCase()
     };
     
     try {
@@ -98,9 +107,26 @@ function updatePerDiemLabels() {
     }
 }
 
+/**
+ * Gets the current tech code from settings
+ * @async
+ * @function getTechCode
+ * @returns {Promise<string>} The tech code or empty string if not set
+ */
+async function getTechCode() {
+    try {
+        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
+        return settings?.techCode || '';
+    } catch (error) {
+        console.error('Error getting tech code:', error);
+        return '';
+    }
+}
+
 // Make functions available globally
 window.settingsManager = {
     loadSettings,
     saveSettings,
-    updatePerDiemLabels
+    updatePerDiemLabels,
+    getTechCode
 };

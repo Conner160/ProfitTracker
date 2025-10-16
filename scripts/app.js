@@ -178,6 +178,9 @@ function setupEventListeners() {
     // Map generation
     document.getElementById('generate-map').addEventListener('click', window.mapGenerator.handleGenerateMap);
     
+    // Travel sheet generation
+    document.getElementById('generate-travel-sheet').addEventListener('click', window.travelSheetGenerator.handleGenerateTravelSheet);
+    
     // Settings changes that affect calculations and display
     // Recalculate current form AND reload entries list when rates change
     document.getElementById('point-rate').addEventListener('change', () => {
@@ -205,5 +208,16 @@ function setupEventListeners() {
     document.getElementById('gst-enabled').addEventListener('change', () => {
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
+    });
+    
+    // Tech code validation on input
+    document.getElementById('tech-code').addEventListener('input', (e) => {
+        const value = e.target.value.toUpperCase();
+        if (value && !/^[A-Z]?\d{0,3}$/.test(value)) {
+            e.target.setCustomValidity('Tech code must be a letter followed by 3 digits (e.g., A123)');
+        } else {
+            e.target.setCustomValidity('');
+        }
+        e.target.value = value; // Convert to uppercase
     });
 }

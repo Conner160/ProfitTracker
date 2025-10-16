@@ -54,7 +54,7 @@
                 <!-- Pay period totals will be displayed here -->
             </div>
             <div id="file-gen-buttons">
-                <button id="generate-csv">Generate CSV</button>
+                <button id="generate-travel-sheet">Generate Travel Sheet</button>
                 <div id="map-generation-section">
                     <h4>Map Generation</h4>
                     <div id="map-grouping-options">
@@ -62,7 +62,7 @@
                         <div class="radio-group">
                             <label><input type="radio" name="map-grouping" value="day" checked> Day</label>
                             <label><input type="radio" name="map-grouping" value="week"> Week</label>
-                            <label><input type="radio" name="map-grouping" value="period"> Pay Period</label>
+                            <label><input type="radio" name="map-grouping" value="period" checked> Pay Period</label>
                         </div>
                     </div>
                     <button id="generate-map">Generate Maps</button>
@@ -92,11 +92,11 @@
             <div class="form-group" id="de-perdiem">
                 <label>Per Diem Earned:</label>
                 <div class="radio-group">
-                    <label><input type="radio" name="per-diem" value="full" checked> Full Per Diem <span
+                    <label><input type="radio" name="per-diem" value="full"> Full Per Diem <span
                             id="full-perdiem-amount">($171)</span></label>
                     <label><input type="radio" name="per-diem" value="partial"> Partial Per Diem <span
                             id="partial-perdiem-amount">($46)</span></label>
-                    <label><input type="radio" name="per-diem" value="none"> No Per Diem ($0)</label>
+                    <label><input type="radio" name="per-diem" value="none" checked> No Per Diem ($0)</label>
                 </div>
             </div>
 
@@ -122,7 +122,6 @@
             <div class="form-group" id="de-landlocs">
                 <h3>Locations</h3>
                 <sub>CC, town names, or land locations work</sub>
-                <sub>Separate multiple entries with commas</sub>
                 <sub>Drag to reorder, click to delete</sub>
                 <div id="landlocs">
 
@@ -181,9 +180,17 @@
                 <label for="gst-enabled">Include GST:</label>
                 <input type="checkbox" id="gst-enabled" checked>
             </div>
+            <div class="form-group">
+                <label for="tech-code">Tech Code (format: C###):</label>
+                <input type="text" id="tech-code" placeholder="e.g. C123, C456" maxlength="4" pattern="[A-Za-z]\d{3}">
+                <small>Enter a letter followed by 3 digits</small>
+            </div>
             <button id="save-settings">Save Settings</button>
         </div>
     </footer>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
     <!-- Database module -->
     <script src="scripts/db.js"></script>
@@ -199,6 +206,10 @@
     <script src="scripts/entryManager.js"></script>
     <script src="scripts/communityCodes.js"></script>
     <script src="scripts/mapGenerator.js"></script>
+
+    <!-- Travel sheet generation modules -->
+    <script src="scripts/excelManager.js"></script>
+    <script src="scripts/travelSheetGenerator.js"></script>
 
     <!-- Main application -->
     <script src="scripts/app.js"></script>
