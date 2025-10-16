@@ -188,9 +188,15 @@ function setupEventListeners() {
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
     });
+    document.getElementById('per-diem-full-rate').addEventListener('input', () => {
+        window.settingsManager.updatePerDiemLabels();
+    });
     document.getElementById('per-diem-full-rate').addEventListener('change', () => {
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
+    });
+    document.getElementById('per-diem-partial-rate').addEventListener('input', () => {
+        window.settingsManager.updatePerDiemLabels();
     });
     document.getElementById('per-diem-partial-rate').addEventListener('change', () => {
         window.calculations.calculateEarnings();

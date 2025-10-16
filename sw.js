@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v4.20.14';
+const CACHE_NAME = 'profittracker-v4.20.15';
 
 // Make cache name available globally
 self.CACHE_NAME = CACHE_NAME;
@@ -6,10 +6,22 @@ if (typeof window !== 'undefined') {
   window.CACHE_NAME = CACHE_NAME;
 }
 
+// Assets to cache for offline functionality - currently disabled for performance
+// TODO: Add assets here when implementing full offline capabilities
 const ASSETS = [
-  './',
-  './images/icon-192x192.png',
-  './images/icon-512x512.png'
+  // './',
+  // './manifest.json',
+  // './scripts/app.js',
+  // './scripts/db.js',
+  // './styles/base.css',
+  // './styles/forms.css',
+  // './styles/entries.css',
+  // './styles/locations.css',
+  // './styles/controls.css',
+  // './styles/maps.css',
+  // './styles/utilities.css',
+  // './images/icon-192x192.png',
+  // './images/icon-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {

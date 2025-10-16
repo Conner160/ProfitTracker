@@ -33,6 +33,9 @@ async function loadSettings() {
             document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
             document.getElementById('gst-enabled').checked = settings.includeGST !== false;
         }
+        
+        // Update per diem labels with current rates
+        updatePerDiemLabels();
     } catch (error) {
         console.error('Error loading settings:', error);
     }
@@ -71,8 +74,33 @@ async function saveSettings() {
     }
 }
 
+/**
+ * Updates the per diem amounts displayed in radio button labels
+ * Reads current rates from settings inputs and updates the bracket amounts
+ * Called whenever per diem rates change to keep UI in sync
+ * 
+ * @function updatePerDiemLabels
+ * @returns {void}
+ */
+function updatePerDiemLabels() {
+    const fullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE;
+    const partialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE;
+    
+    // Update the bracket amounts in radio button labels
+    const fullAmount = document.getElementById('full-perdiem-amount');
+    const partialAmount = document.getElementById('partial-perdiem-amount');
+    
+    if (fullAmount) {
+        fullAmount.textContent = `($${fullRate.toFixed(0)})`;
+    }
+    if (partialAmount) {
+        partialAmount.textContent = `($${partialRate.toFixed(0)})`;
+    }
+}
+
 // Make functions available globally
 window.settingsManager = {
     loadSettings,
-    saveSettings
+    saveSettings,
+    updatePerDiemLabels
 };
