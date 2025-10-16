@@ -92,9 +92,9 @@ async function createStructuredTemplate() {
     worksheet.getColumn('B').width = 30; // Primary location
     worksheet.getColumn('C').width = 50; // Additional locations
     
-    // Pre-format the data range (A29:A50) with borders for visual structure
+    // Pre-format the data range (A29:F50) with borders for visual structure
     for (let row = 29; row <= 50; row++) {
-        ['A', 'B', 'C'].forEach(col => {
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
             worksheet.getCell(`${col}${row}`).border = {
                 top: { style: 'thin' },
                 left: { style: 'thin' },
@@ -139,17 +139,34 @@ function insertRows(worksheet, startRow, rowCount) {
     for (let newRowIndex = 0; newRowIndex < rowCount; newRowIndex++) {
         const targetRow = startRow + newRowIndex;
         
-        // Copy formatting for columns A, B, C
-        ['A', 'B', 'C'].forEach(col => {
+        // Copy formatting and formulas for columns A through F
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
             const refCell = worksheet.getCell(`${col}${referenceRow}`);
             const newCell = worksheet.getCell(`${col}${targetRow}`);
             
-            // Copy border, font, and other formatting
+            // Copy all formatting properties
             if (refCell.border) newCell.border = refCell.border;
             if (refCell.font) newCell.font = refCell.font;
             if (refCell.fill) newCell.fill = refCell.fill;
             if (refCell.alignment) newCell.alignment = refCell.alignment;
             if (refCell.numFmt) newCell.numFmt = refCell.numFmt;
+            if (refCell.style) newCell.style = refCell.style;
+            
+            // Copy formulas and adjust row references
+            if (refCell.formula) {
+                // Adjust formula row references for the new row
+                const adjustedFormula = refCell.formula.replace(/(\$?)(\d+)/g, (match, dollarSign, rowNum) => {
+                    // If row reference is not absolute ($), adjust it relative to the new row
+                    if (dollarSign) {
+                        return match; // Keep absolute references unchanged
+                    } else {
+                        const offset = targetRow - referenceRow;
+                        const newRowNum = parseInt(rowNum) + offset;
+                        return newRowNum.toString();
+                    }
+                });
+                newCell.formula = adjustedFormula;
+            }
         });
     }
 }
