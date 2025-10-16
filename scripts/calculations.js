@@ -146,7 +146,8 @@ function calculatePayPeriodTotals(entries) {
     // Get current rate settings for calculations
     const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
-    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+    const perDiemFullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || 171;
+    const perDiemPartialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || 46;
     const includeGST = document.getElementById('gst-enabled').checked;
     
     // Initialize accumulator variables
@@ -158,10 +159,22 @@ function calculatePayPeriodTotals(entries) {
     let totalFoodExpenses = 0;
     
     // Sum all values across all entries in the pay period
+    let perDiemEarnings = 0;
     entries.forEach(entry => {
         pointsTotal += entry.points || 0;
         kmsTotal += entry.kms || 0;
-        if (entry.perDiem) perDiemCount++;
+        
+        // Handle per diem - support both old boolean and new string format
+        const perDiemValue = typeof entry.perDiem === 'boolean' ? 
+            (entry.perDiem ? 'full' : 'none') : entry.perDiem;
+            
+        if (perDiemValue === 'full') {
+            perDiemCount++;
+            perDiemEarnings += perDiemFullRate;
+        } else if (perDiemValue === 'partial') {
+            perDiemCount++;
+            perDiemEarnings += perDiemPartialRate;
+        }
         
         // Aggregate all expense categories
         const expenses = entry.expenses || {};
@@ -173,7 +186,6 @@ function calculatePayPeriodTotals(entries) {
     // Calculate earnings using current rates
     const pointsEarnings = pointsTotal * pointRate;
     const kmEarnings = kmsTotal * kmRate;
-    const perDiemEarnings = perDiemCount * perDiemRate;
     const totalBeforeGST = pointsEarnings + kmEarnings + perDiemEarnings;
     const gstMultiplier = includeGST ? 1.05 : 1;
     const grossTotal = totalBeforeGST * gstMultiplier;
