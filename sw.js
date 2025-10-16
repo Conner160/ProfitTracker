@@ -56,3 +56,13 @@ self.addEventListener('activate', (event) => {
     })
   );
 });
+
+// Handle messages from main thread (e.g., requesting cache name)
+self.addEventListener('message', (event) => {
+  if (event.data.type === 'GET_CACHE_NAME') {
+    event.ports[0].postMessage({
+      type: 'CACHE_NAME_RESPONSE',
+      cacheName: CACHE_NAME
+    });
+  }
+});

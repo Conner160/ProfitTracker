@@ -18,12 +18,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display version info in console
     console.log('🚀 ProfitTracker App Loading...');
     
-    // Wait for service worker to be ready to get version
+    // Get version from service worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(() => {
-            // Access the cache name from the service worker
-            if (self.CACHE_NAME) {
-                console.log('📦 App Version:', self.CACHE_NAME);
+        navigator.serviceWorker.ready.then((registration) => {
+            // Send a message to the service worker to get the cache name
+            if (registration.active) {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                    if (event.data.type === 'CACHE_NAME_RESPONSE') {
+                        console.log('📦 App Version:', event.data.cacheName);
+                    }
+                };
+                registration.active.postMessage(
+                    { type: 'GET_CACHE_NAME' }, 
+                    [messageChannel.port2]
+                );
             }
         });
     }
