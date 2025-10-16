@@ -1,14 +1,15 @@
 /**
  * Settings Manager Module
  * Handles loading and saving user configuration settings including
- * pay rates for points, kilometers, and per diem, as well as GST
- * preferences. Manages persistent storage of user preferences.
+ * pay rates for points, kilometers, full per diem, partial per diem, 
+ * as well as GST preferences. Manages persistent storage of user preferences.
  */
 
 // Default rate constants - fallback values if no saved settings exist
 const POINT_BASE_RATE = 6.50;   // Default dollars per point earned
-const KM_BASE_RATE = 0.88;      // Default dollars per kilometer driven
-const PER_DIEM_BASE_RATE = 179;  // Default per diem daily rate
+const KM_BASE_RATE = 0.85;      // Default dollars per kilometer driven
+const PER_DIEM_FULL_RATE = 171;  // Default full per diem daily rate
+const PER_DIEM_PARTIAL_RATE = 46; // Default partial per diem daily rate
 
 /**
  * Loads saved settings from database and populates the settings form
@@ -28,7 +29,8 @@ async function loadSettings() {
             // Populate form fields with saved values or defaults
             document.getElementById('point-rate').value = settings.pointRate || POINT_BASE_RATE;
             document.getElementById('km-rate').value = settings.kmRate || KM_BASE_RATE;
-            document.getElementById('per-diem-rate').value = settings.perDiemRate || PER_DIEM_BASE_RATE;
+            document.getElementById('per-diem-full-rate').value = settings.perDiemFullRate || PER_DIEM_FULL_RATE;
+            document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
             document.getElementById('gst-enabled').checked = settings.includeGST !== false;
         }
     } catch (error) {
@@ -52,7 +54,8 @@ async function saveSettings() {
         name: 'rates', // Database key identifier
         pointRate: parseFloat(document.getElementById('point-rate').value) || POINT_BASE_RATE,
         kmRate: parseFloat(document.getElementById('km-rate').value) || KM_BASE_RATE,
-        perDiemRate: parseFloat(document.getElementById('per-diem-rate').value) || PER_DIEM_BASE_RATE,
+        perDiemFullRate: parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE,
+        perDiemPartialRate: parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE,
         includeGST: document.getElementById('gst-enabled').checked
     };
     

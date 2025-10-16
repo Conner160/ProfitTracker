@@ -156,7 +156,11 @@ function setupEventListeners() {
     // Earnings input fields - recalculate on each change
     document.getElementById('points').addEventListener('input', window.calculations.calculateEarnings);
     document.getElementById('kms').addEventListener('input', window.calculations.calculateEarnings);
-    document.getElementById('per-diem').addEventListener('change', window.calculations.calculateEarnings);
+    
+    // Per diem radio buttons - recalculate on change
+    document.querySelectorAll('input[name="per-diem"]').forEach(radio => {
+        radio.addEventListener('change', window.calculations.calculateEarnings);
+    });
     
     // Expense input fields - update calculations immediately
     document.getElementById('hotel-expense').addEventListener('input', window.calculations.calculateEarnings);
@@ -184,7 +188,11 @@ function setupEventListeners() {
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
     });
-    document.getElementById('per-diem-rate').addEventListener('change', () => {
+    document.getElementById('per-diem-full-rate').addEventListener('change', () => {
+        window.calculations.calculateEarnings();
+        window.entryManager.loadEntries();
+    });
+    document.getElementById('per-diem-partial-rate').addEventListener('change', () => {
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
     });

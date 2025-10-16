@@ -22,7 +22,10 @@ async function saveEntry() {
     const dateInput = document.getElementById('work-date').value;
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
-    const perDiem = document.getElementById('per-diem').checked;
+    
+    // Get selected per diem option
+    const perDiemRadio = document.querySelector('input[name="per-diem"]:checked');
+    const perDiem = perDiemRadio ? perDiemRadio.value : 'none';
     const notes = document.getElementById('notes').value;
     
     // Extract expense values from form inputs with fallback to 0
@@ -102,7 +105,9 @@ function clearForm() {
     // Clear primary input fields
     document.getElementById('points').value = '';
     document.getElementById('kms').value = '';
-    document.getElementById('per-diem').checked = false;
+    
+    // Reset per diem to "full" (default)
+    document.querySelector('input[name="per-diem"][value="full"]').checked = true;
     document.getElementById('notes').value = '';
     
     // Clear all expense input fields
@@ -129,7 +134,7 @@ function clearForm() {
  * @param {string} entry.date - ISO date string (YYYY-MM-DD)
  * @param {number} entry.points - Number of points earned
  * @param {number} entry.kms - Number of kilometers driven
- * @param {boolean} entry.perDiem - Whether per diem was earned
+ * @param {string|boolean} entry.perDiem - Per diem type ('full'/'partial'/'none') or legacy boolean
  * @param {string} entry.notes - Optional notes text
  * @param {Object} entry.expenses - Expense breakdown object
  * @param {Array<string>} entry.landLocations - Array of land location names
@@ -140,7 +145,17 @@ function populateFormForEdit(entry) {
     document.getElementById('work-date').value = entry.date;
     document.getElementById('points').value = entry.points;
     document.getElementById('kms').value = entry.kms;
-    document.getElementById('per-diem').checked = entry.perDiem;
+    
+    // Set per diem radio button - handle both old boolean and new string format
+    const perDiemValue = typeof entry.perDiem === 'boolean' ? 
+        (entry.perDiem ? 'full' : 'none') : entry.perDiem;
+    const perDiemRadio = document.querySelector(`input[name="per-diem"][value="${perDiemValue}"]`);
+    if (perDiemRadio) {
+        perDiemRadio.checked = true;
+    } else {
+        // Default to 'none' if value not found
+        document.querySelector('input[name="per-diem"][value="none"]').checked = true;
+    }
     document.getElementById('notes').value = entry.notes || '';
     
     // Populate expense fields with fallback to empty values
@@ -181,7 +196,17 @@ async function checkAndPopulateExistingEntry(date) {
             // Auto-populate form with existing entry data (no scrolling)
             document.getElementById('points').value = existingEntry.points;
             document.getElementById('kms').value = existingEntry.kms;
-            document.getElementById('per-diem').checked = existingEntry.perDiem;
+            
+            // Set per diem radio button - handle both old boolean and new string format
+            const perDiemValue = typeof existingEntry.perDiem === 'boolean' ? 
+                (existingEntry.perDiem ? 'full' : 'none') : existingEntry.perDiem;
+            const perDiemRadio = document.querySelector(`input[name="per-diem"][value="${perDiemValue}"]`);
+            if (perDiemRadio) {
+                perDiemRadio.checked = true;
+            } else {
+                // Default to 'none' if value not found
+                document.querySelector('input[name="per-diem"][value="none"]').checked = true;
+            }
             document.getElementById('notes').value = existingEntry.notes || '';
             
             // Populate expense fields with existing data
@@ -269,7 +294,8 @@ async function loadEntries() {
         entriesList.innerHTML = entries.map(entry => {
             const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
             const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
-            const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+            const perDiemFullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || 171;
+            const perDiemPartialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || 46;
             const includeGST = document.getElementById('gst-enabled').checked;
             
             // Calculate total dynamically based on current settings
@@ -305,11 +331,24 @@ async function loadEntries() {
                             <span>KMs: ${entry.kms}</span>
                             <span>$${(entry.kms * kmRate).toFixed(2)}</span>
                         </div>
-                        ${entry.perDiem ? `
-                        <div class="entry-row">
-                            <span>Per Diem:</span>
-                            <span>$${perDiemRate.toFixed(2)}</span>
-                        </div>` : ''}
+                        ${(() => {
+                            // Handle both old boolean and new string format for per diem
+                            const perDiemValue = typeof entry.perDiem === 'boolean' ? 
+                                (entry.perDiem ? 'full' : 'none') : entry.perDiem;
+                            
+                            if (perDiemValue === 'full') {
+                                return `<div class="entry-row">
+                                    <span>Per Diem (Full):</span>
+                                    <span>$${perDiemFullRate.toFixed(2)}</span>
+                                </div>`;
+                            } else if (perDiemValue === 'partial') {
+                                return `<div class="entry-row">
+                                    <span>Per Diem (Partial):</span>
+                                    <span>$${perDiemPartialRate.toFixed(2)}</span>
+                                </div>`;
+                            }
+                            return '';
+                        })()}
                         ${includeGST ? `
                         <div class="entry-row">
                             <span>GST:</span>
@@ -387,7 +426,7 @@ async function loadEntries() {
                     date: entryElement.dataset.date,
                     points: parseFloat(entryElement.dataset.points),
                     kms: parseFloat(entryElement.dataset.kms),
-                    perDiem: entryElement.dataset.perDiem === 'true',
+                    perDiem: entryElement.dataset.perDiem,
                     notes: entryElement.dataset.notes,
                     expenses: expenses,
                     landLocations: landLocations

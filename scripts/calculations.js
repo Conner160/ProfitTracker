@@ -14,7 +14,7 @@
  * @function calculateEntryTotal
  * @param {number} points - Number of points earned
  * @param {number} kms - Number of kilometers driven  
- * @param {boolean} perDiem - Whether per diem was earned
+ * @param {string} perDiem - Per diem type: 'full', 'partial', or 'none'
  * @param {Object} [expenses={}] - Expense breakdown object
  * @param {number} [expenses.hotel=0] - Hotel expenses
  * @param {number} [expenses.gas=0] - Gas/fuel expenses
@@ -25,13 +25,23 @@ function calculateEntryTotal(points, kms, perDiem, expenses = {}) {
     // Get current rate settings from form with fallback defaults
     const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
     const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
-    const perDiemRate = parseFloat(document.getElementById('per-diem-rate').value) || 171;
+    const perDiemFullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || 171;
+    const perDiemPartialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || 46;
     const includeGST = document.getElementById('gst-enabled').checked;
     
     // Calculate base earnings for each component
     const pointsEarnings = points * pointRate;
     const kmEarnings = kms * kmRate;
-    const perDiemEarnings = perDiem ? perDiemRate : 0;
+    
+    // Calculate per diem earnings based on type
+    let perDiemEarnings = 0;
+    if (perDiem === 'full') {
+        perDiemEarnings = perDiemFullRate;
+    } else if (perDiem === 'partial') {
+        perDiemEarnings = perDiemPartialRate;
+    } else {
+        perDiemEarnings = 0; // 'none' or any other value
+    }
     
     // Apply GST if enabled (5% tax)
     const gstMultiplier = includeGST ? 1.05 : 1;
@@ -69,7 +79,10 @@ function calculateEarnings() {
     // Extract current form values with fallback to 0
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
-    const perDiem = document.getElementById('per-diem').checked;
+    
+    // Get selected per diem option
+    const perDiemRadio = document.querySelector('input[name="per-diem"]:checked');
+    const perDiem = perDiemRadio ? perDiemRadio.value : 'none';
     
     // Get expense values from form inputs
     const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
@@ -91,7 +104,7 @@ function calculateEarnings() {
     earningsDisplay.innerHTML = `
         <div><strong>Points Earnings:</strong> $${totals.pointsEarnings.toFixed(2)} (${points} pts)</div>
         <div><strong>KM Earnings:</strong> $${totals.kmEarnings.toFixed(2)} (${kms} km)</div>
-        ${perDiem ? `<div><strong>Per Diem:</strong> $${totals.perDiemEarnings.toFixed(2)}</div>` : ''}
+        ${perDiem !== 'none' ? `<div><strong>Per Diem${perDiem === 'partial' ? ' (Partial)' : perDiem === 'full' ? ' (Full)' : ''}:</strong> $${totals.perDiemEarnings.toFixed(2)}</div>` : ''}
         ${document.getElementById('gst-enabled').checked ? `<div><strong>GST:</strong> $${totals.gstAmount.toFixed(2)}</div>` : ''}
         <div class="total-earnings"><strong>Gross Total:</strong> $${totals.grossTotal.toFixed(2)}</div>
         ${totals.totalExpenses > 0 ? `
