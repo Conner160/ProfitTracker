@@ -73,8 +73,8 @@ async function createStructuredTemplate() {
     
     // Add column headers at row 28 (just before data starts at row 29)
     worksheet.getCell('A28').value = 'Date';
-    worksheet.getCell('B28').value = 'Primary Location';
-    worksheet.getCell('C28').value = 'Additional Locations';
+    worksheet.getCell('B28').value = 'From Location';
+    worksheet.getCell('C28').value = 'To Location';
     
     // Style the headers
     ['A28', 'B28', 'C28'].forEach(cell => {

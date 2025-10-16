@@ -133,9 +133,10 @@ async function getPayPeriodEntries() {
 }
 
 /**
- * Writes entry data to the Excel worksheet
- * Maps entries to cells A29:A50 (dates), B29:B50 (first locations), C29:C50 (other locations)
- * Inserts additional rows if more than 22 entries exist
+ * Writes entry data to the Excel worksheet with location transitions
+ * Creates separate rows for each location-to-location movement within each day
+ * Format: Date in first row, then blank dates for subsequent transitions
+ * Column B: From location, Column C: To location
  * 
  * @async
  * @function writeEntriesToExcel
@@ -145,44 +146,67 @@ async function getPayPeriodEntries() {
  */
 async function writeEntriesToExcel(worksheet, entries) {
     const START_ROW = 29;  // Starting row for data (A29, B29, C29)
-    const MAX_DEFAULT_ROWS = 22;  // Default template rows (A29:A50 = 22 rows)
+    let currentRow = START_ROW;
+    let totalRows = 0;
     
-    // Check if we need to insert additional rows
-    if (entries.length > MAX_DEFAULT_ROWS) {
-        const additionalRows = entries.length - MAX_DEFAULT_ROWS;
-        const insertionPoint = START_ROW + MAX_DEFAULT_ROWS;
-        
-        console.log(`Inserting ${additionalRows} additional rows at row ${insertionPoint}`);
-        window.excelManager.insertRows(worksheet, insertionPoint, additionalRows);
-    }
-    
-    // Write each entry to its corresponding row
-    entries.forEach((entry, index) => {
-        const currentRow = START_ROW + index;
-        
-        // Column A: Date in DD-MMM-YYYY format
-        const formattedDate = window.excelManager.formatDateForExcel(entry.date);
-        window.excelManager.writeCell(worksheet, `A${currentRow}`, formattedDate);
-        
-        // Column B: First location
-        if (entry.landLocations && entry.landLocations.length > 0) {
-            window.excelManager.writeCell(worksheet, `B${currentRow}`, entry.landLocations[0]);
-            
-            // Column C: Additional locations (comma-separated)
-            if (entry.landLocations.length > 1) {
-                const additionalLocations = entry.landLocations.slice(1).join(', ');
-                window.excelManager.writeCell(worksheet, `C${currentRow}`, additionalLocations);
-            }
+    // First pass: calculate total rows needed
+    entries.forEach(entry => {
+        if (entry.landLocations && entry.landLocations.length > 1) {
+            // Each entry with locations creates (locations.length - 1) transition rows
+            totalRows += entry.landLocations.length - 1;
         }
     });
     
-    console.log(`Wrote ${entries.length} entries to Excel sheet`);
+    // Check if we need to insert additional rows beyond the default template
+    const MAX_DEFAULT_ROWS = 22;  // Default template rows (A29:A50 = 22 rows)
+    if (totalRows > MAX_DEFAULT_ROWS) {
+        const additionalRows = totalRows - MAX_DEFAULT_ROWS;
+        const insertionPoint = START_ROW + MAX_DEFAULT_ROWS;
+        
+        console.log(`Inserting ${additionalRows} additional rows at row ${insertionPoint} for location transitions`);
+        window.excelManager.insertRows(worksheet, insertionPoint, additionalRows);
+    }
+    
+    // Write location transitions for each entry
+    entries.forEach((entry) => {
+        if (!entry.landLocations || entry.landLocations.length < 2) {
+            // Skip entries with fewer than 2 locations (no transitions to show)
+            return;
+        }
+        
+        const formattedDate = window.excelManager.formatDateForExcel(entry.date);
+        let isFirstTransitionForDate = true;
+        
+        // Create transition rows: R→RB, RB→S, S→R
+        for (let i = 0; i < entry.landLocations.length - 1; i++) {
+            const fromLocation = entry.landLocations[i];
+            const toLocation = entry.landLocations[i + 1];
+            
+            // Column A: Date only on first transition row for this entry
+            if (isFirstTransitionForDate) {
+                window.excelManager.writeCell(worksheet, `A${currentRow}`, formattedDate);
+                isFirstTransitionForDate = false;
+            }
+            // Subsequent rows for the same date leave Column A blank
+            
+            // Column B: From location
+            window.excelManager.writeCell(worksheet, `B${currentRow}`, fromLocation);
+            
+            // Column C: To location  
+            window.excelManager.writeCell(worksheet, `C${currentRow}`, toLocation);
+            
+            currentRow++;
+        }
+    });
+    
+    console.log(`Wrote ${totalRows} location transition rows to Excel sheet`);
 }
 
 /**
  * Populates template fields with user settings and calculated data
  * Maps data to specific cells: B2 (tech name), B3 (tech code), B4 (GST), B5 (current date),
  * B10/B11 (date range), A15/A19 (per diem counts)
+ * Data rows show location transitions: Date in col A (first transition only), From location in col B, To location in col C
  * 
  * @async
  * @function populateTemplateFields
