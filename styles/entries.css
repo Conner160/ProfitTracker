@@ -191,3 +191,21 @@
         gap: 2px;
     }
 }
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    .entry-item:hover {
+        border-color: initial;
+        box-shadow: none;
+    }
+    
+    .editable-entry:hover {
+        background-color: initial;
+        cursor: default;
+    }
+    
+    .delete-entry:hover {
+        background-color: #dc3545;
+        transform: none;
+    }
+}

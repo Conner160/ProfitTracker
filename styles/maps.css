@@ -137,3 +137,26 @@
         align-self: stretch;
     }
 }
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    #generate-map:hover {
+        background-color: #28a745;
+        transform: none;
+    }
+    
+    .map-link-item:hover {
+        background-color: initial;
+        border-color: initial;
+    }
+    
+    .map-link:hover {
+        color: initial;
+        text-decoration: none;
+    }
+    
+    .copy-link-btn:hover {
+        background-color: #6c757d;
+        transform: none;
+    }
+}

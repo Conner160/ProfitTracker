@@ -87,3 +87,16 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    button:hover {
+        background-color: initial;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    a:hover {
+        text-decoration: none;
+    }
+}

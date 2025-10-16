@@ -88,3 +88,11 @@
     font-size: 0.85em;
     display: inline-block;
 }
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    .landloc_p:hover {
+        background-color: initial;
+        cursor: default;
+    }
+}

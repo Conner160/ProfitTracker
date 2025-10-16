@@ -140,8 +140,65 @@ input[type="checkbox"] {
     cursor: pointer;
 }
 
+/* Custom Radio Button Styling */
 .radio-group input[type="radio"] {
+    /* Hide the default radio button */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
     margin: 0;
+    position: relative;
+    background-color: var(--background-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Radio button hover state */
+.radio-group input[type="radio"]:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Radio button checked state */
+.radio-group input[type="radio"]:checked {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+}
+
+/* Inner dot for checked state */
+.radio-group input[type="radio"]:checked::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Focus state for accessibility */
+.radio-group input[type="radio"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3);
+}
+
+/* Disabled state */
+.radio-group input[type="radio"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.radio-group input[type="radio"]:disabled:hover {
+    border-color: var(--border-color);
+    box-shadow: none;
 }
 
 #de-expenses {
@@ -205,5 +262,22 @@ label {
     .radio-group {
         flex-direction: column;
         gap: 8px;
+    }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    .radio-group input[type="radio"]:hover {
+        border-color: var(--border-color);
+        box-shadow: none;
+    }
+    
+    button:hover,
+    input:hover,
+    select:hover,
+    textarea:hover {
+        transform: none;
+        box-shadow: none;
+        border-color: initial;
     }
 }

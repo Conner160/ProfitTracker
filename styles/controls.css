@@ -121,3 +121,27 @@
         align-items: stretch;
     }
 }
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    #settings-toggle:hover {
+        background-color: initial;
+        transform: none;
+    }
+    
+    #save-settings:hover {
+        background-color: #007bff;
+        transform: none;
+    }
+    
+    #prev-pay-period:hover,
+    #next-pay-period:hover {
+        background-color: #007bff;
+        transform: none;
+    }
+    
+    #generate-csv:hover {
+        background-color: #28a745;
+        transform: none;
+    }
+}
