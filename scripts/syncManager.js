@@ -24,6 +24,13 @@ class SyncManager {
 
     async onUserSignIn(user) {
         console.log('User signed in, starting sync...');
+        
+        // Check if required dependencies are available
+        if (!window.cloudStorage || !window.dbFunctions) {
+            console.log('Sync dependencies not available, skipping sync');
+            return;
+        }
+        
         await this.performFullSync();
     }
 
@@ -49,8 +56,13 @@ class SyncManager {
             console.log('Starting full sync...');
             
             // Get local and cloud data
-            const localEntries = await window.db.getAllEntries();
-            const cloudEntries = await window.cloudStorage.getAllEntriesFromCloud();
+            const userId = window.authManager?.getUserId();
+            if (!userId) {
+                throw new Error('User not authenticated');
+            }
+            
+            const localEntries = await window.dbFunctions.getAllFromDB('entries');
+            const cloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
             
             console.log(`Local entries: ${localEntries.length}, Cloud entries: ${cloudEntries.length}`);
             
@@ -91,7 +103,7 @@ class SyncManager {
             
             // Get entries modified since last sync
             const lastSync = this.lastSyncTime ? new Date(this.lastSyncTime) : null;
-            const localEntries = await window.db.getAllEntries();
+            const localEntries = await window.dbFunctions.getAllFromDB('entries');
             const modifiedLocalEntries = lastSync 
                 ? localEntries.filter(entry => new Date(entry.lastModified || entry.date) > lastSync)
                 : localEntries;
@@ -100,7 +112,8 @@ class SyncManager {
             if (modifiedLocalEntries.length > 0) {
                 console.log(`Uploading ${modifiedLocalEntries.length} modified local entries...`);
                 for (const entry of modifiedLocalEntries) {
-                    await window.cloudStorage.saveEntryToCloud(entry);
+                    const userId = window.authManager?.getUserId();
+                    await window.cloudStorage.saveEntryToCloud(userId, entry);
                 }
             }
             
@@ -118,7 +131,8 @@ class SyncManager {
     async uploadAllLocalData(localEntries) {
         try {
             // Upload in batches to avoid overwhelming the server
-            await window.cloudStorage.batchUploadEntries(localEntries);
+            const userId = window.authManager?.getUserId();
+            await window.cloudStorage.batchUploadEntries(userId, localEntries);
             console.log(`Successfully uploaded ${localEntries.length} entries to cloud`);
         } catch (error) {
             console.error('Failed to upload local data:', error);
@@ -129,7 +143,7 @@ class SyncManager {
     async downloadAllCloudData(cloudEntries) {
         try {
             // Clear local database first
-            await window.db.clearAllEntries();
+            await window.dbFunctions.clearAllEntries();
             
             // Add all cloud entries to local database
             for (const entry of cloudEntries) {
@@ -137,7 +151,7 @@ class SyncManager {
                 if (!entry.id) {
                     entry.id = this.generateLocalId();
                 }
-                await window.db.addEntry(entry);
+                await window.dbFunctions.saveToDB('entries', entry);
             }
             
             console.log(`Successfully downloaded ${cloudEntries.length} entries from cloud`);
@@ -204,8 +218,9 @@ class SyncManager {
         // Upload local changes
         if (entriesToUpload.length > 0) {
             console.log(`Uploading ${entriesToUpload.length} local changes...`);
+            const userId = window.authManager?.getUserId();
             for (const entry of entriesToUpload) {
-                await window.cloudStorage.saveEntryToCloud(entry);
+                await window.cloudStorage.saveEntryToCloud(userId, entry);
             }
         }
         
@@ -213,7 +228,7 @@ class SyncManager {
         if (entriesToDownload.length > 0) {
             console.log(`Downloading ${entriesToDownload.length} cloud changes...`);
             for (const entry of entriesToDownload) {
-                await window.db.updateEntry(entry.id, entry);
+                await window.dbFunctions.updateEntry(entry.id, entry);
             }
         }
         

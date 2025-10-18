@@ -34,8 +34,13 @@ async function initializeAuth() {
         
     } catch (error) {
         console.error('❌ Error initializing authentication:', error);
-        // Show offline-only mode
-        showOfflineMode();
+        if (error.message && error.message.includes('configuration-not-found')) {
+            console.log('🔧 Firebase Authentication not configured - using offline mode');
+            showOfflineMode();
+        } else {
+            console.log('🔧 Authentication unavailable - using offline mode');
+            showOfflineMode();
+        }
     }
 }
 
@@ -155,7 +160,12 @@ async function signInWithEmail() {
     } catch (error) {
         console.error('Email sign-in error:', error);
         let message = 'Sign-in failed. ';
-        if (error.code === 'auth/user-not-found') {
+        if (error.code === 'auth/configuration-not-found') {
+            message = 'Authentication not configured. Using offline mode.';
+            console.log('Firebase Auth not configured, switching to offline mode');
+            showOfflineMode();
+            return;
+        } else if (error.code === 'auth/user-not-found') {
             message += 'No account found with this email.';
         } else if (error.code === 'auth/wrong-password') {
             message += 'Incorrect password.';
@@ -195,7 +205,12 @@ async function signUpWithEmail() {
     } catch (error) {
         console.error('Email sign-up error:', error);
         let message = 'Sign-up failed. ';
-        if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/configuration-not-found') {
+            message = 'Authentication not configured. Using offline mode.';
+            console.log('Firebase Auth not configured, switching to offline mode');
+            showOfflineMode();
+            return;
+        } else if (error.code === 'auth/email-already-in-use') {
             message += 'An account with this email already exists.';
         } else if (error.code === 'auth/invalid-email') {
             message += 'Invalid email address.';
@@ -271,6 +286,13 @@ function showSignedOutUI() {
  * @returns {void}
  */
 function showEmailAuthForm() {
+    // Check if Firebase auth is properly configured
+    if (!window.firebaseAuth || !window.firebaseModules) {
+        console.log('Firebase not available, showing offline mode');
+        showOfflineMode();
+        return;
+    }
+    
     const emailForm = document.getElementById('email-auth-form');
     const authButtons = document.getElementById('auth-buttons');
     
@@ -308,10 +330,18 @@ function hideEmailAuthForm() {
  * @returns {void}
  */
 function showOfflineMode() {
+    const authSection = document.getElementById('auth-section');
     const authButtons = document.getElementById('auth-buttons');
+    
     if (authButtons) {
-        authButtons.innerHTML = '<span style="color: #666;">📱 Offline Mode - Data saved locally</span>';
+        authButtons.innerHTML = '<div style="color: #666; font-size: 0.9em; padding: 5px;">📱 Offline Mode - All data saved locally</div>';
         authButtons.style.display = 'block';
+    }
+    
+    // Hide email form if visible
+    const emailForm = document.getElementById('email-auth-form');
+    if (emailForm) {
+        emailForm.style.display = 'none';
     }
 }
 
