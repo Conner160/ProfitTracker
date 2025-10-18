@@ -32,7 +32,32 @@
 <body>
     <header>
         <h1>ProfitTracker</h1>
-        <div id="date-display">Loading...</div>
+        <div id="header-controls">
+            <div id="date-display"></div>
+            <div id="sync-status" style="display: none;">
+                <span id="sync-indicator">⚡</span>
+                <span id="sync-text">Synced</span>
+            </div>
+            <div id="auth-section">
+                <div id="auth-status" style="display: none;">
+                    <div id="user-info"></div>
+                    <button id="sign-out-btn" class="auth-btn">Sign Out</button>
+                </div>
+                <div id="auth-buttons">
+                    <button id="google-signin-btn" class="auth-btn">Sign in with Google</button>
+                    <button id="email-signin-btn" class="auth-btn">Email Sign In</button>
+                </div>
+                <div id="email-auth-form" style="display: none;">
+                    <input type="email" id="auth-email" placeholder="Email" required>
+                    <input type="password" id="auth-password" placeholder="Password" required>
+                    <div>
+                        <button id="signin-email-btn" class="auth-btn">Sign In</button>
+                        <button id="signup-email-btn" class="auth-btn">Sign Up</button>
+                        <button id="cancel-email-btn" class="auth-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </header>
 
     <main>
@@ -202,6 +227,54 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
+    <!-- Firebase Configuration -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, updateDoc, deleteDoc, getDocs, getDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlVo_EYRnSTgnB55J-LRFpKG6ZGvA88_w",
+            authDomain: "profittrackerccc.firebaseapp.com",
+            projectId: "profittrackerccc",
+            storageBucket: "profittrackerccc.firebasestorage.app",
+            messagingSenderId: "272024960605",
+            appId: "1:272024960605:web:bffdb40e154d4e7eac57b4"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make Firebase services available globally
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseModules = {
+            GoogleAuthProvider,
+            signInWithPopup,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            doc,
+            collection,
+            addDoc,
+            updateDoc,
+            deleteDoc,
+            getDocs,
+            getDoc,
+            onSnapshot,
+            query,
+            where,
+            orderBy
+        };
+
+        console.log('🔥 Firebase initialized successfully');
+    </script>
+
     <!-- Database module -->
     <script src="scripts/db.js"></script>
 
@@ -216,6 +289,11 @@
     <script src="scripts/entryManager.js"></script>
     <script src="scripts/communityCodes.js"></script>
     <script src="scripts/mapGenerator.js"></script>
+
+    <!-- Firebase and authentication -->
+    <script src="scripts/authManager.js"></script>
+    <script src="scripts/cloudStorage.js"></script>
+    <script src="scripts/syncManager.js"></script>
 
     <!-- Travel sheet generation modules -->
     <script src="scripts/excelManager.js"></script>

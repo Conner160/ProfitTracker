@@ -155,11 +155,65 @@ function deleteFromDB(storeName, key) {
     });
 }
 
+/**
+ * Clear all entries from the database
+ * Used during cloud sync to replace local data with cloud data
+ * 
+ * @async
+ * @function clearAllEntries
+ * @returns {Promise<void>} Resolves when all entries are deleted
+ */
+function clearAllEntries() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['entries'], 'readwrite');
+        const store = transaction.objectStore('entries');
+        
+        const request = store.clear();
+        
+        request.onsuccess = () => {
+            console.log('All entries cleared from local database');
+            resolve();
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Update an existing entry by ID
+ * Used during sync to update local entries with cloud data
+ * 
+ * @async
+ * @function updateEntry
+ * @param {string|number} id - The ID of the entry to update
+ * @param {Object} entryData - The updated entry data
+ * @returns {Promise<void>} Resolves when entry is updated
+ */
+function updateEntry(id, entryData) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['entries'], 'readwrite');
+        const store = transaction.objectStore('entries');
+        
+        // Ensure the entry has the correct ID
+        entryData.id = id;
+        entryData.lastModified = new Date().toISOString();
+        
+        const request = store.put(entryData);
+        
+        request.onsuccess = () => {
+            console.log('Entry updated:', id);
+            resolve();
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
 // Make functions available globally
 window.dbFunctions = {
     initDB,
     saveToDB,
     getFromDB,
     getAllFromDB,
-    deleteFromDB
+    deleteFromDB,
+    clearAllEntries,
+    updateEntry
 };

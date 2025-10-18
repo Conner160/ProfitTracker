@@ -73,12 +73,25 @@ async function saveEntry() {
         notes,
         expenses,
         landLocations,
-        timestamp: new Date().getTime() // Track when entry was created/modified
+        timestamp: new Date().getTime(), // Track when entry was created/modified
+        lastModified: new Date().toISOString() // ISO string for cloud sync
     };
 
     // Attempt to save entry to database with error handling
     try {
         await window.dbFunctions.saveToDB('entries', entry);
+        
+        // If user is signed in, also save to cloud
+        if (window.authManager?.getCurrentUser()) {
+            try {
+                const userId = window.authManager.getCurrentUser().uid;
+                await window.cloudStorage.saveEntryToCloud(userId, entry);
+                console.log('Entry saved to cloud');
+            } catch (cloudError) {
+                console.warn('Failed to save to cloud, will sync later:', cloudError);
+                // Don't fail the entire operation if cloud save fails
+            }
+        }
         
         // Refresh UI components after successful save
         window.calculations.calculateEarnings();
@@ -460,6 +473,19 @@ async function deleteEntry(id) {
     
     try {
         await window.dbFunctions.deleteFromDB('entries', id);
+        
+        // If user is signed in, also delete from cloud
+        if (window.authManager?.getCurrentUser()) {
+            try {
+                const userId = window.authManager.getCurrentUser().uid;
+                await window.cloudStorage.deleteEntryFromCloud(userId, id);
+                console.log('Entry deleted from cloud');
+            } catch (cloudError) {
+                console.warn('Failed to delete from cloud, will sync later:', cloudError);
+                // Don't fail the entire operation if cloud delete fails
+            }
+        }
+        
         loadEntries();
         window.uiManager.showNotification('Entry deleted');
     } catch (error) {
