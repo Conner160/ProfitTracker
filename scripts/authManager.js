@@ -110,9 +110,6 @@ function handleAuthStateChange(user) {
  * @returns {void}
  */
 function setupAuthEventListeners() {
-    // Google Sign-In
-    document.getElementById('sign-in-google-btn')?.addEventListener('click', signInWithGoogle);
-    
     // Email Sign-In Toggle
     document.getElementById('sign-in-toggle-btn')?.addEventListener('click', showEmailAuthForm);
     
@@ -134,31 +131,6 @@ function setupAuthEventListeners() {
             signInWithEmail();
         }
     });
-}
-
-/**
- * Signs in user with Google
- * @async
- * @function signInWithGoogle
- * @returns {Promise<void>}
- */
-async function signInWithGoogle() {
-    try {
-        const provider = new window.firebaseModules.GoogleAuthProvider();
-        await window.firebaseModules.signInWithPopup(window.firebaseAuth, provider);
-        window.uiManager.showNotification('Signed in successfully!');
-    } catch (error) {
-        console.error('Google sign-in error:', error);
-        let message = 'Sign-in failed. ';
-        if (error.code === 'auth/popup-closed-by-user') {
-            message += 'Sign-in was cancelled.';
-        } else if (error.code === 'auth/network-request-failed') {
-            message += 'Network error. Please check your connection.';
-        } else {
-            message += 'Please try again.';
-        }
-        window.uiManager.showNotification(message, true);
-    }
 }
 
 /**
@@ -266,10 +238,10 @@ function showSignedInUI(user) {
     if (authStatus && authButtons && userInfo) {
         // Show user info and sign-out button
         userInfo.textContent = `👤 ${user.displayName || user.email}`;
-        authStatus.classList.remove('hidden');
+        authStatus.style.display = 'block';
         
         // Hide sign-in buttons
-        authButtons.classList.add('hidden');
+        authButtons.style.display = 'none';
         hideEmailAuthForm();
     }
 }
@@ -285,10 +257,10 @@ function showSignedOutUI() {
     
     if (authStatus && authButtons) {
         // Hide user info
-        authStatus.classList.add('hidden');
+        authStatus.style.display = 'none';
         
         // Show sign-in buttons
-        authButtons.classList.remove('hidden');
+        authButtons.style.display = 'block';
         hideEmailAuthForm();
     }
 }
@@ -303,8 +275,8 @@ function showEmailAuthForm() {
     const authButtons = document.getElementById('auth-buttons');
     
     if (emailForm && authButtons) {
-        emailForm.classList.remove('hidden');
-        authButtons.classList.add('hidden');
+        emailForm.style.display = 'block';
+        authButtons.style.display = 'none';
         
         // Clear form
         document.getElementById('auth-email').value = '';
@@ -325,8 +297,8 @@ function hideEmailAuthForm() {
     const authButtons = document.getElementById('auth-buttons');
     
     if (emailForm && authButtons && !currentUser) {
-        emailForm.classList.add('hidden');
-        authButtons.classList.remove('hidden');
+        emailForm.style.display = 'none';
+        authButtons.style.display = 'block';
     }
 }
 
@@ -339,7 +311,7 @@ function showOfflineMode() {
     const authButtons = document.getElementById('auth-buttons');
     if (authButtons) {
         authButtons.innerHTML = '<span style="color: #666;">📱 Offline Mode - Data saved locally</span>';
-        authButtons.classList.remove('hidden');
+        authButtons.style.display = 'block';
     }
 }
 

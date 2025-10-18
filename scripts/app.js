@@ -67,6 +67,11 @@ function initializeApp() {
         window.appState.currentPayPeriodStart = window.dateUtils.getCurrentPayPeriodStart();
     }
     
+    // Initialize authentication first
+    if (window.authManager) {
+        window.authManager.initializeAuth();
+    }
+
     // Initialize database and all dependent components
     window.dbFunctions.initDB().then(async () => {
         // Load user settings (rates, GST preference, etc.)
