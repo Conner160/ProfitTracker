@@ -74,6 +74,17 @@ function waitForFirebase() {
 function handleAuthStateChange(user) {
     currentUser = user;
     
+    // Call registered callbacks
+    if (window.authManager._callbacks) {
+        window.authManager._callbacks.forEach(callback => {
+            try {
+                callback(user);
+            } catch (error) {
+                console.error('Error in auth state change callback:', error);
+            }
+        });
+    }
+    
     if (user) {
         console.log('👤 User signed in:', user.email);
         showSignedInUI(user);
@@ -365,5 +376,15 @@ window.authManager = {
     getCurrentUser,
     isAuthenticated,
     getUserId,
-    signOutUser
+    signOutUser,
+    onAuthStateChanged: (callback) => {
+        // Store callback for future use
+        if (!window.authManager._callbacks) {
+            window.authManager._callbacks = [];
+        }
+        window.authManager._callbacks.push(callback);
+        
+        // Call immediately with current user state
+        callback(currentUser);
+    }
 };

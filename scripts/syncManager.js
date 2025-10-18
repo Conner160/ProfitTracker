@@ -20,20 +20,18 @@ class SyncManager {
             this.isOnline = false;
             this.updateSyncStatusUI();
         });
-        
-        // Listen for auth state changes
-        window.authManager?.onAuthStateChanged(this.handleAuthStateChange.bind(this));
     }
 
-    async handleAuthStateChange(user) {
-        if (user) {
-            console.log('User signed in, starting sync...');
-            await this.performFullSync();
-        } else {
-            console.log('User signed out');
-            this.lastSyncTime = null;
-            localStorage.removeItem('lastSyncTime');
-        }
+    async onUserSignIn(user) {
+        console.log('User signed in, starting sync...');
+        await this.performFullSync();
+    }
+
+    async onUserSignOut() {
+        console.log('User signed out');
+        this.lastSyncTime = null;
+        localStorage.removeItem('lastSyncTime');
+        this.updateSyncStatusUI();
     }
 
     async syncWhenOnline() {
