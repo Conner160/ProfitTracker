@@ -464,48 +464,165 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
 }
 
 /**
- * Handles the sync all data button click
- * Triggers the manual sync all process from syncManager
- * 
- * @async
- * @function handleSyncAllData
- * @returns {Promise<void>} Resolves when sync all process is complete
+ * Shows custom confirmation dialog for dangerous actions
+ * @function showDangerConfirmationDialog
+ * @param {string} title - Dialog title
+ * @param {string} message - Warning message
+ * @param {string} confirmText - Text for confirm button
+ * @returns {Promise<boolean>} True if confirmed, false if cancelled
  */
-async function handleSyncAllData() {
-    try {
-        if (window.syncManager && window.syncManager.performManualSyncAll) {
-            await window.syncManager.performManualSyncAll();
-        } else {
-            window.uiManager.showNotification('Sync not available - please check your connection', true);
-        }
-    } catch (error) {
-        console.error('Error in sync all data:', error);
-        window.uiManager.showNotification('Error syncing all data', true);
-    }
+function showDangerConfirmationDialog(title, message, confirmText) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal danger-modal" style="max-width: 500px;">
+                <div class="modal-header" style="background: var(--error-color); color: white;">
+                    <h2>⚠️ ${title}</h2>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size: 1.1em; line-height: 1.5; margin-bottom: 20px;">
+                        ${message}
+                    </p>
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <strong>⚠️ This action cannot be undone!</strong><br>
+                        <small>Make sure you have exported your data if you need it.</small>
+                    </div>
+                    <p style="font-weight: bold; color: var(--error-color);">
+                        Type "DELETE" to confirm this permanent action:
+                    </p>
+                    <input type="text" id="danger-confirmation-input" 
+                           placeholder="Type DELETE here" 
+                           style="width: 100%; padding: 10px; margin: 10px 0; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
+                </div>
+                <div class="modal-footer">
+                    <button id="danger-cancel-btn" class="btn-secondary" style="margin-right: 10px;">Cancel</button>
+                    <button id="danger-confirm-btn" class="btn-danger" disabled 
+                            style="background: #ccc; cursor: not-allowed;">${confirmText}</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const input = modal.querySelector('#danger-confirmation-input');
+        const confirmBtn = modal.querySelector('#danger-confirm-btn');
+        const cancelBtn = modal.querySelector('#danger-cancel-btn');
+        
+        // Enable confirm button only when "DELETE" is typed
+        input.addEventListener('input', () => {
+            if (input.value.trim().toUpperCase() === 'DELETE') {
+                confirmBtn.disabled = false;
+                confirmBtn.style.background = 'var(--error-color)';
+                confirmBtn.style.cursor = 'pointer';
+            } else {
+                confirmBtn.disabled = true;
+                confirmBtn.style.background = '#ccc';
+                confirmBtn.style.cursor = 'not-allowed';
+            }
+        });
+        
+        confirmBtn.addEventListener('click', () => {
+            if (input.value.trim().toUpperCase() === 'DELETE') {
+                document.body.removeChild(modal);
+                resolve(true);
+            }
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve(false);
+        });
+        
+        // Focus input
+        setTimeout(() => input.focus(), 100);
+    });
 }
 
 /**
- * Handles the cleanup duplicates button click
- * Triggers the duplicate removal process from entryManager
+ * Handles the clear all data button click
+ * Permanently deletes all user data from local and cloud storage
  * 
  * @async
- * @function handleCleanupDuplicates
- * @returns {Promise<void>} Resolves when cleanup process is complete
+ * @function handleClearAllData
+ * @returns {Promise<void>} Resolves when clear process is complete
  */
-async function handleCleanupDuplicates() {
+async function handleClearAllData() {
     try {
-        const confirmed = confirm('This will remove duplicate entries for the same date, keeping the most recent version of each.\n\nContinue with cleanup?');
+        const confirmed = await showDangerConfirmationDialog(
+            'Clear All Data',
+            'This will permanently delete ALL of your entries and settings from both your device and the cloud. This includes all historical data, preferences, and any offline backup data.',
+            'Delete Everything'
+        );
+        
         if (!confirmed) {
             return;
         }
         
-        const duplicatesRemoved = await window.entryManager.removeDuplicateEntries();
-        if (duplicatesRemoved === 0) {
-            window.uiManager.showNotification('No duplicate entries found');
+        window.uiManager.showNotification('🗑️ Clearing all data...', false);
+        
+        const userId = window.authManager.getUserId();
+        if (!userId) {
+            throw new Error('User not authenticated');
         }
+        
+        // Clear cloud data
+        await clearAllCloudData(userId);
+        
+        // Clear local data
+        await window.authManager.clearAllLocalData();
+        
+        window.uiManager.showNotification('✅ All data cleared successfully', false);
+        
+        // Refresh the page to reset UI state
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+        
     } catch (error) {
-        console.error('Error in cleanup duplicates:', error);
-        window.uiManager.showNotification('Error cleaning up duplicates', true);
+        console.error('Error clearing all data:', error);
+        window.uiManager.showNotification('❌ Error clearing data: ' + error.message, true);
+    }
+}
+
+/**
+ * Clears all cloud data for a user
+ * @async
+ * @function clearAllCloudData
+ * @param {string} userId - User ID
+ * @returns {Promise<void>}
+ */
+async function clearAllCloudData(userId) {
+    try {
+        console.log('🗑️ Clearing all cloud data for user:', userId);
+        
+        // Get all entries and delete them
+        const entries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+        console.log(`Found ${entries.length} entries to delete`);
+        
+        for (const entry of entries) {
+            await window.cloudStorage.deleteEntryFromCloud(userId, entry.date);
+        }
+        
+        // Delete settings
+        const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
+        await window.firebaseModules.deleteDoc(settingsRef).catch(() => {
+            console.log('Settings already deleted or not found');
+        });
+        
+        // Delete device info
+        const devicesRef = window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'devices');
+        const devicesSnapshot = await window.firebaseModules.getDocs(devicesRef);
+        
+        for (const deviceDoc of devicesSnapshot.docs) {
+            await window.firebaseModules.deleteDoc(deviceDoc.ref);
+        }
+        
+        console.log('✅ All cloud data cleared');
+        
+    } catch (error) {
+        console.error('❌ Error clearing cloud data:', error);
+        throw error;
     }
 }
 
@@ -517,8 +634,9 @@ window.settingsManager = {
     getTechCode,
     getGstNumber,
     getTechName,
-    handleSyncAllData,
-    handleCleanupDuplicates,
+    handleClearAllData,
+    showDangerConfirmationDialog,
+    clearAllCloudData,
     syncSettings,
     uploadSettingsToCloud,
     downloadSettingsFromCloud,

@@ -220,16 +220,10 @@
                 <small>Technician name for travel sheet</small>
             </div>
             <div class="form-group">
-                <h3>Data Sync</h3>
-                <p><small>Automatic sync only includes entries from the last 2 months for performance.</small></p>
-                <button id="sync-all-data" class="sync-btn">🔄 Sync All Data</button>
-                <small>Manually sync all entries regardless of age</small>
-            </div>
-            <div class="form-group">
-                <h3>Data Cleanup</h3>
-                <button id="cleanup-duplicates" class="sync-btn" style="background: var(--error-color);">🧹 Clean Up
-                    Duplicates</button>
-                <small>Remove duplicate entries for the same date (keeps most recent)</small>
+                <h3>⚠️ Danger Zone</h3>
+                <button id="clear-all-data" class="sync-btn" style="background: var(--error-color); color: white;">🗑️
+                    Clear All Data</button>
+                <small>Permanently delete ALL your entries and settings from both local storage and cloud</small>
             </div>
             <button id="save-settings">Save Settings</button>
         </div>

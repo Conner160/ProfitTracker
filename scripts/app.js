@@ -287,9 +287,6 @@ function setupEventListeners() {
         e.target.value = value; // Convert to uppercase
     });
     
-    // Sync all data button
-    document.getElementById('sync-all-data').addEventListener('click', window.settingsManager.handleSyncAllData);
-    
-    // Cleanup duplicates button
-    document.getElementById('cleanup-duplicates').addEventListener('click', window.settingsManager.handleCleanupDuplicates);
+    // Clear all data button
+    document.getElementById('clear-all-data').addEventListener('click', window.settingsManager.handleClearAllData);
 }
