@@ -10,6 +10,119 @@
 let loadEntriesTimeout = null;
 
 /**
+ * Checks if two entries have different values (excluding metadata)
+ * @param {Object} entry1 - First entry to compare
+ * @param {Object} entry2 - Second entry to compare
+ * @returns {boolean} True if entries have different values
+ */
+function entriesAreDifferent(entry1, entry2) {
+    if (!entry1 || !entry2) return true;
+    
+    // Compare core fields
+    const coreFields = ['points', 'kms', 'perDiem', 'notes'];
+    for (const field of coreFields) {
+        if (entry1[field] !== entry2[field]) return true;
+    }
+    
+    // Compare expenses
+    const expenses1 = entry1.expenses || {};
+    const expenses2 = entry2.expenses || {};
+    const expenseFields = ['hotel', 'gas', 'food'];
+    for (const field of expenseFields) {
+        if ((expenses1[field] || 0) !== (expenses2[field] || 0)) return true;
+    }
+    
+    // Compare land locations
+    const locations1 = entry1.landLocations || [];
+    const locations2 = entry2.landLocations || [];
+    if (locations1.length !== locations2.length) return true;
+    for (let i = 0; i < locations1.length; i++) {
+        if (locations1[i] !== locations2[i]) return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Shows a conflict resolution dialog for duplicate entries
+ * @param {string} date - The date of the conflicting entries
+ * @param {Object} entry1 - First entry (usually existing)
+ * @param {Object} entry2 - Second entry (usually new)
+ * @param {string} label1 - Label for first entry (e.g., "Existing")
+ * @param {string} label2 - Label for second entry (e.g., "New")
+ * @returns {Promise<string>} 'entry1', 'entry2', or 'cancel'
+ */
+function showEntryConflictDialog(date, entry1, entry2, label1 = 'Existing', label2 = 'New') {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content conflict-modal">
+                <h3>Entry Conflict for ${window.dateUtils.formatDateForDisplay(date)}</h3>
+                <p>Multiple entries found for this date. Please choose which one to keep:</p>
+                
+                <div class="conflict-options">
+                    <div class="conflict-option">
+                        <input type="radio" name="entry-choice" value="entry1" id="keep-entry1">
+                        <label for="keep-entry1">
+                            <strong>${label1} Entry:</strong><br>
+                            Points: ${entry1.points}, KMs: ${entry1.kms}<br>
+                            Per Diem: ${entry1.perDiem}<br>
+                            ${entry1.expenses ? `Expenses: Hotel $${entry1.expenses.hotel || 0}, Gas $${entry1.expenses.gas || 0}, Food $${entry1.expenses.food || 0}` : 'No expenses'}<br>
+                            ${entry1.notes ? `Notes: ${entry1.notes}` : 'No notes'}<br>
+                            ${entry1.landLocations?.length ? `Locations: ${entry1.landLocations.join(', ')}` : 'No locations'}
+                        </label>
+                    </div>
+                    
+                    <div class="conflict-option">
+                        <input type="radio" name="entry-choice" value="entry2" id="keep-entry2">
+                        <label for="keep-entry2">
+                            <strong>${label2} Entry:</strong><br>
+                            Points: ${entry2.points}, KMs: ${entry2.kms}<br>
+                            Per Diem: ${entry2.perDiem}<br>
+                            ${entry2.expenses ? `Expenses: Hotel $${entry2.expenses.hotel || 0}, Gas $${entry2.expenses.gas || 0}, Food $${entry2.expenses.food || 0}` : 'No expenses'}<br>
+                            ${entry2.notes ? `Notes: ${entry2.notes}` : 'No notes'}<br>
+                            ${entry2.landLocations?.length ? `Locations: ${entry2.landLocations.join(', ')}` : 'No locations'}
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button id="apply-entry-choice" class="conflict-btn" disabled>Keep Selected</button>
+                    <button id="cancel-entry-choice" class="conflict-btn">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Enable apply button when choice is made
+        const radioButtons = modal.querySelectorAll('input[name="entry-choice"]');
+        const applyBtn = modal.querySelector('#apply-entry-choice');
+        
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', () => {
+                applyBtn.disabled = false;
+            });
+        });
+        
+        // Handle apply button
+        applyBtn.addEventListener('click', () => {
+            const selectedChoice = modal.querySelector('input[name="entry-choice"]:checked');
+            const choice = selectedChoice ? selectedChoice.value : 'cancel';
+            document.body.removeChild(modal);
+            resolve(choice);
+        });
+        
+        // Handle cancel button
+        modal.querySelector('#cancel-entry-choice').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve('cancel');
+        });
+    });
+}
+
+/**
  * Saves a new daily entry or updates an existing one with form data
  * Collects all form inputs including points, kilometers, expenses, notes,
  * and land locations, then saves to IndexedDB. Handles duplicate date
@@ -46,27 +159,9 @@ async function saveEntry() {
     // Get current land locations from the location manager
     const landLocations = window.locationManager.getLandLocations();
 
-    // Check if entry exists for this date
-    const existingEntry = await window.dbFunctions.getFromDB('entries', dateInput);
-    const isUpdate = !!existingEntry;
-
-    // Handle existing entry with user confirmation
-    if (existingEntry) {
-        const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
-                              `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
-                              `New: ${points} pts, ${kms} km\n\n` +
-                              `Update with new data? (Cancel to keep existing)`);
-        
-        // If user cancels, abort save operation
-        if (!keepNew) {
-            window.uiManager.showNotification('Entry not saved - kept existing entry');
-            return;
-        }
-    }
-
-    // Create entry object (date is the primary key)
-    const entry = {
-        date: dateInput, // Primary key
+    // Create new entry object for comparison
+    const newEntry = {
+        date: dateInput,
         points,
         kms,
         perDiem,
@@ -74,20 +169,50 @@ async function saveEntry() {
         expenses,
         landLocations,
         timestamp: new Date().getTime(),
-        lastModified: new Date().toISOString(),
-        createdAt: existingEntry?.createdAt || new Date().toISOString() // Preserve creation time for updates
+        lastModified: new Date().toISOString()
     };
 
-    // Attempt to save entry to database with error handling
+    // Check if entry exists for this date in local database
+    const existingEntry = await window.dbFunctions.getFromDB('entries', dateInput);
+    let finalEntry = newEntry;
+    const isUpdate = !!existingEntry;
+
+    // Handle existing entry with conflict resolution
+    if (existingEntry) {
+        // Check if entries are actually different
+        if (entriesAreDifferent(existingEntry, newEntry)) {
+            const choice = await showEntryConflictDialog(dateInput, existingEntry, newEntry, 'Existing', 'New');
+            
+            if (choice === 'cancel') {
+                window.uiManager.showNotification('Entry not saved - cancelled by user');
+                return;
+            } else if (choice === 'entry1') {
+                // Keep existing entry
+                window.uiManager.showNotification('Kept existing entry');
+                return;
+            } else {
+                // Keep new entry (entry2)
+                finalEntry = { ...newEntry, createdAt: existingEntry.createdAt || new Date().toISOString() };
+            }
+        } else {
+            // Entries are the same, just update timestamp
+            finalEntry = { ...newEntry, createdAt: existingEntry.createdAt || new Date().toISOString() };
+        }
+    } else {
+        // New entry
+        finalEntry.createdAt = new Date().toISOString();
+    }
+
+    // Attempt to save final entry to database with error handling
     try {
-        await window.dbFunctions.saveToDB('entries', entry);
+        await window.dbFunctions.saveToDB('entries', finalEntry);
         
-        // If user is signed in and email verified, also save to cloud
+        // If user is signed in and email verified, also save to cloud (overwrite any existing data for this date)
         if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
-                await window.cloudStorage.saveEntryToCloud(userId, entry);
-                console.log('Entry saved to cloud');
+                await window.cloudStorage.saveEntryToCloud(userId, finalEntry);
+                console.log('Entry saved to cloud for date:', dateInput);
             } catch (cloudError) {
                 console.warn('Failed to save to cloud, will sync later:', cloudError);
                 // Don't fail the entire operation if cloud save fails
@@ -572,5 +697,7 @@ window.entryManager = {
     loadEntriesImmediate,
     deleteEntry,
     initializeDate,
-    removeDuplicateEntries
+    removeDuplicateEntries,
+    entriesAreDifferent,
+    showEntryConflictDialog
 };

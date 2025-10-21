@@ -69,6 +69,143 @@ class SyncManager {
         }
     }
 
+    /**
+     * Shows mass conflict resolution dialog for multiple entry conflicts
+     * @param {Array} conflicts - Array of conflict objects with {date, localEntry, cloudEntry}
+     * @returns {Promise<Object>} Object with resolution choices and mass preference
+     */
+    async showMassConflictDialog(conflicts) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content mass-conflict-modal">
+                    <h3>Multiple Entry Conflicts Found</h3>
+                    <p>Found ${conflicts.length} conflicting entries between local and cloud data.</p>
+                    
+                    <div class="mass-choice-options">
+                        <h4>How would you like to resolve these conflicts?</h4>
+                        <label>
+                            <input type="radio" name="mass-choice" value="one-by-one">
+                            Review each conflict individually
+                        </label>
+                        <label>
+                            <input type="radio" name="mass-choice" value="keep-local">
+                            Keep all local entries (overwrite cloud)
+                        </label>
+                        <label>
+                            <input type="radio" name="mass-choice" value="keep-cloud">
+                            Keep all cloud entries (overwrite local)
+                        </label>
+                        <label>
+                            <input type="radio" name="mass-choice" value="keep-newer">
+                            Automatically keep the most recently modified
+                        </label>
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button id="apply-mass-choice" class="conflict-btn" disabled>Apply Choice</button>
+                        <button id="cancel-mass-choice" class="conflict-btn">Cancel Sync</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Enable apply button when choice is made
+            const radioButtons = modal.querySelectorAll('input[name="mass-choice"]');
+            const applyBtn = modal.querySelector('#apply-mass-choice');
+            
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    applyBtn.disabled = false;
+                });
+            });
+            
+            // Handle apply button
+            applyBtn.addEventListener('click', () => {
+                const selectedChoice = modal.querySelector('input[name="mass-choice"]:checked');
+                const choice = selectedChoice ? selectedChoice.value : 'cancel';
+                document.body.removeChild(modal);
+                resolve({ massChoice: choice });
+            });
+            
+            // Handle cancel button
+            modal.querySelector('#cancel-mass-choice').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                resolve({ massChoice: 'cancel' });
+            });
+        });
+    }
+
+    /**
+     * Resolves conflicts between local and cloud entries
+     * @param {Array} conflicts - Array of conflict objects
+     * @returns {Promise<Object>} Resolution results
+     */
+    async resolveConflicts(conflicts) {
+        if (conflicts.length === 0) return { resolved: [], cancelled: [] };
+        
+        // Ask user how they want to handle multiple conflicts
+        const massChoice = await this.showMassConflictDialog(conflicts);
+        
+        if (massChoice.massChoice === 'cancel') {
+            return { resolved: [], cancelled: conflicts.map(c => c.date) };
+        }
+        
+        const resolved = [];
+        const cancelled = [];
+        
+        if (massChoice.massChoice === 'one-by-one') {
+            // Handle each conflict individually using entryManager's dialog
+            for (const conflict of conflicts) {
+                const choice = await window.entryManager.showEntryConflictDialog(
+                    conflict.date, 
+                    conflict.localEntry, 
+                    conflict.cloudEntry, 
+                    'Local', 
+                    'Cloud'
+                );
+                
+                if (choice === 'cancel') {
+                    cancelled.push(conflict.date);
+                } else if (choice === 'entry1') {
+                    resolved.push({ date: conflict.date, keepEntry: conflict.localEntry, source: 'local' });
+                } else {
+                    resolved.push({ date: conflict.date, keepEntry: conflict.cloudEntry, source: 'cloud' });
+                }
+            }
+        } else {
+            // Apply mass choice to all conflicts
+            for (const conflict of conflicts) {
+                let keepEntry, source;
+                
+                if (massChoice.massChoice === 'keep-local') {
+                    keepEntry = conflict.localEntry;
+                    source = 'local';
+                } else if (massChoice.massChoice === 'keep-cloud') {
+                    keepEntry = conflict.cloudEntry;
+                    source = 'cloud';
+                } else if (massChoice.massChoice === 'keep-newer') {
+                    const localModified = new Date(conflict.localEntry.lastModified || conflict.localEntry.timestamp || 0);
+                    const cloudModified = new Date(conflict.cloudEntry.lastModified || conflict.cloudEntry.cloudUpdatedAt || 0);
+                    
+                    if (localModified >= cloudModified) {
+                        keepEntry = conflict.localEntry;
+                        source = 'local';
+                    } else {
+                        keepEntry = conflict.cloudEntry;
+                        source = 'cloud';
+                    }
+                }
+                
+                resolved.push({ date: conflict.date, keepEntry, source });
+            }
+        }
+        
+        return { resolved, cancelled };
+    }
+
     async performFullSync() {
         if (this.isSyncing) return;
         
@@ -87,29 +224,25 @@ class SyncManager {
                 throw new Error('Email not verified - sync disabled');
             }
             
+            // Get all local entries
             const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
-            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
             
-            // Filter to only recent entries (last 2 months) for automatic sync
+            // Get cloud entries from last 2 months
             const twoMonthsAgo = new Date();
             twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            
-            const localEntries = allLocalEntries.filter(entry => {
-                const entryDate = new Date(entry.date);
-                return entryDate >= twoMonthsAgo;
-            });
+            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
             
             const cloudEntries = allCloudEntries.filter(entry => {
                 const entryDate = new Date(entry.date);
                 return entryDate >= twoMonthsAgo;
             });
             
-            console.log(`Local entries: ${localEntries.length}, Cloud entries: ${cloudEntries.length}`);
+            console.log(`Local entries: ${allLocalEntries.length}, Cloud entries (2-month): ${cloudEntries.length}`);
             
             // If this is the first sync (no cloud data), upload all local data
-            if (cloudEntries.length === 0 && localEntries.length > 0) {
+            if (cloudEntries.length === 0 && allLocalEntries.length > 0) {
                 console.log('First sync: uploading all local data to cloud...');
-                await this.uploadAllLocalData(localEntries);
+                await this.uploadAllLocalData(allLocalEntries);
                 
                 // Also upload settings on first sync
                 if (window.settingsManager?.uploadSettingsToCloud) {
@@ -120,22 +253,8 @@ class SyncManager {
                 return;
             }
             
-            // If user has cloud data but no local data, download everything
-            if (localEntries.length === 0 && cloudEntries.length > 0) {
-                console.log('Downloading all cloud data to local storage...');
-                await this.downloadAllCloudData(cloudEntries);
-                
-                // Also download settings
-                if (window.settingsManager?.downloadSettingsFromCloud) {
-                    await window.settingsManager.downloadSettingsFromCloud();
-                }
-                
-                this.updateLastSyncTime();
-                return;
-            }
-            
-            // Perform two-way sync
-            await this.performTwoWaySync(localEntries, cloudEntries);
+            // Perform intelligent sync with conflict resolution
+            await this.performIntelligentSync(userId, allLocalEntries, cloudEntries);
             
             // Sync settings after entries
             if (window.settingsManager?.syncSettings) {
@@ -155,6 +274,90 @@ class SyncManager {
         } finally {
             this.isSyncing = false;
             this.updateSyncStatusUI();
+        }
+    }
+
+    /**
+     * Performs intelligent sync with conflict resolution
+     * @param {string} userId - User ID
+     * @param {Array} localEntries - Local entries
+     * @param {Array} cloudEntries - Cloud entries
+     */
+    async performIntelligentSync(userId, localEntries, cloudEntries) {
+        // Create maps for easier lookup
+        const localEntriesMap = new Map(localEntries.map(entry => [entry.date, entry]));
+        const cloudEntriesMap = new Map(cloudEntries.map(entry => [entry.date, entry]));
+        
+        // Find conflicts (entries that exist in both but are different)
+        const conflicts = [];
+        const entriesToUpload = []; // Local entries not in cloud
+        const entriesToDownload = []; // Cloud entries not in local
+        
+        // Check each cloud entry against local
+        for (const cloudEntry of cloudEntries) {
+            const localEntry = localEntriesMap.get(cloudEntry.date);
+            
+            if (localEntry) {
+                // Entry exists in both - check if they're different
+                if (window.entryManager.entriesAreDifferent(localEntry, cloudEntry)) {
+                    conflicts.push({ date: cloudEntry.date, localEntry, cloudEntry });
+                }
+            } else {
+                // Cloud entry doesn't exist locally
+                entriesToDownload.push(cloudEntry);
+            }
+        }
+        
+        // Check for local entries not in cloud
+        for (const localEntry of localEntries) {
+            if (!cloudEntriesMap.has(localEntry.date)) {
+                entriesToUpload.push(localEntry);
+            }
+        }
+        
+        console.log(`Found ${conflicts.length} conflicts, ${entriesToUpload.length} to upload, ${entriesToDownload.length} to download`);
+        
+        // Handle conflicts first
+        if (conflicts.length > 0) {
+            const resolution = await this.resolveConflicts(conflicts);
+            
+            // Apply resolved conflicts
+            for (const resolved of resolution.resolved) {
+                if (resolved.source === 'local') {
+                    // Keep local, update cloud
+                    await window.cloudStorage.saveEntryToCloud(userId, resolved.keepEntry);
+                    console.log(`Kept local entry for ${resolved.date}, updated cloud`);
+                } else {
+                    // Keep cloud, update local
+                    await window.dbFunctions.saveToDB('entries', resolved.keepEntry);
+                    console.log(`Kept cloud entry for ${resolved.date}, updated local`);
+                }
+            }
+            
+            if (resolution.resolved.length > 0) {
+                window.uiManager.showNotification(`Resolved ${resolution.resolved.length} conflicts`);
+            }
+        }
+        
+        // Upload new local entries
+        if (entriesToUpload.length > 0) {
+            console.log(`Uploading ${entriesToUpload.length} new local entries...`);
+            for (const entry of entriesToUpload) {
+                await window.cloudStorage.saveEntryToCloud(userId, entry);
+            }
+        }
+        
+        // Download new cloud entries
+        if (entriesToDownload.length > 0) {
+            console.log(`Downloading ${entriesToDownload.length} new cloud entries...`);
+            for (const entry of entriesToDownload) {
+                await window.dbFunctions.saveToDB('entries', entry);
+            }
+        }
+        
+        // Refresh UI if there were any changes
+        if (conflicts.length > 0 || entriesToUpload.length > 0 || entriesToDownload.length > 0) {
+            window.entryManager.loadEntries();
         }
     }
 
