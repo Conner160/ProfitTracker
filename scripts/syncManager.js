@@ -9,14 +9,14 @@ class SyncManager {
         this.lastSyncTime = localStorage.getItem('lastSyncTime') || null;
         this.syncConflicts = [];
         this.hasPermissionError = false;
-        
+
         // Listen for online/offline events
         window.addEventListener('online', () => {
             this.isOnline = true;
             this.updateSyncStatusUI();
             this.syncWhenOnline();
         });
-        
+
         window.addEventListener('offline', () => {
             this.isOnline = false;
             this.updateSyncStatusUI();
@@ -24,32 +24,41 @@ class SyncManager {
     }
 
     async onUserSignIn(user) {
-        console.log('User signed in, checking verification status...');
-        
-        // Check if required dependencies are available
+        window.secureLog.log('🔐 User signed in, initializing online-first sync...');
+
+        // ✅ Check if required dependencies are available
         if (!window.cloudStorage || !window.dbFunctions) {
-            console.log('Sync dependencies not available, skipping sync');
+            window.secureLog.warn('Sync dependencies not available, operating in local-only mode');
+            window.uiManager?.updateSyncStatus('offline', 'Dependencies unavailable');
             return;
         }
-        
-        // Check if email is verified
+
+        // 📧 Check if email is verified for cloud operations
         if (!user.emailVerified) {
-            console.log('Email not verified, sync disabled');
-            window.uiManager?.showNotification('Please verify your email address to enable cloud sync', true);
+            window.secureLog.warn('Email not verified, cloud sync disabled');
+            window.uiManager?.showNotification('📧 Please verify your email to enable cloud sync', true);
+            window.uiManager?.updateSyncStatus('offline', 'Email verification required');
             return;
         }
-        
-        console.log('Email verified, starting sync...');
-        
+
+        window.secureLog.log('✅ Email verified, starting online-first sync...');
+
+        // 🌐 Only proceed with sync if online
+        if (!navigator.onLine) {
+            window.secureLog.log('📵 Offline detected, skipping cloud sync');
+            window.uiManager?.updateSyncStatus('offline', 'No internet connection');
+            return;
+        }
+
         try {
-            // Load settings first to ensure rates are up to date
+            // 🎯 Load settings first to ensure rates are current (online-first)
             if (window.settingsManager?.loadSettings) {
                 await window.settingsManager.loadSettings();
             }
-            
-            // Process any offline queue items that failed to sync previously
+
+            // 🔄 Process offline queue only after confirming online status
             await this.processOfflineQueue();
-            
+
             await this.performFullSync();
         } catch (error) {
             console.log('Sync failed, continuing in local-only mode:', error.message);
@@ -74,79 +83,79 @@ class SyncManager {
 
     async performFullSync() {
         if (this.isSyncing) return;
-        
+
         try {
             this.isSyncing = true;
             this.updateSyncStatusUI();
             console.log('Starting full sync...');
-            
+
             // Check authentication and email verification
             const userId = window.authManager?.getUserId();
             if (!userId) {
                 throw new Error('User not authenticated');
             }
-            
+
             if (!window.authManager?.isEmailVerified()) {
                 throw new Error('Email not verified - sync disabled');
             }
-            
+
             const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
             const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
-            
+
             // Filter to only recent entries (last 2 months) for automatic sync
             const twoMonthsAgo = new Date();
             twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            
+
             const localEntries = allLocalEntries.filter(entry => {
                 const entryDate = new Date(entry.date);
                 return entryDate >= twoMonthsAgo;
             });
-            
+
             const cloudEntries = allCloudEntries.filter(entry => {
                 const entryDate = new Date(entry.date);
                 return entryDate >= twoMonthsAgo;
             });
-            
+
             console.log(`Local entries: ${localEntries.length}, Cloud entries: ${cloudEntries.length}`);
-            
+
             // If this is the first sync (no cloud data), upload all local data
             if (cloudEntries.length === 0 && localEntries.length > 0) {
                 console.log('First sync: uploading all local data to cloud...');
                 await this.uploadAllLocalData(localEntries);
-                
+
                 // Also upload settings on first sync
                 if (window.settingsManager?.uploadSettingsToCloud) {
                     await window.settingsManager.uploadSettingsToCloud();
                 }
-                
+
                 this.updateLastSyncTime();
                 return;
             }
-            
+
             // If user has cloud data but no local data, download everything
             if (localEntries.length === 0 && cloudEntries.length > 0) {
                 console.log('Downloading all cloud data to local storage...');
                 await this.downloadAllCloudData(cloudEntries);
-                
+
                 // Also download settings
                 if (window.settingsManager?.downloadSettingsFromCloud) {
                     await window.settingsManager.downloadSettingsFromCloud();
                 }
-                
+
                 this.updateLastSyncTime();
                 return;
             }
-            
+
             // Perform two-way sync
             await this.performTwoWaySync(localEntries, cloudEntries);
-            
+
             // Sync settings after entries
             if (window.settingsManager?.syncSettings) {
                 await window.settingsManager.syncSettings();
             }
-            
+
             this.updateLastSyncTime();
-            
+
         } catch (error) {
             console.error('Full sync failed:', error);
             if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
@@ -163,35 +172,35 @@ class SyncManager {
 
     async performSync() {
         if (this.isSyncing || !this.isOnline || this.hasPermissionError) return;
-        
+
         // Check email verification before syncing
         if (!window.authManager?.isEmailVerified()) {
             console.log('Email not verified, skipping sync');
             return;
         }
-        
+
         try {
             this.isSyncing = true;
-            
+
             // Get entries modified since last sync (only last 2 months)
             const lastSync = this.lastSyncTime ? new Date(this.lastSyncTime) : null;
             const twoMonthsAgo = new Date();
             twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            
+
             const localEntries = await window.dbFunctions.getAllFromDB('entries');
-            
+
             // Filter entries: only sync recent entries (last 2 months) or recently modified
             const modifiedLocalEntries = localEntries.filter(entry => {
                 const entryDate = new Date(entry.date);
                 const modifiedDate = new Date(entry.lastModified || entry.createdAt || entry.date);
-                
+
                 // Include if entry date is within 2 months OR if recently modified
                 const isRecentEntry = entryDate >= twoMonthsAgo;
                 const isRecentlyModified = lastSync ? modifiedDate > lastSync : false;
-                
+
                 return isRecentEntry || isRecentlyModified;
             });
-            
+
             // Upload modified local entries
             if (modifiedLocalEntries.length > 0) {
                 console.log(`Uploading ${modifiedLocalEntries.length} modified local entries...`);
@@ -200,15 +209,15 @@ class SyncManager {
                     await window.cloudStorage.saveEntryToCloud(userId, entry);
                 }
             }
-            
+
             // Sync settings as well during regular sync
             if (window.settingsManager?.syncSettings) {
                 await window.settingsManager.syncSettings();
             }
-            
+
             // Download any cloud updates (handled by real-time listener)
             this.updateLastSyncTime();
-            
+
         } catch (error) {
             console.error('Sync failed:', error);
             if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
@@ -237,7 +246,7 @@ class SyncManager {
         try {
             // Clear local database first
             await window.dbFunctions.clearAllEntries();
-            
+
             // Add all cloud entries to local database
             for (const entry of cloudEntries) {
                 // Ensure entry has date as primary key
@@ -247,9 +256,9 @@ class SyncManager {
                     console.warn('Skipping entry without date:', entry);
                 }
             }
-            
+
             console.log(`Successfully downloaded ${cloudEntries.length} entries from cloud`);
-            
+
             // Refresh UI
             if (window.entryManager) {
                 window.entryManager.loadEntries();
@@ -262,19 +271,19 @@ class SyncManager {
 
     async performTwoWaySync(localEntries, cloudEntries) {
         console.log('Performing two-way sync...');
-        
+
         // Create maps for easier lookup
         const localMap = new Map(localEntries.map(entry => [entry.id, entry]));
         const cloudMap = new Map(cloudEntries.map(entry => [entry.id, entry]));
-        
+
         const entriesToUpload = [];
         const entriesToDownload = [];
         const conflicts = [];
-        
+
         // Check local entries
         for (const localEntry of localEntries) {
             const cloudEntry = cloudMap.get(localEntry.id);
-            
+
             if (!cloudEntry) {
                 // Local entry doesn't exist in cloud - upload it
                 entriesToUpload.push(localEntry);
@@ -282,7 +291,7 @@ class SyncManager {
                 // Entry exists in both - check for conflicts
                 const localModified = new Date(localEntry.lastModified || localEntry.date);
                 const cloudModified = new Date(cloudEntry.lastModified || cloudEntry.date);
-                
+
                 if (localModified > cloudModified) {
                     // Local is newer - upload it
                     entriesToUpload.push(localEntry);
@@ -295,21 +304,21 @@ class SyncManager {
                 }
             }
         }
-        
+
         // Check for cloud entries not in local
         for (const cloudEntry of cloudEntries) {
             if (!localMap.has(cloudEntry.id)) {
                 entriesToDownload.push(cloudEntry);
             }
         }
-        
+
         // Handle conflicts with user choice
         if (conflicts.length > 0) {
             console.log(`Detected ${conflicts.length} sync conflicts`);
             const resolution = await this.showConflictResolutionDialog(conflicts);
             this.applyConflictResolution(conflicts, resolution, entriesToUpload, entriesToDownload);
         }
-        
+
         // Upload local changes
         if (entriesToUpload.length > 0) {
             console.log(`Uploading ${entriesToUpload.length} local changes...`);
@@ -318,7 +327,7 @@ class SyncManager {
                 await window.cloudStorage.saveEntryToCloud(userId, entry);
             }
         }
-        
+
         // Download cloud changes
         if (entriesToDownload.length > 0) {
             console.log(`Downloading ${entriesToDownload.length} cloud changes...`);
@@ -326,7 +335,7 @@ class SyncManager {
                 await window.dbFunctions.updateEntry(entry.date, entry);
             }
         }
-        
+
         // Refresh UI if there were changes
         if (entriesToDownload.length > 0 && window.entryManager) {
             window.entryManager.loadEntries();
@@ -336,7 +345,7 @@ class SyncManager {
     entriesAreDifferent(entry1, entry2) {
         // Compare key fields to detect differences
         const fields = ['date', 'points', 'kms', 'perDiem', 'hotelExpense', 'gasExpense', 'foodExpense', 'landLocations', 'notes'];
-        
+
         for (const field of fields) {
             // Handle array fields (landLocations) specially
             if (Array.isArray(entry1[field]) && Array.isArray(entry2[field])) {
@@ -347,7 +356,7 @@ class SyncManager {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -408,18 +417,18 @@ class SyncManager {
 
         // Add event listeners
         this.setupConflictModalListeners(modal, conflicts, resolve);
-        
+
         return modal;
     }
 
     createConflictComparisonHTML(conflict, index) {
         const local = conflict.local;
         const cloud = conflict.cloud;
-        
+
         const formatDate = (dateStr) => {
             return new Date(dateStr).toLocaleString();
         };
-        
+
         return `
             <div class="conflict-entry" data-index="${index}">
                 <h3>Entry for ${local.date}</h3>
@@ -569,18 +578,18 @@ class SyncManager {
 
         // Add event listeners
         this.setupConflictModalListeners(modal, conflicts, resolve);
-        
+
         return modal;
     }
 
     createConflictComparisonHTML(conflict, index) {
         const local = conflict.local;
         const cloud = conflict.cloud;
-        
+
         const formatDate = (dateStr) => {
             return new Date(dateStr).toLocaleString();
         };
-        
+
         return `
             <div class="conflict-entry" data-index="${index}">
                 <h3>Entry for ${local.date}</h3>
@@ -730,18 +739,18 @@ class SyncManager {
 
         // Add event listeners
         this.setupConflictModalListeners(modal, conflicts, resolve);
-        
+
         return modal;
     }
 
     createConflictComparisonHTML(conflict, index) {
         const local = conflict.local;
         const cloud = conflict.cloud;
-        
+
         const formatDate = (dateStr) => {
             return new Date(dateStr).toLocaleString();
         };
-        
+
         return `
             <div class="conflict-entry" data-index="${index}">
                 <h3>Entry for ${local.date}</h3>
@@ -861,7 +870,7 @@ class SyncManager {
             window.uiManager?.showNotification('Please sign in to sync all data', true);
             return;
         }
-        
+
         if (!window.authManager?.isEmailVerified()) {
             window.uiManager?.showNotification('Please verify your email address to sync data', true);
             return;
@@ -883,7 +892,7 @@ class SyncManager {
 
             // Show sync direction choice dialog
             const direction = await this.showSyncAllDialog(allLocalEntries.length, allCloudEntries.length, localDataSize, cloudDataSize);
-            
+
             if (direction === 'cancel') {
                 return;
             }
@@ -895,28 +904,28 @@ class SyncManager {
                 // Upload all local data to cloud (overwrite cloud)
                 console.log('Uploading all local data to cloud...');
                 await this.uploadAllLocalData(allLocalEntries);
-                
+
                 // Upload settings as well
                 if (window.settingsManager?.uploadSettingsToCloud) {
                     await window.settingsManager.uploadSettingsToCloud();
                 }
-                
+
                 window.uiManager?.showNotification(`Successfully uploaded ${allLocalEntries.length} entries and settings to cloud`);
             } else if (direction === 'download') {
                 // Download all cloud data to device (overwrite local)
                 console.log('Downloading all cloud data to device...');
                 await this.downloadAllCloudData(allCloudEntries);
-                
+
                 // Download settings as well
                 if (window.settingsManager?.downloadSettingsFromCloud) {
                     await window.settingsManager.downloadSettingsFromCloud();
                 }
-                
+
                 window.uiManager?.showNotification(`Successfully downloaded ${allCloudEntries.length} entries and settings from cloud`);
             }
 
             this.updateLastSyncTime();
-            
+
         } catch (error) {
             console.error('Manual sync all failed:', error);
             window.uiManager?.showNotification('Sync all failed: ' + error.message, true);
@@ -929,7 +938,7 @@ class SyncManager {
     calculateDataSize(entries) {
         const jsonString = JSON.stringify(entries);
         const sizeInBytes = new Blob([jsonString]).size;
-        
+
         if (sizeInBytes < 1024) {
             return sizeInBytes + ' bytes';
         } else if (sizeInBytes < 1024 * 1024) {
@@ -995,18 +1004,18 @@ class SyncManager {
 
     showPermissionError() {
         this.hasPermissionError = true;
-        
+
         const syncStatus = document.getElementById('sync-status');
         const syncText = document.getElementById('sync-text');
         const syncIndicator = document.getElementById('sync-indicator');
-        
+
         if (syncStatus && syncText && syncIndicator) {
             syncStatus.style.display = 'block';
             syncIndicator.textContent = '🔒';
             syncText.textContent = 'Local Only';
             syncStatus.title = 'Cloud sync unavailable - data saved locally only';
         }
-        
+
         // Show user notification
         if (window.uiManager) {
             window.uiManager.showNotification('Cloud sync unavailable. All data will be saved locally.', false);
@@ -1044,18 +1053,18 @@ class SyncManager {
             const offlineEntries = await window.dbFunctions.getOfflineQueue('offline_entries');
             if (offlineEntries.length > 0) {
                 console.log(`Processing ${offlineEntries.length} offline entries...`);
-                
+
                 for (const offlineEntry of offlineEntries) {
                     try {
                         if (offlineEntry.offlineAction === 'save') {
                             // Check if entry exists in cloud
                             const cloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
                             const existingCloudEntry = cloudEntries.find(e => e.date === offlineEntry.date);
-                            
+
                             if (existingCloudEntry) {
                                 // Conflict: show user dialog to choose which version to keep
                                 const choice = await this.showOfflineConflictDialog('entry', offlineEntry, existingCloudEntry);
-                                
+
                                 if (choice === 'offline') {
                                     await window.cloudStorage.saveEntryToCloud(userId, offlineEntry);
                                     console.log('✅ Offline entry synced to cloud:', offlineEntry.date);
@@ -1074,10 +1083,10 @@ class SyncManager {
                             await window.cloudStorage.deleteEntryFromCloud(userId, offlineEntry.date);
                             console.log('✅ Offline delete synced to cloud:', offlineEntry.date);
                         }
-                        
+
                         // Remove from offline queue after successful sync
                         await window.dbFunctions.deleteFromDB('offline_entries', offlineEntry.date);
-                        
+
                     } catch (error) {
                         console.error('Failed to sync offline entry:', offlineEntry.date, error);
                         // Keep in offline queue for next attempt
@@ -1089,16 +1098,16 @@ class SyncManager {
             const offlineSettings = await window.dbFunctions.getOfflineQueue('offline_settings');
             if (offlineSettings.length > 0) {
                 console.log(`Processing ${offlineSettings.length} offline settings...`);
-                
+
                 for (const offlineSetting of offlineSettings) {
                     try {
                         // Check if settings exist in cloud
                         const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
-                        
+
                         if (cloudSettings) {
                             // Conflict: show user dialog to choose which version to keep
                             const choice = await this.showOfflineConflictDialog('settings', offlineSetting, cloudSettings);
-                            
+
                             if (choice === 'offline') {
                                 await window.cloudStorage.saveSettingsToCloud(userId, offlineSetting);
                                 console.log('✅ Offline settings synced to cloud');
@@ -1113,10 +1122,10 @@ class SyncManager {
                             await window.cloudStorage.saveSettingsToCloud(userId, offlineSetting);
                             console.log('✅ Offline settings synced to cloud');
                         }
-                        
+
                         // Remove from offline queue after successful sync
                         await window.dbFunctions.deleteFromDB('offline_settings', offlineSetting.name);
-                        
+
                     } catch (error) {
                         console.error('Failed to sync offline settings:', error);
                         // Keep in offline queue for next attempt
@@ -1133,7 +1142,7 @@ class SyncManager {
             }
 
             console.log('✅ Offline queue processing complete');
-            
+
         } catch (error) {
             console.error('Error processing offline queue:', error);
         }
