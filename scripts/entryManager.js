@@ -80,11 +80,6 @@ async function saveEntry() {
 
     // Cloud-first save approach: save to cloud, only use local as backup on failure
     try {
-        // Check if user is authenticated and email verified (required for cloud-first)
-        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
-            throw new Error('User must be signed in and email verified to save entries');
-        }
-
         const userId = window.authManager.getCurrentUser().uid;
         
         // Try to save directly to cloud first
@@ -229,24 +224,22 @@ async function checkAndPopulateExistingEntry(date) {
         let allEntries = [];
         let existingEntry = null;
         
-        // Cloud-first approach: try to load from cloud first
-        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        try {
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            existingEntry = allEntries.find(entry => entry.date === date);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud for date check, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage
             try {
-                const userId = window.authManager.getCurrentUser().uid;
-                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
                 existingEntry = allEntries.find(entry => entry.date === date);
-                
-            } catch (cloudError) {
-                console.warn('☁️ Could not load from cloud for date check, checking offline storage:', cloudError);
-                
-                // Fallback to offline storage
-                try {
-                    const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
-                    allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                    existingEntry = allEntries.find(entry => entry.date === date);
-                } catch (offlineError) {
-                    console.error('Failed to check offline storage:', offlineError);
-                }
+            } catch (offlineError) {
+                console.error('Failed to check offline storage:', offlineError);
             }
         }
         
@@ -352,43 +345,31 @@ async function loadEntries() {
  */
 async function loadEntriesImmediate() {
     try {
-        // Check if auth is still initializing
-        if (window.authManager?.isInitializing) {
-            console.log('⏳ Authentication still initializing, skipping entry load');
-            return;
-        }
-        
         let allEntries = [];
         
-        // Cloud-first approach: try to load from cloud first
-        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
+        // Cloud-first approach: load from cloud (authentication is guaranteed)
+        const userId = window.authManager.getCurrentUser().uid;
+        try {
+            // Load from cloud (authentication is guaranteed)
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            console.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage if cloud fails
             try {
-                const userId = window.authManager.getCurrentUser().uid;
-                // Use the correct function name from cloudStorage
-                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
-                console.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                console.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
                 
-            } catch (cloudError) {
-                console.warn('☁️ Could not load from cloud, checking offline storage:', cloudError);
-                
-                // Fallback to offline storage if cloud fails
-                try {
-                    const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
-                    allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                    console.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
-                    
-                    if (allEntries.length > 0) {
-                        window.uiManager.showNotification('📶 Showing offline data. Connect to internet to sync latest changes.', false, 5000);
-                    }
-                } catch (offlineError) {
-                    console.error('Failed to load from offline storage:', offlineError);
-                    allEntries = [];
+                if (allEntries.length > 0) {
+                    window.uiManager.showNotification('📶 Showing offline data. Connect to internet to sync latest changes.', false, 5000);
                 }
+            } catch (offlineError) {
+                console.error('Failed to load from offline storage:', offlineError);
+                allEntries = [];
             }
-        } else {
-            // User not authenticated - show empty state silently during initialization
-            console.log('User not authenticated, showing empty entries');
-            allEntries = [];
         }
         
         // Filter entries to current pay period date range
@@ -579,11 +560,6 @@ async function deleteEntry(date) {
     }
     
     try {
-        // Check if user is authenticated and email verified (required for cloud-first)
-        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
-            throw new Error('User must be signed in and email verified to delete entries');
-        }
-
         const userId = window.authManager.getCurrentUser().uid;
         
         // Try to delete from cloud first

@@ -35,33 +35,8 @@ async function initializeAuth() {
         authInitialized = true;
         console.log('✅ Authentication initialized');
         
-        // Wait a moment for initial auth state to be determined
-        setTimeout(() => {
-            window.authManager.isInitializing = false;
-            console.log('🔓 Authentication initialization complete');
-            
-            // Load data now that authentication is complete
-            if (currentUser) {
-                // User is signed in - load their data
-                if (window.settingsManager?.loadSettings) {
-                    window.settingsManager.loadSettings();
-                }
-                if (window.entryManager?.loadEntries) {
-                    window.entryManager.loadEntries();
-                }
-            } else {
-                // No user signed in - load defaults and show message
-                if (window.settingsManager?.loadSettings) {
-                    window.settingsManager.loadSettings();
-                }
-                if (window.entryManager?.loadEntries) {
-                    window.entryManager.loadEntries();
-                }
-                if (window.uiManager?.showNotification) {
-                    window.uiManager.showNotification('Please sign in to access your data', false, 3000);
-                }
-            }
-        }, 1000);
+        window.authManager.isInitializing = false;
+        console.log('✅ Authentication initialized');
         
     } catch (error) {
         console.error('❌ Error initializing authentication:', error);
@@ -125,58 +100,49 @@ function handleAuthStateChange(user) {
     
     if (user) {
         console.log('👤 User signed in:', user.email);
+        
+        // Check if user's email is verified
+        if (!user.emailVerified) {
+            console.log('📧 Email not verified, redirecting to login...');
+            // Redirect to login page for verification
+            if (window.location.pathname !== '/login.html' && !window.location.pathname.endsWith('login.html')) {
+                window.location.href = 'login.html';
+                return;
+            }
+        } else {
+            // User is verified - ensure they're on the main app
+            if (window.location.pathname === '/login.html' || window.location.pathname.endsWith('login.html')) {
+                console.log('✅ User verified, redirecting to main app...');
+                window.location.href = 'index.html';
+                return;
+            }
+        }
+        
         showSignedInUI(user);
         
-        // Trigger sync when user signs in
+        // Trigger sync when user signs in (only on main app)
         if (window.syncManager && window.syncManager.onUserSignIn) {
             window.syncManager.onUserSignIn(user);
         }
         
-        // Load data if initialization is complete
-        if (!window.authManager.isInitializing) {
-            loadUserData();
-        }
     } else {
         console.log('👤 User signed out');
+        
+        // Redirect to login page if on main app
+        if (window.location.pathname !== '/login.html' && !window.location.pathname.endsWith('login.html')) {
+            console.log('🔒 No user, redirecting to login...');
+            window.location.href = 'login.html';
+            return;
+        }
+        
         showSignedOutUI();
         
-        // Handle sign out
+        // Handle sign out (only on main app)
         if (window.syncManager && window.syncManager.onUserSignOut) {
             window.syncManager.onUserSignOut();
         }
-        
-        // Load default data if initialization is complete
-        if (!window.authManager.isInitializing) {
-            loadDefaultData();
-        }
     }
-    
-    // Helper function to load user data after authentication
-    function loadUserData() {
-        // Load user settings and entries
-        if (window.settingsManager?.loadSettings) {
-            window.settingsManager.loadSettings();
-        }
-        if (window.entryManager?.loadEntries) {
-            window.entryManager.loadEntries();
-        }
-    }
-    
-    // Helper function to load default data when not authenticated
-    function loadDefaultData() {
-        // Load default settings and show empty entries
-        if (window.settingsManager?.loadSettings) {
-            window.settingsManager.loadSettings();
-        }
-        if (window.entryManager?.loadEntries) {
-            window.entryManager.loadEntries();
-        }
-        
-        // Show helpful message to user
-        if (window.uiManager?.showNotification) {
-            window.uiManager.showNotification('Please sign in to access your data', false, 3000);
-        }
-    }
+
 }
 
 /**
@@ -304,7 +270,9 @@ async function signUpWithEmail() {
 }
 
 /**
- * Signs out the current user
+ * Signs out the current user and redirects to login page
+ * Clears the current user state and redirects to login
+ * 
  * @async
  * @function signOutUser
  * @returns {Promise<void>}
@@ -312,10 +280,17 @@ async function signUpWithEmail() {
 async function signOutUser() {
     try {
         await window.firebaseModules.signOut(window.firebaseAuth);
-        window.uiManager.showNotification('Signed out successfully');
+        currentUser = null;
+        console.log('👋 User signed out, redirecting to login...');
+        
+        // Clear any local data
+        localStorage.clear();
+        
+        // Redirect to login page
+        window.location.href = 'login.html';
     } catch (error) {
-        console.error('Sign-out error:', error);
-        window.uiManager.showNotification('Error signing out', true);
+        console.error('Error signing out:', error);
+        throw error;
     }
 }
 

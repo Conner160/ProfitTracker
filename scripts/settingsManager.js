@@ -69,48 +69,36 @@ function populateSettingsForm(settings) {
  */
 async function loadSettings() {
     try {
-        // Check if auth is still initializing
-        if (window.authManager?.isInitializing) {
-            console.log('⏳ Authentication still initializing, using default settings');
-            populateSettingsForm(getDefaultSettings());
-            return;
-        }
-        
         let finalSettings = null;
+        const userId = window.authManager.getCurrentUser().uid;
         
-        // Cloud-first approach: try to load from cloud first
-        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
-            try {
-                const userId = window.authManager.getCurrentUser().uid;
-                const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        // Cloud-first approach: load from cloud (authentication is guaranteed)
+        try {
+            const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+            
+            if (cloudSettings) {
+                console.log('✅ Settings loaded from cloud:', cloudSettings);
+                finalSettings = cloudSettings;
                 
-                if (cloudSettings) {
-                    console.log('✅ Settings loaded from cloud:', cloudSettings);
-                    finalSettings = cloudSettings;
-                    
-                    // Clear any offline backup since cloud load succeeded
-                    await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
-                        // Ignore errors if no offline backup exists
-                    });
-                }
-            } catch (cloudError) {
-                console.warn('☁️ Could not load settings from cloud, checking offline backup:', cloudError);
-                
-                // Fallback to offline backup
-                try {
-                    const offlineSettings = await window.dbFunctions.getFromDB('offline_settings', 'rates');
-                    if (offlineSettings) {
-                        console.log('💾 Settings loaded from offline backup:', offlineSettings);
-                        finalSettings = offlineSettings;
-                        window.uiManager.showNotification('📶 Showing offline settings. Connect to internet to sync latest changes.', false, 5000);
-                    }
-                } catch (offlineError) {
-                    console.error('Failed to load offline settings:', offlineError);
-                }
+                // Clear any offline backup since cloud load succeeded
+                await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
+                    // Ignore errors if no offline backup exists
+                });
             }
-        } else {
-            // User not authenticated - use defaults silently during initialization
-            console.log('User not authenticated, using default settings');
+        } catch (cloudError) {
+            console.warn('☁️ Could not load settings from cloud, checking offline backup:', cloudError);
+            
+            // Fallback to offline backup
+            try {
+                const offlineSettings = await window.dbFunctions.getFromDB('offline_settings', 'rates');
+                if (offlineSettings) {
+                    console.log('💾 Settings loaded from offline backup:', offlineSettings);
+                    finalSettings = offlineSettings;
+                    window.uiManager.showNotification('📶 Showing offline settings. Connect to internet to sync latest changes.', false, 5000);
+                }
+            } catch (offlineError) {
+                console.error('Failed to load offline settings:', offlineError);
+            }
         }
         
         // Populate form fields with final settings or defaults
@@ -153,11 +141,6 @@ async function saveSettings() {
     };
     
     try {
-        // Check if user is authenticated and email verified (required for cloud-first)
-        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
-            throw new Error('User must be signed in and email verified to save settings');
-        }
-
         const userId = window.authManager.getCurrentUser().uid;
         
         // Try to save directly to cloud first
