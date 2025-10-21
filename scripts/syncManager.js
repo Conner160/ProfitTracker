@@ -33,6 +33,11 @@ class SyncManager {
         }
         
         try {
+            // Load settings first to ensure rates are up to date
+            if (window.settingsManager?.loadSettings) {
+                await window.settingsManager.loadSettings();
+            }
+            
             await this.performFullSync();
         } catch (error) {
             console.log('Sync failed, continuing in local-only mode:', error.message);
@@ -92,6 +97,12 @@ class SyncManager {
             if (cloudEntries.length === 0 && localEntries.length > 0) {
                 console.log('First sync: uploading all local data to cloud...');
                 await this.uploadAllLocalData(localEntries);
+                
+                // Also upload settings on first sync
+                if (window.settingsManager?.uploadSettingsToCloud) {
+                    await window.settingsManager.uploadSettingsToCloud();
+                }
+                
                 this.updateLastSyncTime();
                 return;
             }
@@ -100,12 +111,24 @@ class SyncManager {
             if (localEntries.length === 0 && cloudEntries.length > 0) {
                 console.log('Downloading all cloud data to local storage...');
                 await this.downloadAllCloudData(cloudEntries);
+                
+                // Also download settings
+                if (window.settingsManager?.downloadSettingsFromCloud) {
+                    await window.settingsManager.downloadSettingsFromCloud();
+                }
+                
                 this.updateLastSyncTime();
                 return;
             }
             
             // Perform two-way sync
             await this.performTwoWaySync(localEntries, cloudEntries);
+            
+            // Sync settings after entries
+            if (window.settingsManager?.syncSettings) {
+                await window.settingsManager.syncSettings();
+            }
+            
             this.updateLastSyncTime();
             
         } catch (error) {
@@ -154,6 +177,11 @@ class SyncManager {
                     const userId = window.authManager?.getUserId();
                     await window.cloudStorage.saveEntryToCloud(userId, entry);
                 }
+            }
+            
+            // Sync settings as well during regular sync
+            if (window.settingsManager?.syncSettings) {
+                await window.settingsManager.syncSettings();
             }
             
             // Download any cloud updates (handled by real-time listener)
@@ -841,12 +869,24 @@ class SyncManager {
                 // Upload all local data to cloud (overwrite cloud)
                 console.log('Uploading all local data to cloud...');
                 await this.uploadAllLocalData(allLocalEntries);
-                window.uiManager?.showNotification(`Successfully uploaded ${allLocalEntries.length} entries to cloud`);
+                
+                // Upload settings as well
+                if (window.settingsManager?.uploadSettingsToCloud) {
+                    await window.settingsManager.uploadSettingsToCloud();
+                }
+                
+                window.uiManager?.showNotification(`Successfully uploaded ${allLocalEntries.length} entries and settings to cloud`);
             } else if (direction === 'download') {
                 // Download all cloud data to device (overwrite local)
                 console.log('Downloading all cloud data to device...');
                 await this.downloadAllCloudData(allCloudEntries);
-                window.uiManager?.showNotification(`Successfully downloaded ${allCloudEntries.length} entries from cloud`);
+                
+                // Download settings as well
+                if (window.settingsManager?.downloadSettingsFromCloud) {
+                    await window.settingsManager.downloadSettingsFromCloud();
+                }
+                
+                window.uiManager?.showNotification(`Successfully downloaded ${allCloudEntries.length} entries and settings from cloud`);
             }
 
             this.updateLastSyncTime();

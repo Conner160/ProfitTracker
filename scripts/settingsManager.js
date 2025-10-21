@@ -23,18 +23,59 @@ const PER_DIEM_PARTIAL_RATE = 46; // Default partial per diem daily rate
  */
 async function loadSettings() {
     try {
-        // Retrieve settings from database using 'rates' key
-        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
-        if (settings) {
-            // Populate form fields with saved values or defaults
-            document.getElementById('point-rate').value = settings.pointRate || POINT_BASE_RATE;
-            document.getElementById('km-rate').value = settings.kmRate || KM_BASE_RATE;
-            document.getElementById('per-diem-full-rate').value = settings.perDiemFullRate || PER_DIEM_FULL_RATE;
-            document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
-            document.getElementById('gst-enabled').checked = settings.includeGST !== false;
-            document.getElementById('tech-code').value = settings.techCode || '';
-            document.getElementById('gst-number').value = settings.gstNumber || '';
-            document.getElementById('business-name').value = settings.businessName || '';
+        // Get local settings
+        const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
+        let finalSettings = localSettings;
+        
+        // If user is signed in, try to get cloud settings and resolve conflicts
+        if (window.authManager?.getCurrentUser()) {
+            try {
+                const userId = window.authManager.getCurrentUser().uid;
+                const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+                
+                if (cloudSettings && localSettings) {
+                    // Both exist - resolve conflict based on lastModified timestamp
+                    const localModified = new Date(localSettings.lastModified || 0);
+                    const cloudModified = new Date(cloudSettings.cloudUpdatedAt || cloudSettings.lastModified || 0);
+                    
+                    if (cloudModified > localModified) {
+                        console.log('Using cloud settings (more recent)');
+                        finalSettings = cloudSettings;
+                        // Update local storage with cloud settings
+                        const settingsToSave = { ...cloudSettings, name: 'rates' };
+                        await window.dbFunctions.saveToDB('settings', settingsToSave);
+                    } else {
+                        console.log('Using local settings (more recent)');
+                        // Update cloud with local settings
+                        await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                    }
+                } else if (cloudSettings && !localSettings) {
+                    console.log('Using cloud settings (no local settings)');
+                    finalSettings = cloudSettings;
+                    // Save cloud settings locally
+                    const settingsToSave = { ...cloudSettings, name: 'rates' };
+                    await window.dbFunctions.saveToDB('settings', settingsToSave);
+                } else if (localSettings && !cloudSettings) {
+                    console.log('Uploading local settings to cloud');
+                    // Upload local settings to cloud
+                    await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                }
+            } catch (cloudError) {
+                console.warn('Failed to sync settings with cloud:', cloudError);
+                // Continue with local settings if cloud fails
+            }
+        }
+        
+        // Populate form fields with final settings or defaults
+        if (finalSettings) {
+            document.getElementById('point-rate').value = finalSettings.pointRate || POINT_BASE_RATE;
+            document.getElementById('km-rate').value = finalSettings.kmRate || KM_BASE_RATE;
+            document.getElementById('per-diem-full-rate').value = finalSettings.perDiemFullRate || PER_DIEM_FULL_RATE;
+            document.getElementById('per-diem-partial-rate').value = finalSettings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
+            document.getElementById('gst-enabled').checked = finalSettings.includeGST !== false;
+            document.getElementById('tech-code').value = finalSettings.techCode || '';
+            document.getElementById('gst-number').value = finalSettings.gstNumber || '';
+            document.getElementById('business-name').value = finalSettings.businessName || '';
         }
         
         // Update per diem labels with current rates
@@ -72,11 +113,25 @@ async function saveSettings() {
         includeGST: document.getElementById('gst-enabled').checked,
         techCode: techCodeInput.toUpperCase(),
         gstNumber: document.getElementById('gst-number').value.trim().toUpperCase(),
-        businessName: document.getElementById('business-name').value.trim()
+        businessName: document.getElementById('business-name').value.trim(),
+        lastModified: new Date().toISOString() // Add timestamp for conflict resolution
     };
     
     try {
         await window.dbFunctions.saveToDB('settings', settings);
+        
+        // If user is signed in, also save to cloud
+        if (window.authManager?.getCurrentUser()) {
+            try {
+                const userId = window.authManager.getCurrentUser().uid;
+                await window.cloudStorage.saveSettingsToCloud(userId, settings);
+                console.log('Settings saved to cloud');
+            } catch (cloudError) {
+                console.warn('Failed to save settings to cloud, will sync later:', cloudError);
+                // Don't fail the entire operation if cloud save fails
+            }
+        }
+        
         window.calculations.calculateEarnings();
         window.entryManager.loadEntries();
         window.uiManager.showNotification('Settings saved');
@@ -160,6 +215,108 @@ async function getTechName() {
 }
 
 /**
+ * Syncs settings between local and cloud storage
+ * Called by syncManager during full sync operations
+ * @async
+ * @function syncSettings
+ * @returns {Promise<void>}
+ */
+async function syncSettings() {
+    if (!window.authManager?.getCurrentUser()) {
+        console.log('No user signed in, skipping settings sync');
+        return;
+    }
+    
+    try {
+        const userId = window.authManager.getCurrentUser().uid;
+        const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
+        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        
+        if (cloudSettings && localSettings) {
+            // Both exist - resolve conflict based on lastModified timestamp
+            const localModified = new Date(localSettings.lastModified || 0);
+            const cloudModified = new Date(cloudSettings.cloudUpdatedAt || cloudSettings.lastModified || 0);
+            
+            if (cloudModified > localModified) {
+                console.log('📥 Downloading newer settings from cloud');
+                const settingsToSave = { ...cloudSettings, name: 'rates' };
+                await window.dbFunctions.saveToDB('settings', settingsToSave);
+                // Reload settings in UI if settings panel is open
+                await loadSettings();
+            } else if (localModified > cloudModified) {
+                console.log('📤 Uploading newer settings to cloud');
+                await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+            } else {
+                console.log('⚡ Settings already in sync');
+            }
+        } else if (cloudSettings && !localSettings) {
+            console.log('📥 Downloading settings from cloud (no local settings)');
+            const settingsToSave = { ...cloudSettings, name: 'rates' };
+            await window.dbFunctions.saveToDB('settings', settingsToSave);
+            await loadSettings();
+        } else if (localSettings && !cloudSettings) {
+            console.log('📤 Uploading settings to cloud (no cloud settings)');
+            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+        }
+    } catch (error) {
+        console.error('Error syncing settings:', error);
+        throw error;
+    }
+}
+
+/**
+ * Forces settings to be uploaded to cloud (for manual sync)
+ * @async
+ * @function uploadSettingsToCloud
+ * @returns {Promise<void>}
+ */
+async function uploadSettingsToCloud() {
+    if (!window.authManager?.getCurrentUser()) {
+        return;
+    }
+    
+    try {
+        const userId = window.authManager.getCurrentUser().uid;
+        const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
+        
+        if (localSettings) {
+            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+            console.log('📤 Settings uploaded to cloud');
+        }
+    } catch (error) {
+        console.error('Error uploading settings to cloud:', error);
+        throw error;
+    }
+}
+
+/**
+ * Forces settings to be downloaded from cloud (for manual sync)
+ * @async
+ * @function downloadSettingsFromCloud
+ * @returns {Promise<void>}
+ */
+async function downloadSettingsFromCloud() {
+    if (!window.authManager?.getCurrentUser()) {
+        return;
+    }
+    
+    try {
+        const userId = window.authManager.getCurrentUser().uid;
+        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        
+        if (cloudSettings) {
+            const settingsToSave = { ...cloudSettings, name: 'rates' };
+            await window.dbFunctions.saveToDB('settings', settingsToSave);
+            await loadSettings();
+            console.log('📥 Settings downloaded from cloud');
+        }
+    } catch (error) {
+        console.error('Error downloading settings from cloud:', error);
+        throw error;
+    }
+}
+
+/**
  * Handles the sync all data button click
  * Triggers the manual sync all process from syncManager
  * 
@@ -214,5 +371,8 @@ window.settingsManager = {
     getGstNumber,
     getTechName,
     handleSyncAllData,
-    handleCleanupDuplicates
+    handleCleanupDuplicates,
+    syncSettings,
+    uploadSettingsToCloud,
+    downloadSettingsFromCloud
 };
