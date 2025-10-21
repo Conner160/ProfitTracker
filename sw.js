@@ -1,7 +1,7 @@
 const CACHE_NAME = 'profittracker-v2.3.3-secure';
 
 // 🔒 PRODUCTION MODE TOGGLE - Set to false for production deployment
-const IS_DEVELOPMENT = false; // Change to false for production
+const IS_DEVELOPMENT = true; // Change to false for production
 
 // 🛡️ Secure Console Logging
 const secureLog = {

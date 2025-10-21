@@ -53,6 +53,11 @@ const secureLog = {
     debug: (...args) => IS_DEVELOPMENT && console.debug('[APP]', ...args)
 };
 
+// Make secureLog available immediately to prevent errors
+if (typeof window !== 'undefined') {
+    window.secureLog = secureLog;
+}
+
 // 🌍 Environment-specific Configuration
 const ENV_CONFIG = {
     IS_DEVELOPMENT,
@@ -64,7 +69,6 @@ const ENV_CONFIG = {
 
 // Make available globally
 window.ENV_CONFIG = ENV_CONFIG;
-window.secureLog = secureLog;
 window.IS_DEVELOPMENT = IS_DEVELOPMENT;
 
 // Log environment detection (only in development)

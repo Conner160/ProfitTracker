@@ -10,11 +10,11 @@
 
     <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://www.google.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com">
-    <meta http-equiv="X-Frame-Options" content="DENY">
+        content="default-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://www.google.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://www.gstatic.com https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+    <!-- Note: X-Frame-Options must be set via HTTP headers, not meta tags -->
 
     <!-- HTTPS Enforcement -->
     <script>
@@ -319,10 +319,9 @@
     <!-- Environment Configuration -->
     <script src="config/env.js"></script>
 
-    <!-- External Libraries with Integrity -->
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"
-        integrity="sha384-TInOBxSyHkYJLhKJyPHFhXMZeT6G3rktQy8OUhf4lm8w4PNXSP6qFSqEvpVfyMPQ" crossorigin="anonymous"
-        onerror="window.secureLog.error('Failed to load ExcelJS library')"></script>
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" crossorigin="anonymous"
+        onerror="window.secureLog?.error ? window.secureLog.error('Failed to load ExcelJS library') : console.error('Failed to load ExcelJS library')"></script>
 
     <!-- Firebase Configuration with Updated Version -->
     <script type="module">
