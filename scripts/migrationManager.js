@@ -304,6 +304,7 @@ async function migrateToCloudFirst() {
             migratedEntries: 0,
             skippedEntries: 0,
             conflictedEntries: 0,
+            migratedSettings: false,
             attempts: 1
         };
         
@@ -322,7 +323,7 @@ async function migrateToCloudFirst() {
                         delete cloudEntry.id;
                         
                         await window.cloudStorage.saveEntryToCloud(userId, cloudEntry);
-                        migratedEntries++;
+                        migrationResults.migratedEntries++;
                         
                         // Delete from old local storage after successful cloud upload
                         await window.dbFunctions.deleteFromDB('entries', entry.id);
@@ -333,7 +334,7 @@ async function migrateToCloudFirst() {
                     }
                 }
                 
-                console.log(`✅ Successfully migrated ${migratedEntries} entries to cloud`);
+                console.log(`✅ Successfully migrated ${migrationResults.migratedEntries} entries to cloud`);
             }
             
         } catch (error) {
@@ -361,6 +362,7 @@ async function migrateToCloudFirst() {
                     
                     if (keepLocal) {
                         await window.cloudStorage.saveSettingsToCloud(userId, oldSettings);
+                        migrationResults.migratedSettings = true;
                         console.log('✅ Updated cloud settings with local settings');
                     } else {
                         console.log('⏭️ Kept existing cloud settings');
@@ -368,6 +370,7 @@ async function migrateToCloudFirst() {
                 } else {
                     // No cloud settings - automatically save local
                     await window.cloudStorage.saveSettingsToCloud(userId, oldSettings);
+                    migrationResults.migratedSettings = true;
                     console.log('✅ Saved local settings to cloud');
                 }
                 
