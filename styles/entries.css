@@ -1,7 +1,8 @@
 /* Entry list and display styles */
 #entries-list {
-    max-height: 500px;
+    max-height: 750px;
     overflow-y: auto;
+    min-height: 300px;
 }
 
 .entry-item {
