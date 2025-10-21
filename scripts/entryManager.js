@@ -274,150 +274,6 @@ async function checkAndPopulateExistingEntry(date) {
 }
 
 /**
- * Checks for duplicate entries with the same date and resolves conflicts
- * by asking the user which entry to keep
- * 
- * @async
- * @function checkAndResolveDuplicates
- * @param {Array} entries - Array of all entries to check
- * @returns {Promise<Array>} Array of deduplicated entries
- */
-async function checkAndResolveDuplicates(entries) {
-    const dateGroups = {};
-    const duplicatesFound = [];
-    
-    // Group entries by date
-    entries.forEach(entry => {
-        const date = entry.date;
-        if (!dateGroups[date]) {
-            dateGroups[date] = [];
-        }
-        dateGroups[date].push(entry);
-    });
-    
-    // Find dates with multiple entries
-    for (const [date, entriesForDate] of Object.entries(dateGroups)) {
-        if (entriesForDate.length > 1) {
-            duplicatesFound.push({ date, entries: entriesForDate });
-        }
-    }
-    
-    // If no duplicates found, return original entries
-    if (duplicatesFound.length === 0) {
-        return entries;
-    }
-    
-    // Process each set of duplicates
-    const finalEntries = [];
-    const processedDates = new Set();
-    
-    for (const duplicate of duplicatesFound) {
-        const chosenEntry = await showDuplicateResolutionDialog(duplicate.date, duplicate.entries);
-        if (chosenEntry) {
-            finalEntries.push(chosenEntry);
-            
-            // Remove other entries for this date from database
-            for (const entry of duplicate.entries) {
-                if (entry !== chosenEntry) {
-                    try {
-                        await window.dbFunctions.deleteFromDB('entries', entry.date);
-                        console.log(`Removed duplicate entry for ${entry.date}`);
-                    } catch (error) {
-                        console.error(`Failed to remove duplicate entry for ${entry.date}:`, error);
-                    }
-                }
-            }
-        }
-        processedDates.add(duplicate.date);
-    }
-    
-    // Add all non-duplicate entries
-    entries.forEach(entry => {
-        if (!processedDates.has(entry.date)) {
-            finalEntries.push(entry);
-        }
-    });
-    
-    return finalEntries;
-}
-
-/**
- * Shows a dialog to let user choose which duplicate entry to keep
- * 
- * @async
- * @function showDuplicateResolutionDialog
- * @param {string} date - The date with duplicate entries
- * @param {Array} duplicateEntries - Array of entries for the same date
- * @returns {Promise<Object|null>} The chosen entry or null if cancelled
- */
-async function showDuplicateResolutionDialog(date, duplicateEntries) {
-    return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'conflict-modal';
-        modal.innerHTML = `
-            <div class="conflict-content">
-                <h3>Duplicate Entries Found</h3>
-                <p>Multiple entries found for <strong>${window.dateUtils.formatDateForDisplay(date)}</strong></p>
-                <p>Please choose which entry to keep:</p>
-                
-                <div class="duplicate-options">
-                    ${duplicateEntries.map((entry, index) => `
-                        <div class="duplicate-option">
-                            <label>
-                                <input type="radio" name="duplicate-choice" value="${index}">
-                                <div class="entry-preview">
-                                    <div class="entry-summary">
-                                        <strong>Entry ${index + 1}:</strong> ${entry.points} pts, ${entry.kms} km
-                                        ${entry.perDiem !== 'none' ? `, Per Diem: ${entry.perDiem}` : ''}
-                                    </div>
-                                    ${entry.notes ? `<div class="entry-notes">Notes: ${entry.notes}</div>` : ''}
-                                    ${entry.expenses && (entry.expenses.hotel || entry.expenses.gas || entry.expenses.food) ? 
-                                        `<div class="entry-expenses">Expenses: $${((entry.expenses.hotel || 0) + (entry.expenses.gas || 0) + (entry.expenses.food || 0)).toFixed(2)}</div>` : ''}
-                                    <div class="entry-timestamp">Last modified: ${new Date(entry.lastModified || entry.timestamp).toLocaleString()}</div>
-                                </div>
-                            </label>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="conflict-actions">
-                    <button id="apply-duplicate-choice" class="conflict-btn primary" disabled>Keep Selected</button>
-                    <button id="cancel-duplicate-choice" class="conflict-btn">Cancel</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Enable apply button when choice is made
-        const radioButtons = modal.querySelectorAll('input[name="duplicate-choice"]');
-        const applyBtn = modal.querySelector('#apply-duplicate-choice');
-        
-        radioButtons.forEach(radio => {
-            radio.addEventListener('change', () => {
-                applyBtn.disabled = false;
-            });
-        });
-        
-        // Handle apply button
-        applyBtn.addEventListener('click', () => {
-            const selectedChoice = modal.querySelector('input[name="duplicate-choice"]:checked');
-            const chosenIndex = selectedChoice ? parseInt(selectedChoice.value) : -1;
-            const chosenEntry = chosenIndex >= 0 ? duplicateEntries[chosenIndex] : null;
-            
-            document.body.removeChild(modal);
-            resolve(chosenEntry);
-        });
-        
-        // Handle cancel button
-        modal.querySelector('#cancel-duplicate-choice').addEventListener('click', () => {
-            document.body.removeChild(modal);
-            resolve(null);
-        });
-    });
-}
-
-/**
  * Loads and displays all entries for the current pay period (debounced)
  * Prevents rapid successive calls that could cause UI flickering or duplicates
  * 
@@ -461,12 +317,9 @@ async function loadEntriesImmediate() {
         // Get all entries from database
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
         
-        // Check for and resolve duplicate dates before filtering
-        const deduplicatedEntries = await checkAndResolveDuplicates(allEntries);
-        
         // Filter entries to current pay period date range
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
-        const entries = deduplicatedEntries.filter(entry => 
+        const entries = allEntries.filter(entry => 
             entry.date >= window.appState.currentPayPeriodStart && entry.date <= payPeriodEnd
         );
         
@@ -715,8 +568,6 @@ window.entryManager = {
     clearForm,
     populateFormForEdit,
     checkAndPopulateExistingEntry,
-    checkAndResolveDuplicates,
-    showDuplicateResolutionDialog,
     loadEntries,
     loadEntriesImmediate,
     deleteEntry,
