@@ -113,7 +113,29 @@ async function generateTravelSheet() {
  */
 async function getPayPeriodEntries() {
     try {
-        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        let allEntries = [];
+        
+        // Cloud-first approach: load from cloud (authentication is guaranteed)
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        try {
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            console.log(`📥 Travel sheet loaded ${allEntries.length} entries from cloud`);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud for travel sheet, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage if cloud fails
+            try {
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                console.log(`💾 Travel sheet loaded ${allEntries.length} entries from offline storage`);
+            } catch (offlineError) {
+                console.error('Failed to load from offline storage for travel sheet:', offlineError);
+                allEntries = [];
+            }
+        }
+        
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
         
         // Filter entries to current pay period

@@ -122,6 +122,11 @@ async function initializeApp() {
     // Initialize database
     await window.dbFunctions.initDB();
     
+    // Run migration to clear old local data (cloud-first approach)
+    if (window.migrationManager) {
+        await window.migrationManager.migrateToCloudFirst();
+    }
+    
     // Set up UI components and navigation
     setupPayPeriodControls();
     setupEventListeners();
