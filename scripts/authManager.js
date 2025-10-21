@@ -270,8 +270,52 @@ async function signUpWithEmail() {
 }
 
 /**
+ * Clears all local data from browser storage
+ * @function clearAllLocalData
+ * @returns {Promise<void>}
+ */
+async function clearAllLocalData() {
+    try {
+        console.log('🧹 Clearing all local data...');
+        
+        // Clear IndexedDB entries and settings using available database functions
+        if (window.dbFunctions) {
+            // Clear legacy entries store
+            await window.dbFunctions.clearAllEntries().catch(e => 
+                console.log('Legacy entries store already empty or not found:', e.message)
+            );
+            
+            // Clear offline queues
+            await window.dbFunctions.clearOfflineQueue('offline_entries').catch(e => 
+                console.log('Offline entries queue already empty or not found:', e.message)
+            );
+            await window.dbFunctions.clearOfflineQueue('offline_settings').catch(e => 
+                console.log('Offline settings queue already empty or not found:', e.message)
+            );
+            
+            // Clear settings store by removing the rates key
+            await window.dbFunctions.deleteFromDB('settings', 'rates').catch(e => 
+                console.log('Settings already empty or not found:', e.message)
+            );
+            
+            console.log('✅ IndexedDB data cleared');
+        } else {
+            console.log('⚠️ Database functions not available, skipping IndexedDB cleanup');
+        }
+        
+        // Clear localStorage and sessionStorage
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log('✅ Browser storage cleared');
+        
+    } catch (error) {
+        console.error('❌ Error clearing local data:', error);
+        // Still proceed with logout even if cleanup fails
+    }
+}
+
+/**
  * Signs out the current user and redirects to login page
- * Clears the current user state and redirects to login
  * 
  * @async
  * @function signOutUser
@@ -279,12 +323,12 @@ async function signUpWithEmail() {
  */
 async function signOutUser() {
     try {
+        // Clear all local data before signing out
+        await clearAllLocalData();
+        
         await window.firebaseModules.signOut(window.firebaseAuth);
         currentUser = null;
         console.log('👋 User signed out, redirecting to login...');
-        
-        // Clear any local data
-        localStorage.clear();
         
         // Redirect to login page
         window.location.href = 'login.html';
@@ -492,6 +536,7 @@ window.authManager = {
     isAuthenticated,
     getUserId,
     signOutUser,
+    clearAllLocalData,
     isValidEmailDomain,
     isEmailVerified,
     sendEmailVerification,
