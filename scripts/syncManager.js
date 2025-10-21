@@ -258,10 +258,10 @@ class SyncManager {
 
     entriesAreDifferent(entry1, entry2) {
         // Compare key fields to detect differences
-        const fields = ['date', 'points', 'kms', 'perDiem', 'hotelExpense', 'gasExpense', 'foodExpense', 'locations', 'notes'];
+        const fields = ['date', 'points', 'kms', 'perDiem', 'hotelExpense', 'gasExpense', 'foodExpense', 'landLocations', 'notes'];
         
         for (const field of fields) {
-            // Handle array fields (locations) specially
+            // Handle array fields (landLocations) specially
             if (Array.isArray(entry1[field]) && Array.isArray(entry2[field])) {
                 if (JSON.stringify(entry1[field]) !== JSON.stringify(entry2[field])) {
                     return true;
