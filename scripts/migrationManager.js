@@ -546,12 +546,9 @@ async function checkForOldData() {
         // Check if this device has already completed migration
         const migrationComplete = await hasDeviceCompletedMigration(userId, deviceId);
         if (migrationComplete) {
-            console.log('✅ This device has already completed migration, skipping data check.');
+            console.log('✅ This device has already completed migration, no old data check needed.');
             return; // Already migrated
         }
-        
-        // Register device if not already registered (this handles new devices)
-        await registerDevice(userId, deviceId);
         
         const oldEntries = await window.dbFunctions.getAllFromDB('entries').catch(() => []);
         const oldSettings = await window.dbFunctions.getFromDB('settings', 'rates').catch(() => null);
@@ -559,31 +556,10 @@ async function checkForOldData() {
         if (oldEntries.length > 0 || oldSettings) {
             console.log(`📋 Found existing local data: ${oldEntries.length} entries${oldSettings ? ' and settings' : ''}`);
             
-            // Only migrate if this is truly old data (not synced cloud data)
-            // Check if we have cloud data already - if so, this might be synced data
-            try {
-                const cloudEntries = await window.cloudStorage.getEntriesFromCloud(userId);
-                if (cloudEntries.length === 0) {
-                    // No cloud data exists, so local data is truly "old" and needs migration
-                    console.log('🔄 No cloud data found, migrating local data...');
-                    await migrateToCloudFirst();
-                } else {
-                    // Cloud data exists, so local data is likely synced - just mark as complete
-                    console.log('☁️ Cloud data already exists, marking device migration as complete...');
-                    await updateDeviceMigrationStatus(userId, deviceId, 'completed', {
-                        migratedEntries: 0,
-                        conflictedEntries: 0,
-                        migratedSettings: false
-                    });
-                }
-            } catch (error) {
-                // If we can't check cloud data, err on the side of caution and migrate
-                console.log('⚠️ Could not check cloud data, proceeding with migration...');
-                await migrateToCloudFirst();
-            }
+            // Auto-migrate data to preserve it
+            await migrateToCloudFirst();
         } else {
             // No old data, just mark migration complete for this device
-            console.log('📝 No local data found, marking device migration as complete...');
             await updateDeviceMigrationStatus(userId, deviceId, 'completed', {
                 migratedEntries: 0,
                 conflictedEntries: 0,

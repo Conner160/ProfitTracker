@@ -131,9 +131,9 @@ async function initializeApp() {
         await window.authManager.initializeAuth();
     }
     
-    // Run migration AFTER authManager is fully initialized
+    // Check for old data and migrate if needed AFTER authManager is fully initialized
     if (window.migrationManager) {
-        await window.migrationManager.migrateToCloudFirst();
+        await window.migrationManager.checkForOldData();
     }
     
     // Load user data now that authentication is confirmed
