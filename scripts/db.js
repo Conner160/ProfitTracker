@@ -7,7 +7,7 @@
 
 // Database configuration constants
 const DB_NAME = 'ProfitTrackerDB';  // IndexedDB database name
-const DB_VERSION = 1;               // Database schema version
+const DB_VERSION = 2;               // Database schema version - updated for date as primary key
 let db;                            // Global database connection reference
 
 /**
@@ -45,10 +45,10 @@ function initDB() {
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             
-            // Create object store for entries
+            // Create object store for entries with date as primary key
             if (!db.objectStoreNames.contains('entries')) {
-                const entriesStore = db.createObjectStore('entries', { keyPath: 'id', autoIncrement: true });
-                entriesStore.createIndex('date', 'date', { unique: false });
+                const entriesStore = db.createObjectStore('entries', { keyPath: 'date' });
+                // No need for date index since date is now the primary key
             }
             
             // Create object store for settings
@@ -179,28 +179,28 @@ function clearAllEntries() {
 }
 
 /**
- * Update an existing entry by ID
+ * Update an existing entry by date
  * Used during sync to update local entries with cloud data
  * 
  * @async
  * @function updateEntry
- * @param {string|number} id - The ID of the entry to update
+ * @param {string} date - The date of the entry to update (YYYY-MM-DD)
  * @param {Object} entryData - The updated entry data
  * @returns {Promise<void>} Resolves when entry is updated
  */
-function updateEntry(id, entryData) {
+function updateEntry(date, entryData) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(['entries'], 'readwrite');
         const store = transaction.objectStore('entries');
         
-        // Ensure the entry has the correct ID
-        entryData.id = id;
+        // Ensure the entry has the correct date as primary key
+        entryData.date = date;
         entryData.lastModified = new Date().toISOString();
         
         const request = store.put(entryData);
         
         request.onsuccess = () => {
-            console.log('Entry updated:', id);
+            console.log('Entry updated:', date);
             resolve();
         };
         request.onerror = (event) => reject(event.target.error);

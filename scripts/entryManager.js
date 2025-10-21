@@ -43,56 +43,37 @@ async function saveEntry() {
     // Get current land locations from the location manager
     const landLocations = window.locationManager.getLandLocations();
 
-    // Check for existing entries on the same date to prevent duplicates
-    const existingEntries = await window.dbFunctions.getAllFromDB('entries');
-    const existingEntry = existingEntries.find(entry => entry.date === dateInput);
-    
-    let entry;
-    let isUpdate = false;
+    // Check if entry exists for this date
+    const existingEntry = await window.dbFunctions.getFromDB('entries', dateInput);
+    const isUpdate = !!existingEntry;
 
-    // Handle duplicate date scenario with user confirmation
+    // Handle existing entry with user confirmation
     if (existingEntry) {
         const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
                               `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
                               `New: ${points} pts, ${kms} km\n\n` +
-                              `Keep new entry? (Cancel to keep old entry)`);
+                              `Update with new data? (Cancel to keep existing)`);
         
         // If user cancels, abort save operation
         if (!keepNew) {
             window.uiManager.showNotification('Entry not saved - kept existing entry');
             return;
         }
-
-        // Update existing entry instead of deleting and recreating
-        isUpdate = true;
-        entry = {
-            id: existingEntry.id, // Keep the existing ID
-            date: dateInput,
-            points,
-            kms,
-            perDiem,
-            notes,
-            expenses,
-            landLocations,
-            timestamp: new Date().getTime(),
-            lastModified: new Date().toISOString(),
-            createdAt: existingEntry.createdAt || new Date().toISOString() // Preserve original creation time
-        };
-    } else {
-        // Create new entry
-        entry = {
-            date: dateInput,
-            points,
-            kms,
-            perDiem,
-            notes,
-            expenses,
-            landLocations,
-            timestamp: new Date().getTime(),
-            lastModified: new Date().toISOString(),
-            createdAt: new Date().toISOString()
-        };
     }
+
+    // Create entry object (date is the primary key)
+    const entry = {
+        date: dateInput, // Primary key
+        points,
+        kms,
+        perDiem,
+        notes,
+        expenses,
+        landLocations,
+        timestamp: new Date().getTime(),
+        lastModified: new Date().toISOString(),
+        createdAt: existingEntry?.createdAt || new Date().toISOString() // Preserve creation time for updates
+    };
 
     // Attempt to save entry to database with error handling
     try {
@@ -340,7 +321,6 @@ async function loadEntries() {
             
             return `
                 <div class="entry-item editable-entry" 
-                     data-id="${entry.id}"
                      data-date="${entry.date}" 
                      data-points="${entry.points}" 
                      data-kms="${entry.kms}" 
@@ -413,7 +393,7 @@ async function loadEntries() {
                                 ${entry.landLocations.map(location => `<span class="location-tag">${location}</span>`).join('')}
                             </div>
                         </div>` : ''}
-                        <button class="delete-entry" data-id="${entry.id}">Delete</button>
+                        <button class="delete-entry" data-date="${entry.date}">Delete</button>
                     </div>
                 </div>
             `;
@@ -421,8 +401,8 @@ async function loadEntries() {
         
         document.querySelectorAll('.delete-entry').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const id = parseInt(e.target.dataset.id);
-                await deleteEntry(id);
+                const date = e.target.dataset.date;
+                await deleteEntry(date);
             });
         });
         
@@ -452,7 +432,6 @@ async function loadEntries() {
                 }
                 
                 const entryData = {
-                    id: parseInt(entryElement.dataset.id),
                     date: entryElement.dataset.date,
                     points: parseFloat(entryElement.dataset.points),
                     kms: parseFloat(entryElement.dataset.kms),
@@ -480,7 +459,7 @@ async function loadEntries() {
  * @param {number} id - The unique database ID of the entry to delete
  * @returns {Promise<void>} Resolves when deletion is complete
  */
-async function deleteEntry(id) {
+async function deleteEntry(date) {
     // Get user confirmation before proceeding with irreversible deletion
     const confirmDelete = confirm('Are you sure you want to delete this entry?\nThis action cannot be undone.');
     if (!confirmDelete) {
@@ -489,13 +468,13 @@ async function deleteEntry(id) {
     }
     
     try {
-        await window.dbFunctions.deleteFromDB('entries', id);
+        await window.dbFunctions.deleteFromDB('entries', date);
         
         // If user is signed in and email verified, also delete from cloud
         if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
-                await window.cloudStorage.deleteEntryFromCloud(userId, id);
+                await window.cloudStorage.deleteEntryFromCloud(userId, date);
                 console.log('Entry deleted from cloud');
             } catch (cloudError) {
                 console.warn('Failed to delete from cloud, will sync later:', cloudError);

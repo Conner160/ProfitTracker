@@ -237,11 +237,12 @@ class SyncManager {
             
             // Add all cloud entries to local database
             for (const entry of cloudEntries) {
-                // Ensure entry has required local fields
-                if (!entry.id) {
-                    entry.id = this.generateLocalId();
+                // Ensure entry has date as primary key
+                if (entry.date) {
+                    await window.dbFunctions.saveToDB('entries', entry);
+                } else {
+                    console.warn('Skipping entry without date:', entry);
                 }
-                await window.dbFunctions.saveToDB('entries', entry);
             }
             
             console.log(`Successfully downloaded ${cloudEntries.length} entries from cloud`);
