@@ -54,45 +54,111 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Checks if user is authenticated and redirects to login if not
+ * This is the authentication guard for the main app
+ * 
+ * @function checkAuthentication
+ * @returns {Promise<boolean>} True if authenticated, false if redirected
+ */
+async function checkAuthentication() {
+    console.log('🔐 Checking authentication...');
+    
+    // Wait for Firebase to be available
+    await waitForFirebase();
+    
+    return new Promise((resolve) => {
+        // Set up auth state listener
+        window.firebaseModules.onAuthStateChanged(window.firebaseAuth, (user) => {
+            if (user && user.emailVerified) {
+                console.log('✅ User authenticated:', user.email);
+                resolve(true);
+            } else {
+                console.log('🔒 User not authenticated, redirecting to login...');
+                window.location.href = 'login.html';
+                resolve(false);
+            }
+        });
+    });
+}
+
+/**
+ * Wait for Firebase to be available
+ * @returns {Promise<void>}
+ */
+function waitForFirebase() {
+    return new Promise((resolve) => {
+        const checkFirebase = () => {
+            if (window.firebaseAuth && window.firebaseModules) {
+                resolve();
+            } else {
+                setTimeout(checkFirebase, 100);
+            }
+        };
+        checkFirebase();
+    });
+}
+
+/**
  * Initializes all application components in correct dependency order
- * Sets up database, loads user settings, configures UI components,
- * and initializes all module functionality.
+ * Only runs after authentication is confirmed
  * 
  * @function initializeApp
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function initializeApp() {
+async function initializeApp() {
+    console.log('🚀 Initializing authenticated app...');
+    
+    // First check authentication - redirect if not authenticated
+    const isAuthenticated = await checkAuthentication();
+    if (!isAuthenticated) {
+        return; // User was redirected to login
+    }
+    
     // Set initial pay period to current period if not already set
     if (!window.appState.currentPayPeriodStart) {
         window.appState.currentPayPeriodStart = window.dateUtils.getCurrentPayPeriodStart();
     }
     
-    // Initialize database and all dependent components
-    window.dbFunctions.initDB().then(async () => {
-        // Load user settings (rates, GST preference, etc.)
+    // Initialize database
+    await window.dbFunctions.initDB();
+    
+    // Set up UI components and navigation
+    setupPayPeriodControls();
+    setupEventListeners();
+    
+    // Initialize authentication manager (but auth is already confirmed)
+    if (window.authManager) {
+        await window.authManager.initializeAuth();
+    }
+    
+    // Check for old data and migrate if needed AFTER authManager is fully initialized
+    if (window.migrationManager) {
+        await window.migrationManager.checkForOldData();
+    }
+    
+    // Load user data now that authentication is confirmed
+    console.log('📊 Loading user data...');
+    
+    // Load user settings
+    if (window.settingsManager?.loadSettings) {
         await window.settingsManager.loadSettings();
-        
-        // Set up UI components and navigation
-        setupPayPeriodControls();
-        
-        // Load and display entries for current pay period
-        window.entryManager.loadEntries();
-        
-        // Set up all event listeners for form interactions
-        setupEventListeners();
-        
-        // Initialize date picker with today's date
-        window.entryManager.initializeDate();
-        
-        // Calculate and display current form earnings
-        window.calculations.calculateEarnings();
-        
-        // Initialize drag and drop for any existing land locations
-        window.locationManager.initializeDragAndDrop();
-    }).catch(error => {
-        console.error('DB initialization failed:', error);
-        window.uiManager.showNotification('Failed to initialize database', true);
-    });
+    }
+    
+    // Load user entries
+    if (window.entryManager?.loadEntries) {
+        await window.entryManager.loadEntries();
+    }
+    
+    // Initialize date picker with today's date
+    window.entryManager.initializeDate();
+    
+    // Calculate and display current form earnings
+    window.calculations.calculateEarnings();
+    
+    // Initialize drag and drop for any existing land locations
+    window.locationManager.initializeDragAndDrop();
+    
+    console.log('✅ App initialization complete');
 }
 
 /**
@@ -220,4 +286,7 @@ function setupEventListeners() {
         }
         e.target.value = value; // Convert to uppercase
     });
+    
+    // Clear all data button
+    document.getElementById('clear-all-data').addEventListener('click', window.settingsManager.handleClearAllData);
 }

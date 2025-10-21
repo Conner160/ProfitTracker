@@ -156,10 +156,70 @@ function toggleSettings() {
     }
 }
 
+/**
+ * Updates the sync status indicator in the header
+ * Shows current synchronization state and connectivity status
+ * 
+ * @function updateSyncStatus
+ * @param {Object} status - Sync status object
+ * @param {boolean} status.isSyncing - Whether sync is in progress
+ * @param {boolean} status.isOnline - Whether device is online
+ * @param {boolean} status.isSignedIn - Whether user is authenticated
+ * @param {string} status.lastSyncTime - Last successful sync timestamp
+ * @returns {void}
+ */
+function updateSyncStatus(status) {
+    const syncStatus = document.getElementById('sync-status');
+    const syncIndicator = document.getElementById('sync-indicator');
+    const syncText = document.getElementById('sync-text');
+    
+    if (!syncStatus || !syncIndicator || !syncText) return;
+    
+    // Show sync status only if user is signed in
+    if (status.isSignedIn) {
+        syncStatus.style.display = 'flex';
+        
+        // Remove all status classes
+        syncStatus.classList.remove('syncing', 'offline', 'synced');
+        
+        if (!status.isOnline) {
+            syncStatus.classList.add('offline');
+            syncIndicator.textContent = '🔄';
+            syncText.textContent = 'Offline';
+        } else if (status.isSyncing) {
+            syncStatus.classList.add('syncing');
+            syncIndicator.textContent = '⚡';
+            syncText.textContent = 'Syncing...';
+        } else {
+            syncStatus.classList.add('synced');
+            syncIndicator.textContent = '☁️';
+            if (status.lastSyncTime) {
+                const syncDate = new Date(status.lastSyncTime);
+                const now = new Date();
+                const diffMinutes = Math.floor((now - syncDate) / (1000 * 60));
+                
+                if (diffMinutes < 1) {
+                    syncText.textContent = 'Just synced';
+                } else if (diffMinutes < 60) {
+                    syncText.textContent = `Synced ${diffMinutes}m ago`;
+                } else {
+                    const diffHours = Math.floor(diffMinutes / 60);
+                    syncText.textContent = `Synced ${diffHours}h ago`;
+                }
+            } else {
+                syncText.textContent = 'Synced';
+            }
+        }
+    } else {
+        syncStatus.style.display = 'none';
+    }
+}
+
 // Make functions available globally
 window.uiManager = {
     updatePayPeriodDisplay,
     updatePayPeriodSummary,
     showNotification,
-    toggleSettings
+    toggleSettings,
+    updateSyncStatus
 };

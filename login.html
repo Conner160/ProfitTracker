@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProfitTracker - Sign In</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="ProfitTracker">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ProfitTracker">
+    <meta name="description" content="Track your daily earnings and expenses">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2196F3">
+
+    <!-- Icons -->
+    <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="images/icon-512x512.png">
+    <link rel="shortcut icon" href="images/icon-192x192.png">
+
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/forms.css">
+    <link rel="stylesheet" href="styles/utilities.css">
+    <link rel="stylesheet" href="styles/login.css">
+
+    <style>
+        .password-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-input-container input {
+            padding-right: 45px;
+            flex: 1;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .password-toggle:hover {
+            opacity: 1;
+        }
+
+        .password-toggle:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🎯 ProfitTracker</h1>
+            <p>Sign in to access your profit tracking dashboard</p>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div class="loading-spinner" id="loading-spinner">
+            <div class="spinner"></div>
+            <span>Checking authentication...</span>
+        </div>
+
+        <!-- Authentication Tabs -->
+        <div class="auth-tabs" id="auth-tabs" style="display: none;">
+            <button class="auth-tab active" id="signin-tab">Sign In</button>
+            <button class="auth-tab" id="signup-tab">Sign Up</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form class="auth-form active" id="signin-form" style="display: none;">
+            <div class="form-group">
+                <label for="signin-email">Email Address</label>
+                <input type="email" id="signin-email" required placeholder="your.email@clearconnectionsc.ca">
+            </div>
+            <div class="form-group">
+                <label for="signin-password">Password</label>
+                <div class="password-input-container">
+                    <input type="password" id="signin-password" required placeholder="Enter your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('signin-password')">
+                        <span class="password-icon" id="signin-password-icon">👁️</span>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="auth-button" id="signin-button">
+                Sign In
+            </button>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form class="auth-form" id="signup-form" style="display: none;">
+            <div class="form-group">
+                <label for="signup-email">Company Email Address</label>
+                <input type="email" id="signup-email" required placeholder="your.email@clearconnectionsc.ca">
+                <small style="color: #666; font-size: 0.8rem;">
+                    Must be a @clearconnectionsc.ca, @clearconn.ca, or @clearconnectionsltd.ca email
+                </small>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <div class="password-input-container">
+                    <input type="password" id="signup-password" required placeholder="Create a secure password"
+                        minlength="6">
+                    <button type="button" class="password-toggle" onclick="togglePassword('signup-password')">
+                        <span class="password-icon" id="signup-password-icon">👁️</span>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="signup-confirm">Confirm Password</label>
+                <div class="password-input-container">
+                    <input type="password" id="signup-confirm" required placeholder="Confirm your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('signup-confirm')">
+                        <span class="password-icon" id="signup-confirm-icon">👁️</span>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="auth-button" id="signup-button">
+                Create Account
+            </button>
+        </form>
+
+        <!-- Verification Notice -->
+        <div class="verification-notice" id="verification-notice">
+            <strong>📧 Email Verification Required</strong>
+            <p>Please check your email and click the verification link before signing in.</p>
+            <button type="button" class="auth-button" id="resend-verification" style="margin-top: 0.5rem;">
+                Resend Verification Email
+            </button>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="error-message"></div>
+
+        <div class="footer-text">
+            Secure authentication for Clear Connections employees
+        </div>
+    </div>
+
+    <!-- Firebase Configuration -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
+        import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlVo_EYRnSTgnB55J-LRFpKG6ZGvA88_w",
+            authDomain: "profittrackerccc.firebaseapp.com",
+            projectId: "profittrackerccc",
+            storageBucket: "profittrackerccc.firebasestorage.app",
+            messagingSenderId: "272024960605",
+            appId: "1:272024960605:web:bffdb40e154d4e7eac57b4"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make available globally for login script
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseModules = {
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            sendEmailVerification,
+            onAuthStateChanged
+        };
+
+        console.log('🔥 Firebase initialized for login page');
+    </script>
+
+    <script>
+        /**
+         * Toggles password visibility for a given input field
+         * @param {string} fieldId - The ID of the password input field
+         */
+        function togglePassword(fieldId) {
+            const passwordField = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + '-icon');
+
+            if (passwordField && icon) {
+                if (passwordField.type === 'password') {
+                    passwordField.type = 'text';
+                    icon.textContent = '🙈';
+                    icon.setAttribute('aria-label', 'Hide password');
+                } else {
+                    passwordField.type = 'password';
+                    icon.textContent = '👁️';
+                    icon.setAttribute('aria-label', 'Show password');
+                }
+            }
+        }
+
+        // Add keyboard support for password toggles
+        document.addEventListener('keydown', function (e) {
+            if (e.target.classList.contains('password-toggle') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
+    </script>
+
+    <!-- Login Logic -->
+    <script src="scripts/login.js"></script>
+</body>
+
+</html>

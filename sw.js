@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v1.2.2';
+const CACHE_NAME = 'profittracker-v2.3.1';
 
 // Make cache name available globally
 self.CACHE_NAME = CACHE_NAME;
@@ -72,5 +72,36 @@ self.addEventListener('message', (event) => {
       type: 'CACHE_NAME_RESPONSE',
       cacheName: CACHE_NAME
     });
+  }
+  
+  // Handle cache clearing request
+  if (event.data.type === 'CLEAR_CACHE') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            console.log('Clearing cache:', cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(() => {
+        console.log('✅ All service worker caches cleared');
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            type: 'CACHE_CLEARED',
+            success: true
+          });
+        }
+      }).catch((error) => {
+        console.error('❌ Error clearing caches:', error);
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            type: 'CACHE_CLEARED',
+            success: false,
+            error: error.message
+          });
+        }
+      })
+    );
   }
 });

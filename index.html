@@ -27,12 +27,79 @@
     <link rel="stylesheet" href="styles/utilities.css">
 
     <link rel="icon" href="images/favicon.ico">
+
+    <style>
+        /* Password Toggle Styles */
+        .password-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-input-container input {
+            padding-right: 45px;
+            flex: 1;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .password-toggle:hover {
+            opacity: 1;
+        }
+
+        .password-toggle:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+    </style>
 </head>
 
 <body>
     <header>
         <h1>ProfitTracker</h1>
-        <div id="date-display">Loading...</div>
+        <div id="header-controls">
+            <div id="date-display"></div>
+            <div id="sync-status" style="display: none;">
+                <span id="sync-indicator">⚡</span>
+                <span id="sync-text">Synced</span>
+            </div>
+            <div id="auth-section">
+                <div id="auth-status" style="display: none;">
+                    <div id="user-info"></div>
+                    <button id="sign-out-btn" class="auth-btn">Sign Out</button>
+                </div>
+                <div id="auth-buttons">
+                    <button id="sign-in-toggle-btn" class="auth-btn">Email Sign In</button>
+                </div>
+                <div id="email-auth-form" style="display: none;">
+                    <input type="email" id="auth-email" placeholder="Email" required>
+                    <div class="password-input-container">
+                        <input type="password" id="auth-password" placeholder="Password" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('auth-password')">
+                            <span class="password-icon" id="auth-password-icon">👁️</span>
+                        </button>
+                    </div>
+                    <div>
+                        <button id="sign-in-email-btn" class="auth-btn">Sign In</button>
+                        <button id="sign-up-email-btn" class="auth-btn">Sign Up</button>
+                        <button id="cancel-email-btn" class="auth-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </header>
 
     <main>
@@ -122,7 +189,7 @@
             <div class="form-group" id="de-landlocs">
                 <h3>Locations</h3>
                 <sub>CC, town names, or land locations work</sub>
-                <sub>Drag to reorder, click to delete</sub>
+                <sub>Use ≡ handle to reorder, × button to delete</sub>
                 <div id="landlocs">
 
                 </div>
@@ -195,12 +262,97 @@
                 <input type="text" id="business-name" placeholder="Your Name" maxlength="100">
                 <small>Technician name for travel sheet</small>
             </div>
+            <div class="form-group">
+                <h3>⚠️ Danger Zone</h3>
+                <button id="clear-all-data" class="sync-btn" style="background: var(--error-color); color: white;">🗑️
+                    Clear All Data</button>
+                <small>Permanently delete ALL your entries and settings from both local storage and cloud</small>
+            </div>
             <button id="save-settings">Save Settings</button>
         </div>
     </footer>
 
+    <!-- Logout Progress Overlay -->
+    <div id="logout-progress-overlay" class="modal-overlay" style="display: none; z-index: 10000;">
+        <div class="modal" style="max-width: 400px; text-align: center;">
+            <div class="modal-header">
+                <h2>🔒 Signing Out</h2>
+            </div>
+            <div class="modal-body">
+                <div class="logout-spinner" style="margin: 20px 0;">
+                    <div class="spinner"></div>
+                </div>
+                <div id="logout-status-text">Preparing to sign out...</div>
+                <div class="logout-progress-steps" style="margin-top: 20px; text-align: left;">
+                    <div class="progress-step" id="step-clearing-local">
+                        <span class="step-icon">⏳</span> Clearing local data...
+                    </div>
+                    <div class="progress-step" id="step-clearing-cache">
+                        <span class="step-icon">⏳</span> Clearing browser cache...
+                    </div>
+                    <div class="progress-step" id="step-firebase-signout">
+                        <span class="step-icon">⏳</span> Signing out from Firebase...
+                    </div>
+                    <div class="progress-step" id="step-redirecting">
+                        <span class="step-icon">⏳</span> Redirecting to login...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, setDoc, updateDoc, deleteDoc, getDocs, getDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlVo_EYRnSTgnB55J-LRFpKG6ZGvA88_w",
+            authDomain: "profittrackerccc.firebaseapp.com",
+            projectId: "profittrackerccc",
+            storageBucket: "profittrackerccc.firebasestorage.app",
+            messagingSenderId: "272024960605",
+            appId: "1:272024960605:web:bffdb40e154d4e7eac57b4"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make Firebase services available globally
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseModules = {
+            GoogleAuthProvider,
+            signInWithPopup,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            sendEmailVerification,
+            doc,
+            collection,
+            addDoc,
+            setDoc,
+            updateDoc,
+            deleteDoc,
+            getDocs,
+            getDoc,
+            onSnapshot,
+            query,
+            where,
+            orderBy
+        };
+
+        console.log('🔥 Firebase initialized successfully');
+    </script>
 
     <!-- Database module -->
     <script src="scripts/db.js"></script>
@@ -217,12 +369,107 @@
     <script src="scripts/communityCodes.js"></script>
     <script src="scripts/mapGenerator.js"></script>
 
+    <!-- Firebase and authentication -->
+    <script src="scripts/authManager.js"></script>
+    <script src="scripts/cloudStorage.js"></script>
+    <script src="scripts/migrationManager.js"></script>
+    <script src="scripts/syncManager.js"></script>
+
     <!-- Travel sheet generation modules -->
     <script src="scripts/excelManager.js"></script>
     <script src="scripts/travelSheetGenerator.js"></script>
 
     <!-- Main application -->
     <script src="scripts/app.js"></script>
+
+    <script>
+        /**
+         * Toggles password visibility for a given input field
+         * @param {string} fieldId - The ID of the password input field
+         */
+        function togglePassword(fieldId) {
+            const passwordField = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + '-icon');
+
+            if (passwordField && icon) {
+                if (passwordField.type === 'password') {
+                    passwordField.type = 'text';
+                    icon.textContent = '🙈';
+                    icon.setAttribute('aria-label', 'Hide password');
+                } else {
+                    passwordField.type = 'password';
+                    icon.textContent = '👁️';
+                    icon.setAttribute('aria-label', 'Show password');
+                }
+            }
+        }
+
+        // Add keyboard support for password toggles
+        document.addEventListener('keydown', function (e) {
+            if (e.target.classList.contains('password-toggle') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
+    </script>
+
+    <script>
+        /**
+         * Toggles password visibility for a given input field
+         * @param {string} fieldId - The ID of the password input field
+         */
+        function togglePassword(fieldId) {
+            const passwordField = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + '-icon');
+
+            if (passwordField && icon) {
+                if (passwordField.type === 'password') {
+                    passwordField.type = 'text';
+                    icon.textContent = '🙈';
+                    icon.setAttribute('aria-label', 'Hide password');
+                } else {
+                    passwordField.type = 'password';
+                    icon.textContent = '👁️';
+                    icon.setAttribute('aria-label', 'Show password');
+                }
+            }
+        }
+
+        // Add keyboard support for password toggles
+        document.addEventListener('keydown', function (e) {
+            if (e.target.classList.contains('password-toggle') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
+    </script>
+</body>
+
+</html>
+<h2>🔒 Signing Out</h2>
+</div>
+<div class="modal-body">
+    <div class="logout-spinner" style="margin: 20px 0;">
+        <div class="spinner"></div>
+    </div>
+    <div id="logout-status-text">Preparing to sign out...</div>
+    <div class="logout-progress-steps" style="margin-top: 20px; text-align: left;">
+        <div class="progress-step" id="step-clearing-local">
+            <span class="step-icon">⏳</span> Clearing local data...
+        </div>
+        <div class="progress-step" id="step-clearing-cache">
+            <span class="step-icon">⏳</span> Clearing browser cache...
+        </div>
+        <div class="progress-step" id="step-firebase-signout">
+            <span class="step-icon">⏳</span> Signing out from Firebase...
+        </div>
+        <div class="progress-step" id="step-redirecting">
+            <span class="step-icon">⏳</span> Redirecting to login...
+        </div>
+    </div>
+</div>
+</div>
+</div>
 </body>
 
 </html>

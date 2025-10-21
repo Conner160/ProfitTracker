@@ -7,7 +7,7 @@
 
 // Database configuration constants
 const DB_NAME = 'ProfitTrackerDB';  // IndexedDB database name
-const DB_VERSION = 1;               // Database schema version
+const DB_VERSION = 3;               // Database schema version - updated for cloud-first with offline queues
 let db;                            // Global database connection reference
 
 /**
@@ -45,15 +45,27 @@ function initDB() {
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             
-            // Create object store for entries
+            // Legacy entries store (kept for migration purposes, but not used in cloud-first mode)
             if (!db.objectStoreNames.contains('entries')) {
-                const entriesStore = db.createObjectStore('entries', { keyPath: 'id', autoIncrement: true });
-                entriesStore.createIndex('date', 'date', { unique: false });
+                const entriesStore = db.createObjectStore('entries', { keyPath: 'date' });
             }
             
-            // Create object store for settings
+            // Legacy settings store (kept for migration purposes, but not used in cloud-first mode)
             if (!db.objectStoreNames.contains('settings')) {
                 db.createObjectStore('settings', { keyPath: 'name' });
+            }
+            
+            // Offline queue for entries that failed to sync to cloud
+            if (!db.objectStoreNames.contains('offline_entries')) {
+                const offlineEntriesStore = db.createObjectStore('offline_entries', { keyPath: 'date' });
+                offlineEntriesStore.createIndex('offlineAction', 'offlineAction', { unique: false });
+                offlineEntriesStore.createIndex('offlineTimestamp', 'offlineTimestamp', { unique: false });
+            }
+            
+            // Offline queue for settings that failed to sync to cloud
+            if (!db.objectStoreNames.contains('offline_settings')) {
+                const offlineSettingsStore = db.createObjectStore('offline_settings', { keyPath: 'name' });
+                offlineSettingsStore.createIndex('offlineTimestamp', 'offlineTimestamp', { unique: false });
             }
         };
     });
@@ -155,11 +167,123 @@ function deleteFromDB(storeName, key) {
     });
 }
 
+/**
+ * Clear all entries from the database
+ * Used during cloud sync to replace local data with cloud data
+ * 
+ * @async
+ * @function clearAllEntries
+ * @returns {Promise<void>} Resolves when all entries are deleted
+ */
+function clearAllEntries() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['entries'], 'readwrite');
+        const store = transaction.objectStore('entries');
+        
+        const request = store.clear();
+        
+        request.onsuccess = () => {
+            console.log('All entries cleared from local database');
+            resolve();
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Update an existing entry by date
+ * Used during sync to update local entries with cloud data
+ * 
+ * @async
+ * @function updateEntry
+ * @param {string} date - The date of the entry to update (YYYY-MM-DD)
+ * @param {Object} entryData - The updated entry data
+ * @returns {Promise<void>} Resolves when entry is updated
+ */
+function updateEntry(date, entryData) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['entries'], 'readwrite');
+        const store = transaction.objectStore('entries');
+        
+        // Ensure the entry has the correct date as primary key
+        entryData.date = date;
+        entryData.lastModified = new Date().toISOString();
+        
+        const request = store.put(entryData);
+        
+        request.onsuccess = () => {
+            console.log('Entry updated:', date);
+            resolve();
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Gets all items from the offline queue that need to be synced
+ * @param {string} storeName - The offline store name ('offline_entries' or 'offline_settings')
+ * @returns {Promise<Array>} Array of items waiting to be synced
+ */
+function getOfflineQueue(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+            const items = request.result || [];
+            console.log(`Retrieved ${items.length} items from ${storeName}`);
+            resolve(items);
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Clears all items from an offline queue store
+ * @param {string} storeName - The offline store name to clear
+ * @returns {Promise<void>} Resolves when queue is cleared
+ */
+function clearOfflineQueue(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.clear();
+        
+        request.onsuccess = () => {
+            console.log(`Cleared offline queue: ${storeName}`);
+            resolve();
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Gets the count of items in an offline queue
+ * @param {string} storeName - The offline store name to count
+ * @returns {Promise<number>} Number of items in the queue
+ */
+function getOfflineQueueCount(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.count();
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
 // Make functions available globally
 window.dbFunctions = {
     initDB,
     saveToDB,
     getFromDB,
     getAllFromDB,
-    deleteFromDB
+    deleteFromDB,
+    clearAllEntries,
+    updateEntry,
+    getOfflineQueue,
+    clearOfflineQueue,
+    getOfflineQueueCount
 };

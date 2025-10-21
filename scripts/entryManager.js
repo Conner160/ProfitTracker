@@ -6,6 +6,9 @@
  * per diem, expenses, and land locations.
  */
 
+// Debounce mechanism for loadEntries to prevent rapid successive calls
+let loadEntriesTimeout = null;
+
 /**
  * Saves a new daily entry or updates an existing one with form data
  * Collects all form inputs including points, kilometers, expenses, notes,
@@ -43,49 +46,79 @@ async function saveEntry() {
     // Get current land locations from the location manager
     const landLocations = window.locationManager.getLandLocations();
 
-    // Check for existing entries on the same date to prevent duplicates
-    const existingEntries = await window.dbFunctions.getAllFromDB('entries');
-    const existingEntry = existingEntries.find(entry => entry.date === dateInput);
+    // Check if entry exists for this date
+    const existingEntry = await window.dbFunctions.getFromDB('entries', dateInput);
+    const isUpdate = !!existingEntry;
 
-    // Handle duplicate date scenario with user confirmation
+    // Handle existing entry with user confirmation
     if (existingEntry) {
         const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
                               `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
                               `New: ${points} pts, ${kms} km\n\n` +
-                              `Keep new entry? (Cancel to keep old entry)`);
+                              `Update with new data? (Cancel to keep existing)`);
         
         // If user cancels, abort save operation
         if (!keepNew) {
             window.uiManager.showNotification('Entry not saved - kept existing entry');
             return;
         }
-
-        // Delete existing entry to replace with new data
-        await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
     }
 
-    // Create complete entry object with all form data and metadata
+    // Create entry object (date is the primary key)
     const entry = {
-        date: dateInput,
+        date: dateInput, // Primary key
         points,
         kms,
         perDiem,
         notes,
         expenses,
         landLocations,
-        timestamp: new Date().getTime() // Track when entry was created/modified
+        timestamp: new Date().getTime(),
+        lastModified: new Date().toISOString(),
+        createdAt: existingEntry?.createdAt || new Date().toISOString() // Preserve creation time for updates
     };
 
-    // Attempt to save entry to database with error handling
+    // Cloud-first save approach: save to cloud, only use local as backup on failure
     try {
-        await window.dbFunctions.saveToDB('entries', entry);
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        // Try to save directly to cloud first
+        try {
+            await window.cloudStorage.saveEntryToCloud(userId, entry);
+            console.log('✅ Entry saved to cloud:', entry.date);
+            
+            // Clear any existing local backup for this entry since cloud save succeeded
+            await window.dbFunctions.deleteFromDB('offline_entries', entry.date).catch(() => {
+                // Ignore errors if entry doesn't exist in offline storage
+            });
+            
+        } catch (cloudError) {
+            console.warn('☁️ Cloud save failed, storing locally for offline sync:', cloudError);
+            
+            // Save to local offline queue for later sync
+            const offlineEntry = {
+                ...entry,
+                offlineAction: 'save',
+                offlineTimestamp: new Date().getTime(),
+                retryCount: 0
+            };
+            
+            await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
+            throw new Error('Could not save to cloud. Entry saved locally and will sync when connection is restored.');
+        }
         
         // Refresh UI components after successful save
         window.calculations.calculateEarnings();
         loadEntries(); // Reload entries list to show updated data
-        clearForm();   // Reset form for next entry
         
-        window.uiManager.showNotification('Entry saved successfully!');
+        if (isUpdate) {
+            // For updates, keep the form populated and just show success message
+            window.uiManager.showNotification('Entry updated successfully!');
+        } else {
+            // For new entries, clear form for next entry
+            clearForm();
+            window.uiManager.showNotification('Entry saved successfully!');
+        }
     } catch (error) {
         console.error('Error saving entry:', error);
         window.uiManager.showNotification('Error saving entry', true);
@@ -188,9 +221,27 @@ function populateFormForEdit(entry) {
  */
 async function checkAndPopulateExistingEntry(date) {
     try {
-        // Retrieve all entries and search for matching date
-        const allEntries = await window.dbFunctions.getAllFromDB('entries');
-        const existingEntry = allEntries.find(entry => entry.date === date);
+        let allEntries = [];
+        let existingEntry = null;
+        
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        try {
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            existingEntry = allEntries.find(entry => entry.date === date);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud for date check, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage
+            try {
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                existingEntry = allEntries.find(entry => entry.date === date);
+            } catch (offlineError) {
+                console.error('Failed to check offline storage:', offlineError);
+            }
+        }
         
         if (existingEntry) {
             // Auto-populate form with existing entry data (no scrolling)
@@ -254,20 +305,72 @@ async function checkAndPopulateExistingEntry(date) {
 }
 
 /**
- * Loads and displays all entries for the current pay period
- * Retrieves entries from database, filters by current pay period dates,
- * generates HTML for each entry including all data (points, expenses, 
- * land locations), and sets up click handlers for editing. Also calculates
- * and displays pay period summary totals.
+ * Loads and displays all entries for the current pay period (debounced)
+ * Prevents rapid successive calls that could cause UI flickering or duplicates
  * 
  * @async
  * @function loadEntries
  * @returns {Promise<void>} Resolves when entries are loaded and displayed
  */
 async function loadEntries() {
+    // Clear any existing timeout to debounce rapid calls
+    if (loadEntriesTimeout) {
+        clearTimeout(loadEntriesTimeout);
+    }
+    
+    // Set a short delay to allow for rapid successive calls to be consolidated
+    return new Promise((resolve) => {
+        loadEntriesTimeout = setTimeout(async () => {
+            try {
+                await loadEntriesImmediate();
+                resolve();
+            } catch (error) {
+                console.error('Error in debounced loadEntries:', error);
+                resolve();
+            }
+        }, 50); // 50ms debounce delay
+    });
+}
+
+/**
+ * Immediately loads and displays all entries for the current pay period
+ * Retrieves entries from database, filters by current pay period dates,
+ * generates HTML for each entry including all data (points, expenses, 
+ * land locations), and sets up click handlers for editing. Also calculates
+ * and displays pay period summary totals.
+ * 
+ * @async
+ * @function loadEntriesImmediate
+ * @returns {Promise<void>} Resolves when entries are loaded and displayed
+ */
+async function loadEntriesImmediate() {
     try {
-        // Get all entries from database
-        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        let allEntries = [];
+        
+        // Cloud-first approach: load from cloud (authentication is guaranteed)
+        const userId = window.authManager.getCurrentUser().uid;
+        try {
+            // Load from cloud (authentication is guaranteed)
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            console.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage if cloud fails
+            try {
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                console.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
+                
+                if (allEntries.length > 0) {
+                    window.uiManager.showNotification('📶 Showing offline data. Connect to internet to sync latest changes.', false, 5000);
+                }
+            } catch (offlineError) {
+                console.error('Failed to load from offline storage:', offlineError);
+                allEntries = [];
+            }
+        }
         
         // Filter entries to current pay period date range
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
@@ -310,7 +413,6 @@ async function loadEntries() {
             
             return `
                 <div class="entry-item editable-entry" 
-                     data-id="${entry.id}"
                      data-date="${entry.date}" 
                      data-points="${entry.points}" 
                      data-kms="${entry.kms}" 
@@ -383,7 +485,7 @@ async function loadEntries() {
                                 ${entry.landLocations.map(location => `<span class="location-tag">${location}</span>`).join('')}
                             </div>
                         </div>` : ''}
-                        <button class="delete-entry" data-id="${entry.id}">Delete</button>
+                        <button class="delete-entry" data-date="${entry.date}">Delete</button>
                     </div>
                 </div>
             `;
@@ -391,8 +493,8 @@ async function loadEntries() {
         
         document.querySelectorAll('.delete-entry').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const id = parseInt(e.target.dataset.id);
-                await deleteEntry(id);
+                const date = e.target.dataset.date;
+                await deleteEntry(date);
             });
         });
         
@@ -422,7 +524,6 @@ async function loadEntries() {
                 }
                 
                 const entryData = {
-                    id: parseInt(entryElement.dataset.id),
                     date: entryElement.dataset.date,
                     points: parseFloat(entryElement.dataset.points),
                     kms: parseFloat(entryElement.dataset.kms),
@@ -450,7 +551,7 @@ async function loadEntries() {
  * @param {number} id - The unique database ID of the entry to delete
  * @returns {Promise<void>} Resolves when deletion is complete
  */
-async function deleteEntry(id) {
+async function deleteEntry(date) {
     // Get user confirmation before proceeding with irreversible deletion
     const confirmDelete = confirm('Are you sure you want to delete this entry?\nThis action cannot be undone.');
     if (!confirmDelete) {
@@ -459,7 +560,33 @@ async function deleteEntry(id) {
     }
     
     try {
-        await window.dbFunctions.deleteFromDB('entries', id);
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        // Try to delete from cloud first
+        try {
+            await window.cloudStorage.deleteEntryFromCloud(userId, date);
+            console.log('✅ Entry deleted from cloud:', date);
+            
+            // Clear any existing local backup for this entry since cloud delete succeeded
+            await window.dbFunctions.deleteFromDB('offline_entries', date).catch(() => {
+                // Ignore errors if entry doesn't exist in offline storage
+            });
+            
+        } catch (cloudError) {
+            console.warn('☁️ Cloud delete failed, queuing for offline sync:', cloudError);
+            
+            // Queue delete operation for later sync
+            const offlineEntry = {
+                date,
+                offlineAction: 'delete',
+                offlineTimestamp: new Date().getTime(),
+                retryCount: 0
+            };
+            
+            await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
+            throw new Error('Could not delete from cloud. Delete queued locally and will sync when connection is restored.');
+        }
+        
         loadEntries();
         window.uiManager.showNotification('Entry deleted');
     } catch (error) {
@@ -489,6 +616,20 @@ function initializeDate() {
     checkAndPopulateExistingEntry(todayFormatted);
 }
 
+/**
+ * Removes duplicate entries for the same date, keeping the most recent one
+ * NOTE: This function is no longer needed since entries now use date as primary key,
+ * which automatically prevents duplicates.
+ * 
+ * @async
+ * @function removeDuplicateEntries
+ * @returns {Promise<number>} Always returns 0 (no duplicates possible)
+ */
+async function removeDuplicateEntries() {
+    window.uiManager.showNotification('No duplicate cleanup needed - entries use date as unique key');
+    return 0;
+}
+
 // Make functions available globally
 window.entryManager = {
     saveEntry,
@@ -496,6 +637,8 @@ window.entryManager = {
     populateFormForEdit,
     checkAndPopulateExistingEntry,
     loadEntries,
+    loadEntriesImmediate,
     deleteEntry,
-    initializeDate
+    initializeDate,
+    removeDuplicateEntries
 };

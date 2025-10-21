@@ -1,3 +1,124 @@
+/* Authentication and sync controls */
+#auth-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.auth-btn {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.auth-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+#auth-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#email-auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+#email-auth-form input {
+    padding: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    width: 200px;
+}
+
+#email-auth-form input::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+#auth-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#user-info {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Sync status indicator */
+#sync-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+#sync-indicator {
+    font-size: 1.2rem;
+    animation: pulse 2s infinite;
+}
+
+#sync-status.syncing #sync-indicator {
+    color: #ffd700;
+    animation: spin 1s linear infinite;
+}
+
+#sync-status.offline #sync-indicator {
+    color: #ff6b6b;
+    animation: none;
+}
+
+#sync-status.synced #sync-indicator {
+    color: #51cf66;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive auth layout */
+@media (max-width: 768px) {
+    #auth-section {
+        align-items: center;
+    }
+    
+    #auth-buttons {
+        justify-content: center;
+    }
+    
+    #email-auth-form {
+        align-items: center;
+    }
+    
+    #email-auth-form input {
+        width: 100%;
+        max-width: 250px;
+    }
+}
+
 /* Settings panel styles */
 #settings-toggle {
     text-align: center;

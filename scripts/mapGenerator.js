@@ -315,7 +315,28 @@ function getMapGrouping() {
 
 async function handleGenerateMap() {
     try {
-        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        let allEntries = [];
+        
+        // Cloud-first approach: load from cloud (authentication is guaranteed)
+        const userId = window.authManager.getCurrentUser().uid;
+        
+        try {
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            console.log(`📥 Map generator loaded ${allEntries.length} entries from cloud`);
+            
+        } catch (cloudError) {
+            console.warn('☁️ Could not load from cloud for map, checking offline storage:', cloudError);
+            
+            // Fallback to offline storage if cloud fails
+            try {
+                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                console.log(`💾 Map generator loaded ${allEntries.length} entries from offline storage`);
+            } catch (offlineError) {
+                console.error('Failed to load from offline storage for map:', offlineError);
+                allEntries = [];
+            }
+        }
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
         const entries = allEntries.filter(entry => 
             entry.date >= window.appState.currentPayPeriodStart && entry.date <= payPeriodEnd
