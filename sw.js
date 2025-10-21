@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v2.2.7';
+const CACHE_NAME = 'profittracker-v2.2.8';
 
 // Make cache name available globally
 self.CACHE_NAME = CACHE_NAME;

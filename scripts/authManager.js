@@ -371,6 +371,51 @@ async function clearAllLocalData() {
 }
 
 /**
+ * Shows logout progress overlay
+ * @function showLogoutProgress
+ */
+function showLogoutProgress() {
+    const overlay = document.getElementById('logout-progress-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+        // Disable the sign out button to prevent multiple clicks
+        const signOutBtn = document.getElementById('sign-out-btn');
+        if (signOutBtn) {
+            signOutBtn.disabled = true;
+            signOutBtn.textContent = 'Signing Out...';
+        }
+    }
+}
+
+/**
+ * Updates logout progress step
+ * @function updateLogoutStep
+ * @param {string} stepId - ID of the step element
+ * @param {string} status - 'active', 'completed', or 'waiting'
+ */
+function updateLogoutStep(stepId, status) {
+    const step = document.getElementById(stepId);
+    if (step) {
+        step.classList.remove('active', 'completed');
+        if (status !== 'waiting') {
+            step.classList.add(status);
+        }
+        
+        // Update icon
+        const icon = step.querySelector('.step-icon');
+        if (icon) {
+            if (status === 'completed') {
+                icon.textContent = '✅';
+            } else if (status === 'active') {
+                icon.textContent = '🔄';
+            } else {
+                icon.textContent = '⏳';
+            }
+        }
+    }
+}
+
+/**
  * Signs out the current user and redirects to login page
  * 
  * @async
@@ -379,17 +424,58 @@ async function clearAllLocalData() {
  */
 async function signOutUser() {
     try {
-        // Clear all local data before signing out
-        await clearAllLocalData();
+        // Show logout progress
+        showLogoutProgress();
         
+        // Step 1: Clear local data
+        updateLogoutStep('step-clearing-local', 'active');
+        document.getElementById('logout-status-text').textContent = 'Clearing local data...';
+        await clearAllLocalData();
+        updateLogoutStep('step-clearing-local', 'completed');
+        
+        // Step 2: Clear cache (already done in clearAllLocalData, but show progress)
+        updateLogoutStep('step-clearing-cache', 'active');
+        document.getElementById('logout-status-text').textContent = 'Clearing browser cache...';
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+        updateLogoutStep('step-clearing-cache', 'completed');
+        
+        // Step 3: Firebase sign out
+        updateLogoutStep('step-firebase-signout', 'active');
+        document.getElementById('logout-status-text').textContent = 'Signing out from Firebase...';
         await window.firebaseModules.signOut(window.firebaseAuth);
         currentUser = null;
+        updateLogoutStep('step-firebase-signout', 'completed');
         console.log('👋 User signed out, redirecting to login...');
+        
+        // Step 4: Redirect
+        updateLogoutStep('step-redirecting', 'active');
+        document.getElementById('logout-status-text').textContent = 'Redirecting to login page...';
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay to show completion
+        updateLogoutStep('step-redirecting', 'completed');
         
         // Redirect to login page
         window.location.href = 'login.html';
     } catch (error) {
         console.error('Error signing out:', error);
+        
+        // Hide progress overlay and show error
+        const overlay = document.getElementById('logout-progress-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+        
+        // Re-enable sign out button
+        const signOutBtn = document.getElementById('sign-out-btn');
+        if (signOutBtn) {
+            signOutBtn.disabled = false;
+            signOutBtn.textContent = 'Sign Out';
+        }
+        
+        // Show error notification
+        if (window.uiManager) {
+            window.uiManager.showNotification('Error signing out. Please try again.', true);
+        }
+        
         throw error;
     }
 }
@@ -594,6 +680,8 @@ window.authManager = {
     signOutUser,
     clearAllLocalData,
     clearServiceWorkerCache,
+    showLogoutProgress,
+    updateLogoutStep,
     isValidEmailDomain,
     isEmailVerified,
     sendEmailVerification,
