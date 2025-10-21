@@ -301,6 +301,73 @@ function getStorageStatus() {
     };
 }
 
+/**
+ * Saves device information for a user
+ * @param {string} userId - User ID
+ * @param {string} deviceId - Device ID
+ * @param {Object} deviceInfo - Device information
+ * @returns {Promise<void>}
+ */
+async function saveDeviceInfo(userId, deviceId, deviceInfo) {
+    try {
+        const deviceRef = window.firebaseModules.doc(window.firebaseDb, `users/${userId}/devices/${deviceId}`);
+        await window.firebaseModules.setDoc(deviceRef, {
+            ...deviceInfo,
+            updatedAt: new Date()
+        });
+        console.log(`📱 Saved device info for ${deviceId}`);
+    } catch (error) {
+        console.error('Error saving device info:', error);
+        throw error;
+    }
+}
+
+/**
+ * Gets device information for a user
+ * @param {string} userId - User ID
+ * @param {string} deviceId - Device ID
+ * @returns {Promise<Object|null>} Device information or null if not found
+ */
+async function getDeviceInfo(userId, deviceId) {
+    try {
+        const deviceRef = window.firebaseModules.doc(window.firebaseDb, `users/${userId}/devices/${deviceId}`);
+        const deviceDoc = await window.firebaseModules.getDoc(deviceRef);
+        
+        if (deviceDoc.exists()) {
+            return deviceDoc.data();
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting device info:', error);
+        throw error;
+    }
+}
+
+/**
+ * Gets all devices for a user
+ * @param {string} userId - User ID
+ * @returns {Promise<Array>} Array of device information
+ */
+async function getUserDevices(userId) {
+    try {
+        const devicesRef = window.firebaseModules.collection(window.firebaseDb, `users/${userId}/devices`);
+        const devicesSnapshot = await window.firebaseModules.getDocs(devicesRef);
+        
+        const devices = [];
+        devicesSnapshot.forEach(doc => {
+            devices.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        return devices;
+    } catch (error) {
+        console.error('Error getting user devices:', error);
+        throw error;
+    }
+}
+
 // Make functions available globally
 window.cloudStorage = {
     saveEntryToCloud,
@@ -313,6 +380,9 @@ window.cloudStorage = {
     setupEntriesListener,
     setupSettingsListener,
     batchUploadEntries,
+    saveDeviceInfo,
+    getDeviceInfo,
+    getUserDevices,
     isCloudAvailable,
     getStorageStatus
 };

@@ -1,8 +1,145 @@
 /**
  * Migration Manager Module
- * Handles one-time migration from old local storage to cloud-first architecture
- * Ensures clean transition and prevents data conflicts with user choice for conflicts
+ * Handles device-specific migration from old local storage to cloud-first architecture
+ * Tracks devices per user and ensures all devices complete migration
  */
+
+/**
+ * Generates a unique device identifier for this browser/device
+ * @returns {string} Unique device identifier
+ */
+function getDeviceId() {
+    let deviceId = localStorage.getItem('deviceId');
+    
+    if (!deviceId) {
+        // Generate a unique device ID based on browser characteristics
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillText('Device fingerprint', 2, 2);
+        
+        const fingerprint = [
+            navigator.userAgent,
+            navigator.language,
+            screen.width + 'x' + screen.height,
+            new Date().getTimezoneOffset(),
+            canvas.toDataURL()
+        ].join('|');
+        
+        // Create a simple hash of the fingerprint
+        let hash = 0;
+        for (let i = 0; i < fingerprint.length; i++) {
+            const char = fingerprint.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        deviceId = 'device_' + Math.abs(hash).toString(36) + '_' + Date.now();
+        localStorage.setItem('deviceId', deviceId);
+    }
+    
+    return deviceId;
+}
+
+/**
+ * Registers this device for the current user in cloud storage
+ * @param {string} userId - The user's ID
+ * @param {string} deviceId - This device's ID
+ */
+async function registerDevice(userId, deviceId) {
+    try {
+        const deviceInfo = {
+            id: deviceId,
+            userAgent: navigator.userAgent,
+            lastSeen: new Date().toISOString(),
+            migrationStatus: 'pending', // pending, completed, skipped
+            migrationAttempts: 0
+        };
+        
+        await window.cloudStorage.saveDeviceInfo(userId, deviceId, deviceInfo);
+        console.log(`📱 Registered device ${deviceId} for user ${userId}`);
+    } catch (error) {
+        console.warn('Could not register device:', error);
+    }
+}
+
+/**
+ * Updates migration status for this device
+ * @param {string} userId - The user's ID
+ * @param {string} deviceId - This device's ID
+ * @param {string} status - Migration status (completed, skipped)
+ * @param {Object} results - Migration results
+ */
+async function updateDeviceMigrationStatus(userId, deviceId, status, results = {}) {
+    try {
+        const deviceInfo = {
+            id: deviceId,
+            userAgent: navigator.userAgent,
+            lastSeen: new Date().toISOString(),
+            migrationStatus: status,
+            migrationAttempts: (results.attempts || 0) + 1,
+            migrationResults: results,
+            completedAt: status === 'completed' ? new Date().toISOString() : null
+        };
+        
+        await window.cloudStorage.saveDeviceInfo(userId, deviceId, deviceInfo);
+        console.log(`📱 Updated device ${deviceId} migration status: ${status}`);
+    } catch (error) {
+        console.warn('Could not update device migration status:', error);
+    }
+}
+
+/**
+ * Checks if this device has completed migration
+ * @param {string} userId - The user's ID
+ * @param {string} deviceId - This device's ID
+ * @returns {Promise<boolean>} True if migration completed
+ */
+async function hasDeviceCompletedMigration(userId, deviceId) {
+    try {
+        const deviceInfo = await window.cloudStorage.getDeviceInfo(userId, deviceId);
+        return deviceInfo?.migrationStatus === 'completed';
+    } catch (error) {
+        console.warn('Could not check device migration status:', error);
+        return false;
+    }
+}
+
+/**
+ * Gets user's migration statistics across all devices
+ * @param {string} userId - The user's ID
+ * @returns {Promise<Object>} Migration statistics
+ */
+async function getUserMigrationStats(userId) {
+    try {
+        const allDevices = await window.cloudStorage.getUserDevices(userId);
+        const stats = {
+            totalDevices: allDevices.length,
+            completedDevices: 0,
+            pendingDevices: 0,
+            totalEntriesMigrated: 0,
+            totalConflictsResolved: 0
+        };
+        
+        for (const device of allDevices) {
+            if (device.migrationStatus === 'completed') {
+                stats.completedDevices++;
+                if (device.migrationResults) {
+                    stats.totalEntriesMigrated += device.migrationResults.migratedEntries || 0;
+                    stats.totalConflictsResolved += device.migrationResults.conflictedEntries || 0;
+                }
+            } else {
+                stats.pendingDevices++;
+            }
+        }
+        
+        return stats;
+    } catch (error) {
+        console.warn('Could not get migration stats:', error);
+        return { totalDevices: 0, completedDevices: 0, pendingDevices: 0, totalEntriesMigrated: 0, totalConflictsResolved: 0 };
+    }
+}
 
 /**
  * Shows a dialog to resolve conflicts between local and cloud entries
@@ -228,20 +365,31 @@ async function migrateToCloudFirst() {
             console.warn('⚠️ Could not migrate settings:', error);
         }
         
-        // Mark migration as complete
-        localStorage.setItem('cloudFirstMigrationComplete', 'true');
-        console.log('✅ Migration to cloud-first architecture completed');
+        // Mark migration as complete for this device
+        await updateDeviceMigrationStatus(userId, deviceId, 'completed', migrationResults);
+        console.log('✅ Device migration to cloud-first architecture completed');
+        
+        // Get overall migration stats for user
+        const migrationStats = await getUserMigrationStats(userId);
+        console.log(`📊 User migration stats: ${migrationStats.completedDevices}/${migrationStats.totalDevices} devices completed`);
         
         // Show notification to user about what was migrated
         if (window.uiManager && window.uiManager.showNotification) {
-            if (migratedEntries > 0) {
-                let message = `📡 Migration complete: ${migratedEntries} entries added to cloud`;
-                if (conflictedEntries > 0) {
-                    message += `, ${conflictedEntries} conflicts resolved`;
+            if (migrationResults.migratedEntries > 0) {
+                let message = `📡 Migration complete: ${migrationResults.migratedEntries} entries added to cloud`;
+                if (migrationResults.conflictedEntries > 0) {
+                    message += `, ${migrationResults.conflictedEntries} conflicts resolved`;
+                }
+                if (migrationStats.totalDevices > 1) {
+                    message += ` (${migrationStats.completedDevices}/${migrationStats.totalDevices} devices completed)`;
                 }
                 window.uiManager.showNotification(message, false, 6000);
             } else {
-                window.uiManager.showNotification('📡 Switched to cloud-first storage successfully!', false, 3000);
+                let message = '📡 Switched to cloud-first storage successfully!';
+                if (migrationStats.totalDevices > 1) {
+                    message += ` (${migrationStats.completedDevices}/${migrationStats.totalDevices} devices completed)`;
+                }
+                window.uiManager.showNotification(message, false, 3000);
             }
         }
         
@@ -291,5 +439,9 @@ async function checkForOldData() {
 // Make functions available globally
 window.migrationManager = {
     migrateToCloudFirst,
-    checkForOldData
+    checkForOldData,
+    getDeviceId,
+    registerDevice,
+    hasDeviceCompletedMigration,
+    getUserMigrationStats
 };
