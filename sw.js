@@ -22,7 +22,7 @@ const ALLOWED_ORIGINS = [
   'https://securetoken.googleapis.com'
 ];
 
-// 🔒 Restricted Files - Block access to sensitive files
+// 🔒 Restricted Files - Block access to sensitive file
 const RESTRICTED_FILES = [
   '/CCC_Travel_Sheet.xlsx',
   '/.htaccess',
