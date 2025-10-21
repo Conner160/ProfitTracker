@@ -248,7 +248,7 @@ class SyncManager {
             
             // Refresh UI
             if (window.entryManager) {
-                window.entryManager.displayEntries();
+                window.entryManager.loadEntries();
             }
         } catch (error) {
             console.error('Failed to download cloud data:', error);
@@ -325,7 +325,7 @@ class SyncManager {
         
         // Refresh UI if there were changes
         if (entriesToDownload.length > 0 && window.entryManager) {
-            window.entryManager.displayEntries();
+            window.entryManager.loadEntries();
         }
     }
 
