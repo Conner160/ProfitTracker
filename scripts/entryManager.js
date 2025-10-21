@@ -94,9 +94,15 @@ async function saveEntry() {
         // Refresh UI components after successful save
         window.calculations.calculateEarnings();
         loadEntries(); // Reload entries list to show updated data
-        clearForm();   // Reset form for next entry
         
-        window.uiManager.showNotification(isUpdate ? 'Entry updated successfully!' : 'Entry saved successfully!');
+        if (isUpdate) {
+            // For updates, keep the form populated and just show success message
+            window.uiManager.showNotification('Entry updated successfully!');
+        } else {
+            // For new entries, clear form for next entry
+            clearForm();
+            window.uiManager.showNotification('Entry saved successfully!');
+        }
     } catch (error) {
         console.error('Error saving entry:', error);
         window.uiManager.showNotification('Error saving entry', true);
