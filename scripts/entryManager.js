@@ -25,17 +25,17 @@ async function saveEntry() {
     const dateInput = document.getElementById('work-date').value;
     const points = parseFloat(document.getElementById('points').value) || 0;
     const kms = parseFloat(document.getElementById('kms').value) || 0;
-    
+
     // Get selected per diem option
     const perDiemRadio = document.querySelector('input[name="per-diem"]:checked');
     const perDiem = perDiemRadio ? perDiemRadio.value : 'none';
     const notes = document.getElementById('notes').value;
-    
+
     // Extract expense values from form inputs with fallback to 0
     const hotelExpense = parseFloat(document.getElementById('hotel-expense').value) || 0;
     const gasExpense = parseFloat(document.getElementById('gas-expense').value) || 0;
     const foodExpense = parseFloat(document.getElementById('food-expense').value) || 0;
-    
+
     // Structure expense data for database storage
     const expenses = {
         hotel: hotelExpense,
@@ -53,10 +53,10 @@ async function saveEntry() {
     // Handle existing entry with user confirmation
     if (existingEntry) {
         const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
-                              `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
-                              `New: ${points} pts, ${kms} km\n\n` +
-                              `Update with new data? (Cancel to keep existing)`);
-        
+            `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
+            `New: ${points} pts, ${kms} km\n\n` +
+            `Update with new data? (Cancel to keep existing)`);
+
         // If user cancels, abort save operation
         if (!keepNew) {
             window.uiManager.showNotification('Entry not saved - kept existing entry');
@@ -78,39 +78,47 @@ async function saveEntry() {
         createdAt: existingEntry?.createdAt || new Date().toISOString() // Preserve creation time for updates
     };
 
-    // Cloud-first save approach: save to cloud, only use local as backup on failure
+    // 🌐 ONLINE-FIRST ARCHITECTURE: Prioritize cloud operations with offline backup
     try {
         const userId = window.authManager.getCurrentUser().uid;
-        
-        // Try to save directly to cloud first
+
+        // ✅ Check connection status before attempting cloud operation
+        if (!navigator.onLine) {
+            throw new Error('No internet connection detected');
+        }
+
+        // 🔄 Attempt direct cloud save (primary path)
         try {
             await window.cloudStorage.saveEntryToCloud(userId, entry);
-            console.log('✅ Entry saved to cloud:', entry.date);
-            
-            // Clear any existing local backup for this entry since cloud save succeeded
+            window.secureLog.log('✅ Entry saved to cloud:', entry.date);
+
+            // 🧹 Clear any existing offline backup since cloud save succeeded
             await window.dbFunctions.deleteFromDB('offline_entries', entry.date).catch(() => {
                 // Ignore errors if entry doesn't exist in offline storage
             });
-            
+
+            // 🎯 Show success with online indicator
+            window.uiManager.showNotification('✅ Entry saved to cloud', false, 2000);
+
         } catch (cloudError) {
-            console.warn('☁️ Cloud save failed, storing locally for offline sync:', cloudError);
-            
-            // Save to local offline queue for later sync
+            window.secureLog.warn('☁️ Cloud save failed despite connection, using offline backup:', cloudError);
+
+            // 💾 Offline backup only when cloud specifically fails (not connection)
             const offlineEntry = {
                 ...entry,
                 offlineAction: 'save',
                 offlineTimestamp: new Date().getTime(),
                 retryCount: 0
             };
-            
+
             await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
-            throw new Error('Could not save to cloud. Entry saved locally and will sync when connection is restored.');
+            window.uiManager.showNotification('⚠️ Saved locally - will sync when cloud is available', true, 4000);
         }
-        
+
         // Refresh UI components after successful save
         window.calculations.calculateEarnings();
         loadEntries(); // Reload entries list to show updated data
-        
+
         if (isUpdate) {
             // For updates, keep the form populated and just show success message
             window.uiManager.showNotification('Entry updated successfully!');
@@ -138,19 +146,19 @@ function clearForm() {
     // Clear primary input fields
     document.getElementById('points').value = '';
     document.getElementById('kms').value = '';
-    
+
     // Reset per diem to "full" (default)
     document.querySelector('input[name="per-diem"][value="full"]').checked = true;
     document.getElementById('notes').value = '';
-    
+
     // Clear all expense input fields
     document.getElementById('hotel-expense').value = '';
     document.getElementById('gas-expense').value = '';
     document.getElementById('food-expense').value = '';
-    
+
     // Clear land locations section
     window.locationManager.clearLandLocations();
-    
+
     // Reset date to today and recalculate earnings display
     initializeDate();
     window.calculations.calculateEarnings();
@@ -178,9 +186,9 @@ function populateFormForEdit(entry) {
     document.getElementById('work-date').value = entry.date;
     document.getElementById('points').value = entry.points;
     document.getElementById('kms').value = entry.kms;
-    
+
     // Set per diem radio button - handle both old boolean and new string format
-    const perDiemValue = typeof entry.perDiem === 'boolean' ? 
+    const perDiemValue = typeof entry.perDiem === 'boolean' ?
         (entry.perDiem ? 'full' : 'none') : entry.perDiem;
     const perDiemRadio = document.querySelector(`input[name="per-diem"][value="${perDiemValue}"]`);
     if (perDiemRadio) {
@@ -190,19 +198,19 @@ function populateFormForEdit(entry) {
         document.querySelector('input[name="per-diem"][value="none"]').checked = true;
     }
     document.getElementById('notes').value = entry.notes || '';
-    
+
     // Populate expense fields with fallback to empty values
     const expenses = entry.expenses || {};
     document.getElementById('hotel-expense').value = expenses.hotel || '';
     document.getElementById('gas-expense').value = expenses.gas || '';
     document.getElementById('food-expense').value = expenses.food || '';
-    
+
     // Populate land locations section with saved locations
     window.locationManager.setLandLocations(entry.landLocations || []);
-    
+
     // Recalculate and display updated earnings
     window.calculations.calculateEarnings();
-    
+
     // Scroll form into view for better user experience on mobile
     document.getElementById('daily-entry').scrollIntoView({ behavior: 'smooth' });
 }
@@ -223,16 +231,16 @@ async function checkAndPopulateExistingEntry(date) {
     try {
         let allEntries = [];
         let existingEntry = null;
-        
+
         const userId = window.authManager.getCurrentUser().uid;
-        
+
         try {
             allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
             existingEntry = allEntries.find(entry => entry.date === date);
-            
+
         } catch (cloudError) {
             console.warn('☁️ Could not load from cloud for date check, checking offline storage:', cloudError);
-            
+
             // Fallback to offline storage
             try {
                 const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
@@ -242,14 +250,14 @@ async function checkAndPopulateExistingEntry(date) {
                 console.error('Failed to check offline storage:', offlineError);
             }
         }
-        
+
         if (existingEntry) {
             // Auto-populate form with existing entry data (no scrolling)
             document.getElementById('points').value = existingEntry.points;
             document.getElementById('kms').value = existingEntry.kms;
-            
+
             // Set per diem radio button - handle both old boolean and new string format
-            const perDiemValue = typeof existingEntry.perDiem === 'boolean' ? 
+            const perDiemValue = typeof existingEntry.perDiem === 'boolean' ?
                 (existingEntry.perDiem ? 'full' : 'none') : existingEntry.perDiem;
             const perDiemRadio = document.querySelector(`input[name="per-diem"][value="${perDiemValue}"]`);
             if (perDiemRadio) {
@@ -259,30 +267,30 @@ async function checkAndPopulateExistingEntry(date) {
                 document.querySelector('input[name="per-diem"][value="none"]').checked = true;
             }
             document.getElementById('notes').value = existingEntry.notes || '';
-            
+
             // Populate expense fields with existing data
             const expenses = existingEntry.expenses || {};
             document.getElementById('hotel-expense').value = expenses.hotel || '';
             document.getElementById('gas-expense').value = expenses.gas || '';
             document.getElementById('food-expense').value = expenses.food || '';
-            
+
             // Populate saved land locations for this date
             window.locationManager.setLandLocations(existingEntry.landLocations || []);
-            
+
             // Update earnings display with loaded data
             window.calculations.calculateEarnings();
-        } else if((document.getElementById('points').value !== '' ||
-                  document.getElementById('kms').value !== '' ||
-                  document.getElementById('notes').value !== '' ||
-                  document.getElementById('hotel-expense').value !== '' ||
-                  document.getElementById('gas-expense').value !== '' ||
-                  document.getElementById('food-expense').value !== '' ||
-                  window.locationManager.getLandLocations().length > 0 ) && 
-                 confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')){
-            
+        } else if ((document.getElementById('points').value !== '' ||
+            document.getElementById('kms').value !== '' ||
+            document.getElementById('notes').value !== '' ||
+            document.getElementById('hotel-expense').value !== '' ||
+            document.getElementById('gas-expense').value !== '' ||
+            document.getElementById('food-expense').value !== '' ||
+            window.locationManager.getLandLocations().length > 0) &&
+            confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')) {
+
             // User chose to keep current form data - just recalculate earnings
             window.calculations.calculateEarnings();
-        } else {    
+        } else {
             // No existing entry and user wants fresh form OR no current data exists
             // Clear all form fields for new entry (preserve date)
             document.getElementById('points').value = '';
@@ -292,10 +300,10 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';
             document.getElementById('food-expense').value = '';
-            
+
             // Clear land locations for fresh entry
             window.locationManager.clearLandLocations();
-            
+
             // Reset earnings display to zero values
             window.calculations.calculateEarnings();
         }
@@ -317,7 +325,7 @@ async function loadEntries() {
     if (loadEntriesTimeout) {
         clearTimeout(loadEntriesTimeout);
     }
-    
+
     // Set a short delay to allow for rapid successive calls to be consolidated
     return new Promise((resolve) => {
         loadEntriesTimeout = setTimeout(async () => {
@@ -346,71 +354,90 @@ async function loadEntries() {
 async function loadEntriesImmediate() {
     try {
         let allEntries = [];
-        
-        // Cloud-first approach: load from cloud (authentication is guaranteed)
+
+        // 🌐 ONLINE-FIRST LOADING: Prioritize fresh cloud data with offline fallback
         const userId = window.authManager.getCurrentUser().uid;
-        try {
-            // Load from cloud (authentication is guaranteed)
-            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
-            console.log(`📥 Loaded ${allEntries.length} entries from cloud`);
-            
-        } catch (cloudError) {
-            console.warn('☁️ Could not load from cloud, checking offline storage:', cloudError);
-            
-            // Fallback to offline storage if cloud fails
+
+        // ✅ Always attempt cloud load first when online
+        if (navigator.onLine) {
+            try {
+                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+                window.secureLog.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+
+                // 🎯 Indicate successful online operation
+                window.uiManager.updateSyncStatus('online', 'Latest data loaded');
+
+            } catch (cloudError) {
+                window.secureLog.warn('☁️ Cloud load failed despite connection, using offline data:', cloudError);
+
+                // 💾 Use offline data only when cloud specifically fails
+                try {
+                    const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
+                    allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
+                    window.secureLog.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
+
+                    window.uiManager.showNotification('⚠️ Using offline data - cloud temporarily unavailable', true, 3000);
+                    window.uiManager.updateSyncStatus('offline', 'Using cached data');
+                } catch (offlineError) {
+                    window.secureLog.error('Failed to load from offline storage:', offlineError);
+                    allEntries = [];
+                }
+            }
+        } else {
+            // 📵 Explicitly offline - show offline data with clear messaging
             try {
                 const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
                 allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                console.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
-                
-                if (allEntries.length > 0) {
-                    window.uiManager.showNotification('📶 Showing offline data. Connect to internet to sync latest changes.', false, 5000);
-                }
+                window.secureLog.log(`📵 Offline mode: Loaded ${allEntries.length} entries from local storage`);
+
+                window.uiManager.showNotification('📵 Offline Mode: Showing local data only', false, 5000);
+                window.uiManager.updateSyncStatus('offline', 'No internet connection');
             } catch (offlineError) {
-                console.error('Failed to load from offline storage:', offlineError);
+                window.secureLog.error('Failed to load offline data:', offlineError);
                 allEntries = [];
+                window.uiManager.showNotification('❌ No data available offline', true);
             }
         }
-        
+
         // Filter entries to current pay period date range
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
-        const entries = allEntries.filter(entry => 
+        const entries = allEntries.filter(entry =>
             entry.date >= window.appState.currentPayPeriodStart && entry.date <= payPeriodEnd
         );
-        
+
         const entriesList = document.getElementById('entries-list');
-        
+
         // Handle empty pay period case
         if (entries.length === 0) {
             entriesList.innerHTML = '<p>No entries for this pay period</p>';
             window.uiManager.updatePayPeriodSummary(null);
             return;
         }
-        
+
         // Sort entries by date (most recent first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
+
         // Calculate totals for pay period summary
         const payPeriodTotals = window.calculations.calculatePayPeriodTotals(entries);
         window.uiManager.updatePayPeriodSummary(payPeriodTotals);
-        
+
         entriesList.innerHTML = entries.map(entry => {
             const pointRate = parseFloat(document.getElementById('point-rate').value) || 7.00;
             const kmRate = parseFloat(document.getElementById('km-rate').value) || 0.84;
             const perDiemFullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || 171;
             const perDiemPartialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || 46;
             const includeGST = document.getElementById('gst-enabled').checked;
-            
+
             // Calculate total dynamically based on current settings
             const expenses = entry.expenses || {};
             const entryTotals = window.calculations.calculateEntryTotal(entry.points, entry.kms, entry.perDiem, expenses);
-            
+
             // Prepare expense data for editing
             const expenseData = JSON.stringify(expenses).replace(/"/g, '&quot;');
-            
+
             // Prepare land locations data for editing
             const landLocationsData = JSON.stringify(entry.landLocations || []).replace(/"/g, '&quot;');
-            
+
             return `
                 <div class="entry-item editable-entry" 
                      data-date="${entry.date}" 
@@ -434,23 +461,23 @@ async function loadEntriesImmediate() {
                             <span>$${(entry.kms * kmRate).toFixed(2)}</span>
                         </div>
                         ${(() => {
-                            // Handle both old boolean and new string format for per diem
-                            const perDiemValue = typeof entry.perDiem === 'boolean' ? 
-                                (entry.perDiem ? 'full' : 'none') : entry.perDiem;
-                            
-                            if (perDiemValue === 'full') {
-                                return `<div class="entry-row">
+                    // Handle both old boolean and new string format for per diem
+                    const perDiemValue = typeof entry.perDiem === 'boolean' ?
+                        (entry.perDiem ? 'full' : 'none') : entry.perDiem;
+
+                    if (perDiemValue === 'full') {
+                        return `<div class="entry-row">
                                     <span>Per Diem (Full):</span>
                                     <span>$${perDiemFullRate.toFixed(2)}</span>
                                 </div>`;
-                            } else if (perDiemValue === 'partial') {
-                                return `<div class="entry-row">
+                    } else if (perDiemValue === 'partial') {
+                        return `<div class="entry-row">
                                     <span>Per Diem (Partial):</span>
                                     <span>$${perDiemPartialRate.toFixed(2)}</span>
                                 </div>`;
-                            }
-                            return '';
-                        })()}
+                    }
+                    return '';
+                })()}
                         ${includeGST ? `
                         <div class="entry-row">
                             <span>GST:</span>
@@ -490,14 +517,14 @@ async function loadEntriesImmediate() {
                 </div>
             `;
         }).join('');
-        
+
         document.querySelectorAll('.delete-entry').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const date = e.target.dataset.date;
                 await deleteEntry(date);
             });
         });
-        
+
         // Add click event listeners for editing entries
         const editableEntries = document.querySelectorAll('.editable-entry');
         editableEntries.forEach(entryElement => {
@@ -506,7 +533,7 @@ async function loadEntriesImmediate() {
                 if (e.target.classList.contains('delete-entry')) {
                     return;
                 }
-                
+
                 const expenseData = entryElement.dataset.expenses;
                 let expenses = {};
                 try {
@@ -514,7 +541,7 @@ async function loadEntriesImmediate() {
                 } catch (error) {
                     expenses = {};
                 }
-                
+
                 const landLocationsData = entryElement.dataset.landLocations;
                 let landLocations = [];
                 try {
@@ -522,7 +549,7 @@ async function loadEntriesImmediate() {
                 } catch (error) {
                     landLocations = [];
                 }
-                
+
                 const entryData = {
                     date: entryElement.dataset.date,
                     points: parseFloat(entryElement.dataset.points),
@@ -558,23 +585,23 @@ async function deleteEntry(date) {
         window.uiManager.showNotification('Deletion cancelled');
         return;
     }
-    
+
     try {
         const userId = window.authManager.getCurrentUser().uid;
-        
+
         // Try to delete from cloud first
         try {
             await window.cloudStorage.deleteEntryFromCloud(userId, date);
             console.log('✅ Entry deleted from cloud:', date);
-            
+
             // Clear any existing local backup for this entry since cloud delete succeeded
             await window.dbFunctions.deleteFromDB('offline_entries', date).catch(() => {
                 // Ignore errors if entry doesn't exist in offline storage
             });
-            
+
         } catch (cloudError) {
             console.warn('☁️ Cloud delete failed, queuing for offline sync:', cloudError);
-            
+
             // Queue delete operation for later sync
             const offlineEntry = {
                 date,
@@ -582,11 +609,11 @@ async function deleteEntry(date) {
                 offlineTimestamp: new Date().getTime(),
                 retryCount: 0
             };
-            
+
             await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
             throw new Error('Could not delete from cloud. Delete queued locally and will sync when connection is restored.');
         }
-        
+
         loadEntries();
         window.uiManager.showNotification('Entry deleted');
     } catch (error) {
@@ -607,11 +634,11 @@ async function deleteEntry(date) {
 function initializeDate() {
     const today = new Date();
     const todayFormatted = window.dateUtils.formatDateForInput(today);
-    
+
     // Set date picker and display to today's date
     document.getElementById('work-date').value = todayFormatted;
     document.getElementById('date-display').textContent = window.dateUtils.formatDateForDisplay(todayFormatted);
-    
+
     // Auto-populate form if entry already exists for today
     checkAndPopulateExistingEntry(todayFormatted);
 }
