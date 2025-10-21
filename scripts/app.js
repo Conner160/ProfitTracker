@@ -59,9 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
  * and initializes all module functionality.
  * 
  * @function initializeApp
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function initializeApp() {
+async function initializeApp() {
     // Set initial pay period to current period if not already set
     if (!window.appState.currentPayPeriodStart) {
         window.appState.currentPayPeriodStart = window.dateUtils.getCurrentPayPeriodStart();
