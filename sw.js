@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v2.4.1-secure';
+const CACHE_NAME = 'profittracker-v2.4.2-secure';
 
 // 🔒 PRODUCTION MODE TOGGLE - Set to false for production deployment
 const IS_DEVELOPMENT = true; // Change to false for production
@@ -32,7 +32,9 @@ const RESTRICTED_FILES = [
   '/.git',
   '/package.json',
   '/package-lock.json',
-  '/config/'
+  '/config/.env',
+  '/config/firebase-admin.json',
+  '/config/secrets.js'
 ];
 
 // Make cache name available globally

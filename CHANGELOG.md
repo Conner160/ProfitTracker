@@ -95,3 +95,35 @@ AFTER:  User Input → Firebase (immediate, online) → IndexedDB (backup only)
 - **Clean Console**: No more CSP violation errors during development
 - **Better Debugging**: Source maps accessible for troubleshooting
 - **Professional Experience**: Eliminates confusing error messages for field workers
+
+---
+
+## [2.4.2] - 2025-10-21 - PATCH: Service Worker Security Fix
+
+### 🔧 **Critical Bug Fix**
+**Business Impact**: Resolves app initialization failure that prevented field workers from accessing ProfitTracker.
+
+#### Issues Resolved
+- **Firebase Initialization**: Fixed `Cannot read properties of undefined (reading 'FIREBASE')` error
+- **Environment Access**: Service worker now allows `config/env.js` while blocking sensitive config files
+- **App Loading**: Restored proper Firebase configuration loading for authentication
+
+#### Security Enhancements
+- **Granular Blocking**: Changed from blocking entire `/config/` directory to specific sensitive files
+- **Maintained Security**: Still blocks `.env`, admin configs, and secret files
+- **Selective Access**: Allows public environment config while protecting sensitive data
+
+#### Files Modified
+- `sw.js` - Updated `RESTRICTED_FILES` array with granular file blocking, version to `v2.4.2-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### Technical Details
+```
+BEFORE: Blocked entire /config/ directory → Firebase init failed
+AFTER:  Block only /config/.env, /config/secrets.js, etc. → Firebase loads correctly
+```
+
+#### Clear Connections Benefits
+- **App Functionality**: Workers can now access ProfitTracker without initialization errors
+- **Maintained Security**: Sensitive configuration files still protected
+- **Professional Operation**: App loads cleanly without console errors
