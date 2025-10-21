@@ -317,9 +317,12 @@ async function loadEntriesImmediate() {
         // Get all entries from database
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
         
+        // Check for and resolve duplicate dates before filtering
+        const deduplicatedEntries = await checkAndResolveDuplicates(allEntries);
+        
         // Filter entries to current pay period date range
         const payPeriodEnd = window.dateUtils.getPayPeriodEnd(window.appState.currentPayPeriodStart);
-        const entries = allEntries.filter(entry => 
+        const entries = deduplicatedEntries.filter(entry => 
             entry.date >= window.appState.currentPayPeriodStart && entry.date <= payPeriodEnd
         );
         
