@@ -6,6 +6,9 @@
  * per diem, expenses, and land locations.
  */
 
+// Debounce mechanism for loadEntries to prevent rapid successive calls
+let loadEntriesTimeout = null;
+
 /**
  * Saves a new daily entry or updates an existing one with form data
  * Collects all form inputs including points, kilometers, expenses, notes,
@@ -271,17 +274,45 @@ async function checkAndPopulateExistingEntry(date) {
 }
 
 /**
- * Loads and displays all entries for the current pay period
- * Retrieves entries from database, filters by current pay period dates,
- * generates HTML for each entry including all data (points, expenses, 
- * land locations), and sets up click handlers for editing. Also calculates
- * and displays pay period summary totals.
+ * Loads and displays all entries for the current pay period (debounced)
+ * Prevents rapid successive calls that could cause UI flickering or duplicates
  * 
  * @async
  * @function loadEntries
  * @returns {Promise<void>} Resolves when entries are loaded and displayed
  */
 async function loadEntries() {
+    // Clear any existing timeout to debounce rapid calls
+    if (loadEntriesTimeout) {
+        clearTimeout(loadEntriesTimeout);
+    }
+    
+    // Set a short delay to allow for rapid successive calls to be consolidated
+    return new Promise((resolve) => {
+        loadEntriesTimeout = setTimeout(async () => {
+            try {
+                await loadEntriesImmediate();
+                resolve();
+            } catch (error) {
+                console.error('Error in debounced loadEntries:', error);
+                resolve();
+            }
+        }, 50); // 50ms debounce delay
+    });
+}
+
+/**
+ * Immediately loads and displays all entries for the current pay period
+ * Retrieves entries from database, filters by current pay period dates,
+ * generates HTML for each entry including all data (points, expenses, 
+ * land locations), and sets up click handlers for editing. Also calculates
+ * and displays pay period summary totals.
+ * 
+ * @async
+ * @function loadEntriesImmediate
+ * @returns {Promise<void>} Resolves when entries are loaded and displayed
+ */
+async function loadEntriesImmediate() {
     try {
         // Get all entries from database
         const allEntries = await window.dbFunctions.getAllFromDB('entries');
@@ -538,6 +569,7 @@ window.entryManager = {
     populateFormForEdit,
     checkAndPopulateExistingEntry,
     loadEntries,
+    loadEntriesImmediate,
     deleteEntry,
     initializeDate,
     removeDuplicateEntries
