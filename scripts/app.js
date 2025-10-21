@@ -122,11 +122,6 @@ async function initializeApp() {
     // Initialize database
     await window.dbFunctions.initDB();
     
-    // Run migration to clear old local data (cloud-first approach)
-    if (window.migrationManager) {
-        await window.migrationManager.migrateToCloudFirst();
-    }
-    
     // Set up UI components and navigation
     setupPayPeriodControls();
     setupEventListeners();
@@ -134,6 +129,11 @@ async function initializeApp() {
     // Initialize authentication manager (but auth is already confirmed)
     if (window.authManager) {
         await window.authManager.initializeAuth();
+    }
+    
+    // Run migration AFTER authManager is fully initialized
+    if (window.migrationManager) {
+        await window.migrationManager.migrateToCloudFirst();
     }
     
     // Load user data now that authentication is confirmed

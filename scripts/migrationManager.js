@@ -283,11 +283,7 @@ async function migrateToCloudFirst() {
             return;
         }
         
-        // Ensure user is authenticated before migrating data
-        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
-            console.log('⚠️ User not authenticated, skipping data migration');
-            return;
-        }
+                // Ensure user is authenticated before migrating data\n        // Since migration is now called after authManager initialization, this should always pass\n        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {\n            console.error('❌ CRITICAL: Migration called without authentication! This indicates a timing bug.');\n            console.log('Auth Manager state:', {\n                exists: !!window.authManager,\n                currentUser: !!window.authManager?.getCurrentUser(),\n                emailVerified: window.authManager?.isEmailVerified()\n            });\n            return;\n        }
         
         const userId = window.authManager.getCurrentUser().uid;
         let migratedEntries = 0;
