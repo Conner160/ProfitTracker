@@ -24,13 +24,22 @@ class SyncManager {
     }
 
     async onUserSignIn(user) {
-        console.log('User signed in, starting sync...');
+        console.log('User signed in, checking verification status...');
         
         // Check if required dependencies are available
         if (!window.cloudStorage || !window.dbFunctions) {
             console.log('Sync dependencies not available, skipping sync');
             return;
         }
+        
+        // Check if email is verified
+        if (!user.emailVerified) {
+            console.log('Email not verified, sync disabled');
+            window.uiManager?.showNotification('Please verify your email address to enable cloud sync', true);
+            return;
+        }
+        
+        console.log('Email verified, starting sync...');
         
         try {
             // Load settings first to ensure rates are up to date
@@ -68,10 +77,14 @@ class SyncManager {
             this.updateSyncStatusUI();
             console.log('Starting full sync...');
             
-            // Get local and cloud data
+            // Check authentication and email verification
             const userId = window.authManager?.getUserId();
             if (!userId) {
                 throw new Error('User not authenticated');
+            }
+            
+            if (!window.authManager?.isEmailVerified()) {
+                throw new Error('Email not verified - sync disabled');
             }
             
             const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
@@ -147,6 +160,12 @@ class SyncManager {
 
     async performSync() {
         if (this.isSyncing || !this.isOnline || this.hasPermissionError) return;
+        
+        // Check email verification before syncing
+        if (!window.authManager?.isEmailVerified()) {
+            console.log('Email not verified, skipping sync');
+            return;
+        }
         
         try {
             this.isSyncing = true;
@@ -838,6 +857,11 @@ class SyncManager {
     async performManualSyncAll() {
         if (!window.authManager?.getCurrentUser()) {
             window.uiManager?.showNotification('Please sign in to sync all data', true);
+            return;
+        }
+        
+        if (!window.authManager?.isEmailVerified()) {
+            window.uiManager?.showNotification('Please verify your email address to sync data', true);
             return;
         }
 

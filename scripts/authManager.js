@@ -193,14 +193,24 @@ async function signUpWithEmail() {
         return;
     }
     
+    // Validate email domain
+    if (!isValidEmailDomain(email)) {
+        window.uiManager.showNotification('Only @clearconnectionsc.ca, @clearconn.ca, or @clearconnectionsltd.ca email addresses are allowed', true);
+        return;
+    }
+    
     if (password.length < 6) {
         window.uiManager.showNotification('Password must be at least 6 characters', true);
         return;
     }
     
     try {
-        await window.firebaseModules.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
-        window.uiManager.showNotification('Account created successfully!');
+        const userCredential = await window.firebaseModules.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
+        
+        // Send email verification
+        await window.firebaseModules.sendEmailVerification(userCredential.user);
+        
+        window.uiManager.showNotification('Account created! Please check your email and verify your address before syncing data.');
         hideEmailAuthForm();
     } catch (error) {
         console.error('Email sign-up error:', error);
@@ -251,8 +261,20 @@ function showSignedInUI(user) {
     const userInfo = document.getElementById('user-info');
     
     if (authStatus && authButtons && userInfo) {
-        // Show user info and sign-out button
-        userInfo.textContent = `👤 ${user.displayName || user.email}`;
+        // Show user info with verification status
+        const verificationStatus = user.emailVerified ? '✅' : '⚠️ Unverified';
+        userInfo.innerHTML = `👤 ${user.displayName || user.email} ${verificationStatus}`;
+        
+        // Add verification button if not verified
+        if (!user.emailVerified) {
+            const verifyBtn = document.createElement('button');
+            verifyBtn.textContent = 'Resend Verification';
+            verifyBtn.className = 'auth-btn';
+            verifyBtn.style.marginLeft = '10px';
+            verifyBtn.onclick = sendEmailVerification;
+            userInfo.appendChild(verifyBtn);
+        }
+        
         authStatus.style.display = 'block';
         
         // Hide sign-in buttons
@@ -372,6 +394,52 @@ function getUserId() {
     return currentUser ? currentUser.uid : null;
 }
 
+/**
+ * Validates if email domain is allowed
+ * @function isValidEmailDomain
+ * @param {string} email - Email address to validate
+ * @returns {boolean} True if domain is allowed
+ */
+function isValidEmailDomain(email) {
+    const allowedDomains = [
+        '@clearconnectionsc.ca',
+        '@clearconn.ca', 
+        '@clearconnectionsltd.ca'
+    ];
+    
+    const emailLower = email.toLowerCase();
+    return allowedDomains.some(domain => emailLower.endsWith(domain));
+}
+
+/**
+ * Checks if current user's email is verified
+ * @function isEmailVerified
+ * @returns {boolean} True if user is signed in and email is verified
+ */
+function isEmailVerified() {
+    return currentUser && currentUser.emailVerified;
+}
+
+/**
+ * Sends email verification to current user
+ * @async
+ * @function sendEmailVerification
+ * @returns {Promise<void>}
+ */
+async function sendEmailVerification() {
+    if (!currentUser) {
+        throw new Error('No user signed in');
+    }
+    
+    try {
+        await window.firebaseModules.sendEmailVerification(currentUser);
+        window.uiManager.showNotification('Verification email sent! Please check your inbox.');
+    } catch (error) {
+        console.error('Error sending verification email:', error);
+        throw error;
+    }
+}
+
 // Make functions available globally
 window.authManager = {
     initializeAuth,
@@ -379,6 +447,9 @@ window.authManager = {
     isAuthenticated,
     getUserId,
     signOutUser,
+    isValidEmailDomain,
+    isEmailVerified,
+    sendEmailVerification,
     onAuthStateChanged: (callback) => {
         // Store callback for future use
         if (!window.authManager._callbacks) {

@@ -98,8 +98,8 @@ async function saveEntry() {
     try {
         await window.dbFunctions.saveToDB('entries', entry);
         
-        // If user is signed in, also save to cloud
-        if (window.authManager?.getCurrentUser()) {
+        // If user is signed in and email verified, also save to cloud
+        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
                 await window.cloudStorage.saveEntryToCloud(userId, entry);
@@ -491,8 +491,8 @@ async function deleteEntry(id) {
     try {
         await window.dbFunctions.deleteFromDB('entries', id);
         
-        // If user is signed in, also delete from cloud
-        if (window.authManager?.getCurrentUser()) {
+        // If user is signed in and email verified, also delete from cloud
+        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
                 await window.cloudStorage.deleteEntryFromCloud(userId, id);

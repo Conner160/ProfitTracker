@@ -27,8 +27,8 @@ async function loadSettings() {
         const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
         let finalSettings = localSettings;
         
-        // If user is signed in, try to get cloud settings and resolve conflicts
-        if (window.authManager?.getCurrentUser()) {
+        // If user is signed in and email verified, try to get cloud settings and resolve conflicts
+        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
                 const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
@@ -120,8 +120,8 @@ async function saveSettings() {
     try {
         await window.dbFunctions.saveToDB('settings', settings);
         
-        // If user is signed in, also save to cloud
-        if (window.authManager?.getCurrentUser()) {
+        // If user is signed in and email verified, also save to cloud
+        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
                 await window.cloudStorage.saveSettingsToCloud(userId, settings);
