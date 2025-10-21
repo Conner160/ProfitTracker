@@ -233,7 +233,7 @@ async function checkAndPopulateExistingEntry(date) {
         if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
-                allEntries = await window.cloudStorage.getEntriesFromCloud(userId);
+                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
                 existingEntry = allEntries.find(entry => entry.date === date);
                 
             } catch (cloudError) {
@@ -358,7 +358,8 @@ async function loadEntriesImmediate() {
         if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
-                allEntries = await window.cloudStorage.getEntriesFromCloud(userId);
+                // Use the correct function name from cloudStorage
+                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
                 console.log(`📥 Loaded ${allEntries.length} entries from cloud`);
                 
             } catch (cloudError) {

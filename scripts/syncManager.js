@@ -1049,7 +1049,7 @@ class SyncManager {
                     try {
                         if (offlineEntry.offlineAction === 'save') {
                             // Check if entry exists in cloud
-                            const cloudEntries = await window.cloudStorage.getEntriesFromCloud(userId);
+                            const cloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
                             const existingCloudEntry = cloudEntries.find(e => e.date === offlineEntry.date);
                             
                             if (existingCloudEntry) {

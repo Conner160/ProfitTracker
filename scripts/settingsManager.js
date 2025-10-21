@@ -51,7 +51,7 @@ function populateSettingsForm(settings) {
     }
     
     // Update per diem display and recalculate earnings
-    updatePerDiemDisplay();
+    updatePerDiemLabels();
     if (window.calculations?.calculateEarnings) {
         window.calculations.calculateEarnings();
     }
