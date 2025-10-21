@@ -153,11 +153,8 @@ async function saveSettingsToCloud(userId, settings) {
         const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
         await window.firebaseModules.updateDoc(settingsRef, settingsWithMetadata).catch(async (error) => {
             if (error.code === 'not-found') {
-                // Document doesn't exist, create it
-                await window.firebaseModules.addDoc(
-                    window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'settings'),
-                    { ...settingsWithMetadata, name: 'rates' }
-                );
+                // Document doesn't exist, create it with specific ID 'rates'
+                await window.firebaseModules.setDoc(settingsRef, { ...settingsWithMetadata, name: 'rates' });
             } else {
                 throw error;
             }
