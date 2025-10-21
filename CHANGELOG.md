@@ -73,3 +73,25 @@ AFTER:  User Input → Firebase (immediate, online) → IndexedDB (backup only)
 
 **Maintained by Clear Connections Development Team**  
 *For internal company use only - field worker earnings tracking system*
+
+---
+
+## [2.4.1] - 2025-10-21 - PATCH: CSP Security Fix
+
+### 🔒 **Security Enhancement**
+**Business Impact**: Eliminates console errors that could confuse field workers.
+
+#### Bug Fixes
+- **CSP Policy**: Added `https://cdn.jsdelivr.net` to `connect-src` directive
+- **ExcelJS Source Maps**: Fixed "Refused to connect" error for development debugging
+- **Cache Refresh**: Updated SW to `v2.4.1-secure` to force browser cache update
+
+#### Files Modified
+- `index.html` - Enhanced CSP policy for ExcelJS source map access
+- `sw.js` - Version increment to `v2.4.1-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### Clear Connections Benefits
+- **Clean Console**: No more CSP violation errors during development
+- **Better Debugging**: Source maps accessible for troubleshooting
+- **Professional Experience**: Eliminates confusing error messages for field workers
