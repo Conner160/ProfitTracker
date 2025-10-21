@@ -127,3 +127,38 @@ AFTER:  Block only /config/.env, /config/secrets.js, etc. → Firebase loads cor
 - **App Functionality**: Workers can now access ProfitTracker without initialization errors
 - **Maintained Security**: Sensitive configuration files still protected
 - **Professional Operation**: App loads cleanly without console errors
+
+---
+
+## [2.4.3] - 2025-10-21 - PATCH: Login Form Visibility Fix
+
+### 🔧 **Critical UI Bug Fix**
+**Business Impact**: Resolves login form invisibility that prevented Clear Connections employees from signing in.
+
+#### Issues Resolved
+- **Missing Function**: Added `showLoginForms()` function that was called but not defined
+- **UI State Management**: Fixed loading spinner stuck visible, forms stuck hidden
+- **Authentication Flow**: Proper form visibility when user is not authenticated
+- **Verification Notice**: Enhanced `showVerificationNotice()` with proper UI state management
+
+#### UI Enhancements
+- **Progressive Loading**: Loading spinner → Login forms seamless transition
+- **State Management**: Proper hiding/showing of UI elements based on auth state
+- **Form Switching**: Ensured signin form is active by default
+- **Error Handling**: Clean UI state on form switches and auth changes
+
+#### Files Modified
+- `scripts/login.js` - Added missing `showLoginForms()` and enhanced `showVerificationNotice()` functions
+- `sw.js` - Version increment to `v2.4.3-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### Technical Details
+```
+BEFORE: Loading spinner visible, forms hidden (missing showLoginForms function)
+AFTER:  Proper UI state management with smooth transitions
+```
+
+#### Clear Connections Benefits
+- **Employee Access**: All workers can now sign in to ProfitTracker
+- **Professional Experience**: Clean, responsive login interface
+- **No Manual Workarounds**: Forms appear automatically without page refresh

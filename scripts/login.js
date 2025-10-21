@@ -18,16 +18,16 @@ let isInitializing = true;
  */
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🔐 Login page initializing...');
-    
+
     // Get DOM elements
     initializeDOMElements();
-    
+
     // Set up event listeners
     setupEventListeners();
-    
+
     // Wait for Firebase to be available
     await waitForFirebase();
-    
+
     // Check authentication state
     checkAuthenticationState();
 });
@@ -41,13 +41,13 @@ function initializeDOMElements() {
     signupTab = document.getElementById('signup-tab');
     signinForm = document.getElementById('signin-form');
     signupForm = document.getElementById('signup-form');
-    
+
     // UI elements
     loadingSpinner = document.getElementById('loading-spinner');
     authTabs = document.getElementById('auth-tabs');
     verificationNotice = document.getElementById('verification-notice');
     errorMessage = document.getElementById('error-message');
-    
+
     // Buttons
     signinButton = document.getElementById('signin-button');
     signupButton = document.getElementById('signup-button');
@@ -61,18 +61,18 @@ function setupEventListeners() {
     // Tab switching
     signinTab.addEventListener('click', () => switchTab('signin'));
     signupTab.addEventListener('click', () => switchTab('signup'));
-    
+
     // Form submissions
     signinForm.addEventListener('submit', handleSignIn);
     signupForm.addEventListener('submit', handleSignUp);
-    
+
     // Resend verification
     resendButton.addEventListener('click', handleResendVerification);
-    
+
     // Password confirmation validation
     const confirmPassword = document.getElementById('signup-confirm');
     const password = document.getElementById('signup-password');
-    
+
     confirmPassword.addEventListener('input', () => {
         if (confirmPassword.value && password.value !== confirmPassword.value) {
             confirmPassword.setCustomValidity('Passwords do not match');
@@ -104,13 +104,13 @@ function waitForFirebase() {
  */
 function checkAuthenticationState() {
     console.log('🔍 Checking authentication state...');
-    
+
     // Set up auth state listener
     window.firebaseModules.onAuthStateChanged(window.firebaseAuth, (user) => {
         console.log('👤 Auth state changed:', user ? user.email : 'No user');
-        
+
         currentUser = user;
-        
+
         if (user) {
             if (user.emailVerified) {
                 // User is signed in and verified - redirect to main app
@@ -126,7 +126,7 @@ function checkAuthenticationState() {
             console.log('🔓 No user signed in, showing login forms');
             showLoginForms();
         }
-        
+
         isInitializing = false;
     });
 }
@@ -137,7 +137,7 @@ function checkAuthenticationState() {
 function switchTab(tab) {
     hideError();
     hideVerificationNotice();
-    
+
     if (tab === 'signin') {
         signinTab.classList.add('active');
         signupTab.classList.remove('active');
@@ -162,32 +162,32 @@ async function handleSignIn(e) {
     e.preventDefault();
     hideError();
     hideVerificationNotice();
-    
+
     const email = document.getElementById('signin-email').value.trim();
     const password = document.getElementById('signin-password').value;
-    
+
     if (!email || !password) {
         showError('Please enter both email and password');
         return;
     }
-    
+
     try {
         setLoading(true, 'Signing in...');
-        
+
         const userCredential = await window.firebaseModules.signInWithEmailAndPassword(
-            window.firebaseAuth, 
-            email, 
+            window.firebaseAuth,
+            email,
             password
         );
-        
+
         console.log('✅ Sign in successful:', userCredential.user.email);
-        
+
         if (!userCredential.user.emailVerified) {
             console.log('📧 Email not verified');
             showVerificationNotice();
         }
         // Auth state change will handle redirect if verified
-        
+
     } catch (error) {
         console.error('❌ Sign in error:', error);
         handleAuthError(error);
@@ -203,49 +203,49 @@ async function handleSignUp(e) {
     e.preventDefault();
     hideError();
     hideVerificationNotice();
-    
+
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
     const confirmPassword = document.getElementById('signup-confirm').value;
-    
+
     // Validation
     if (!email || !password || !confirmPassword) {
         showError('Please fill in all fields');
         return;
     }
-    
+
     if (password !== confirmPassword) {
         showError('Passwords do not match');
         return;
     }
-    
+
     if (password.length < 6) {
         showError('Password must be at least 6 characters');
         return;
     }
-    
+
     if (!isValidCompanyEmail(email)) {
         showError('Please use a valid company email address (@clearconnectionsc.ca, @clearconn.ca, or @clearconnectionsltd.ca)');
         return;
     }
-    
+
     try {
         setLoading(true, 'Creating account...');
-        
+
         const userCredential = await window.firebaseModules.createUserWithEmailAndPassword(
-            window.firebaseAuth, 
-            email, 
+            window.firebaseAuth,
+            email,
             password
         );
-        
+
         console.log('✅ Account created:', userCredential.user.email);
-        
+
         // Send verification email
         await window.firebaseModules.sendEmailVerification(userCredential.user);
         console.log('📧 Verification email sent');
-        
+
         showVerificationNotice();
-        
+
     } catch (error) {
         console.error('❌ Sign up error:', error);
         handleAuthError(error);
@@ -262,15 +262,15 @@ async function handleResendVerification() {
         showError('No user signed in');
         return;
     }
-    
+
     try {
         setLoading(true, 'Sending verification email...');
-        
+
         await window.firebaseModules.sendEmailVerification(currentUser);
         console.log('📧 Verification email resent');
-        
+
         showError('Verification email sent! Please check your inbox.', false);
-        
+
     } catch (error) {
         console.error('❌ Resend verification error:', error);
         handleAuthError(error);
@@ -285,10 +285,10 @@ async function handleResendVerification() {
 function isValidCompanyEmail(email) {
     const validDomains = [
         '@clearconnectionsc.ca',
-        '@clearconn.ca', 
+        '@clearconn.ca',
         '@clearconnectionsltd.ca'
     ];
-    
+
     return validDomains.some(domain => email.toLowerCase().endsWith(domain));
 }
 
@@ -297,7 +297,7 @@ function isValidCompanyEmail(email) {
  */
 function handleAuthError(error) {
     let message = 'An error occurred. Please try again.';
-    
+
     switch (error.code) {
         case 'auth/user-not-found':
             message = 'No account found with this email address';
@@ -323,7 +323,7 @@ function handleAuthError(error) {
         default:
             message = error.message || message;
     }
-    
+
     showError(message);
 }
 
@@ -361,7 +361,7 @@ function hideVerificationNotice() {
 function showError(message, isError = true) {
     errorMessage.textContent = message;
     errorMessage.classList.add('show');
-    
+
     if (isError) {
         errorMessage.style.background = '#f8d7da';
         errorMessage.style.borderColor = '#f5c6cb';
@@ -396,6 +396,47 @@ function setLoading(loading, message = 'Loading...') {
         resendButton.disabled = false;
         loadingSpinner.classList.remove('show');
     }
+}
+
+/**
+ * Show login forms and hide loading spinner
+ */
+function showLoginForms() {
+    console.log('📋 Showing login forms...');
+
+    // Hide loading spinner
+    loadingSpinner.style.display = 'none';
+
+    // Show auth tabs and forms
+    authTabs.style.display = 'block';
+    signinForm.style.display = 'block';
+    signupForm.style.display = 'none'; // Start with signin form
+
+    // Hide other UI elements
+    hideVerificationNotice();
+    hideError();
+
+    // Ensure signin tab is active by default
+    switchTab('signin');
+}
+
+/**
+ * Show verification notice and hide other elements
+ */
+function showVerificationNotice() {
+    console.log('📧 Showing verification notice...');
+
+    // Hide loading spinner and forms
+    loadingSpinner.style.display = 'none';
+    authTabs.style.display = 'none';
+    signinForm.style.display = 'none';
+    signupForm.style.display = 'none';
+
+    // Show verification notice
+    verificationNotice.style.display = 'block';
+    verificationNotice.classList.add('show');
+
+    hideError();
 }
 
 /**
