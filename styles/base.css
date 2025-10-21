@@ -331,6 +331,26 @@ a:hover {
     text-align: center;
 }
 
+/* Settings conflict dialog styles */
+.settings-details {
+    text-align: left;
+    margin: 12px 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.settings-details p {
+    margin: 4px 0;
+    padding: 2px 0;
+}
+
+.settings-details strong {
+    color: var(--primary-color);
+    font-weight: 600;
+    display: inline-block;
+    min-width: 120px;
+}
+
 .sync-option h3 {
     color: var(--primary-color);
     margin-bottom: 12px;

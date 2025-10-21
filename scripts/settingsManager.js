@@ -34,20 +34,31 @@ async function loadSettings() {
                 const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
                 
                 if (cloudSettings && localSettings) {
-                    // Both exist - resolve conflict based on lastModified timestamp
-                    const localModified = new Date(localSettings.lastModified || 0);
-                    const cloudModified = new Date(cloudSettings.cloudUpdatedAt || cloudSettings.lastModified || 0);
-                    
-                    if (cloudModified > localModified) {
-                        console.log('Using cloud settings (more recent)');
-                        finalSettings = cloudSettings;
-                        // Update local storage with cloud settings
-                        const settingsToSave = { ...cloudSettings, name: 'rates' };
-                        await window.dbFunctions.saveToDB('settings', settingsToSave);
+                    // Both exist - check if they're different
+                    if (settingsAreDifferent(localSettings, cloudSettings)) {
+                        console.log('Settings conflict detected - showing user choice dialog');
+                        const choice = await showSettingsConflictDialog(localSettings, cloudSettings);
+                        
+                        if (choice === 'local') {
+                            console.log('User chose local settings');
+                            finalSettings = localSettings;
+                            // Update cloud with local settings
+                            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                        } else if (choice === 'cloud') {
+                            console.log('User chose cloud settings');
+                            finalSettings = cloudSettings;
+                            // Update local storage with cloud settings
+                            const settingsToSave = { ...cloudSettings, name: 'rates' };
+                            await window.dbFunctions.saveToDB('settings', settingsToSave);
+                        } else {
+                            // User cancelled - use local settings without syncing
+                            console.log('User cancelled settings sync');
+                            finalSettings = localSettings;
+                        }
                     } else {
-                        console.log('Using local settings (more recent)');
-                        // Update cloud with local settings
-                        await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                        // Settings are the same, use either one
+                        console.log('Settings are identical');
+                        finalSettings = localSettings;
                     }
                 } else if (cloudSettings && !localSettings) {
                     console.log('Using cloud settings (no local settings)');
@@ -317,6 +328,120 @@ async function downloadSettingsFromCloud() {
 }
 
 /**
+ * Compares two settings objects to see if they're different
+ * @function settingsAreDifferent
+ * @param {Object} settings1 - First settings object
+ * @param {Object} settings2 - Second settings object
+ * @returns {boolean} True if settings are different
+ */
+function settingsAreDifferent(settings1, settings2) {
+    const compareFields = ['pointRate', 'kmRate', 'perDiemFullRate', 'perDiemPartialRate', 'includeGST', 'techCode', 'gstNumber', 'businessName'];
+    
+    for (const field of compareFields) {
+        if (settings1[field] !== settings2[field]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Shows a dialog for user to choose between local and cloud settings
+ * @async
+ * @function showSettingsConflictDialog
+ * @param {Object} localSettings - Local settings
+ * @param {Object} cloudSettings - Cloud settings
+ * @returns {Promise<string>} User choice: 'local', 'cloud', or 'cancel'
+ */
+async function showSettingsConflictDialog(localSettings, cloudSettings) {
+    return new Promise((resolve) => {
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.className = 'conflict-modal';
+        modal.innerHTML = `
+            <div class="conflict-modal-overlay"></div>
+            <div class="conflict-modal-content">
+                <h2>Settings Conflict Detected</h2>
+                <p>Your device settings differ from cloud settings. Which would you like to keep?</p>
+                
+                <div class="conflict-comparison">
+                    <div class="conflict-option local">
+                        <h4>📱 Device Settings</h4>
+                        <div class="settings-details">
+                            <p><strong>Point Rate:</strong> $${localSettings.pointRate || 'Default'}</p>
+                            <p><strong>KM Rate:</strong> $${localSettings.kmRate || 'Default'}</p>
+                            <p><strong>Full Per Diem:</strong> $${localSettings.perDiemFullRate || 'Default'}</p>
+                            <p><strong>Partial Per Diem:</strong> $${localSettings.perDiemPartialRate || 'Default'}</p>
+                            <p><strong>GST:</strong> ${localSettings.includeGST ? 'Enabled' : 'Disabled'}</p>
+                            <p><strong>Tech Code:</strong> ${localSettings.techCode || 'None'}</p>
+                            <p><strong>Business Name:</strong> ${localSettings.businessName || 'None'}</p>
+                        </div>
+                        <label>
+                            <input type="radio" name="settings-choice" value="local">
+                            Use Device Settings
+                        </label>
+                    </div>
+                    
+                    <div class="conflict-option cloud">
+                        <h4>☁️ Cloud Settings</h4>
+                        <div class="settings-details">
+                            <p><strong>Point Rate:</strong> $${cloudSettings.pointRate || 'Default'}</p>
+                            <p><strong>KM Rate:</strong> $${cloudSettings.kmRate || 'Default'}</p>
+                            <p><strong>Full Per Diem:</strong> $${cloudSettings.perDiemFullRate || 'Default'}</p>
+                            <p><strong>Partial Per Diem:</strong> $${cloudSettings.perDiemPartialRate || 'Default'}</p>
+                            <p><strong>GST:</strong> ${cloudSettings.includeGST ? 'Enabled' : 'Disabled'}</p>
+                            <p><strong>Tech Code:</strong> ${cloudSettings.techCode || 'None'}</p>
+                            <p><strong>Business Name:</strong> ${cloudSettings.businessName || 'None'}</p>
+                        </div>
+                        <label>
+                            <input type="radio" name="settings-choice" value="cloud">
+                            Use Cloud Settings
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="conflict-actions">
+                    <button id="apply-settings-choice" class="conflict-btn primary" disabled>Apply Choice</button>
+                    <button id="cancel-settings-choice" class="conflict-btn">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Enable apply button when choice is made
+        const radioButtons = modal.querySelectorAll('input[name="settings-choice"]');
+        const applyBtn = modal.getElementById('apply-settings-choice');
+        
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', () => {
+                applyBtn.disabled = false;
+            });
+        });
+        
+        // Handle apply button
+        applyBtn.addEventListener('click', () => {
+            const selectedChoice = modal.querySelector('input[name="settings-choice"]:checked');
+            const choice = selectedChoice ? selectedChoice.value : 'cancel';
+            document.body.removeChild(modal);
+            resolve(choice);
+        });
+        
+        // Handle cancel button
+        modal.getElementById('cancel-settings-choice').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve('cancel');
+        });
+        
+        // Handle click outside modal
+        modal.querySelector('.conflict-modal-overlay').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve('cancel');
+        });
+    });
+}
+
+/**
  * Handles the sync all data button click
  * Triggers the manual sync all process from syncManager
  * 
@@ -374,5 +499,7 @@ window.settingsManager = {
     handleCleanupDuplicates,
     syncSettings,
     uploadSettingsToCloud,
-    downloadSettingsFromCloud
+    downloadSettingsFromCloud,
+    settingsAreDifferent,
+    showSettingsConflictDialog
 };
