@@ -228,4 +228,7 @@ function setupEventListeners() {
     
     // Sync all data button
     document.getElementById('sync-all-data').addEventListener('click', window.settingsManager.handleSyncAllData);
+    
+    // Cleanup duplicates button
+    document.getElementById('cleanup-duplicates').addEventListener('click', window.settingsManager.handleCleanupDuplicates);
 }

@@ -46,6 +46,9 @@ async function saveEntry() {
     // Check for existing entries on the same date to prevent duplicates
     const existingEntries = await window.dbFunctions.getAllFromDB('entries');
     const existingEntry = existingEntries.find(entry => entry.date === dateInput);
+    
+    let entry;
+    let isUpdate = false;
 
     // Handle duplicate date scenario with user confirmation
     if (existingEntry) {
@@ -60,30 +63,36 @@ async function saveEntry() {
             return;
         }
 
-        // Delete existing entry to replace with new data
-        await window.dbFunctions.deleteFromDB('entries', existingEntry.id);
+        // Update existing entry instead of deleting and recreating
+        isUpdate = true;
+        entry = {
+            id: existingEntry.id, // Keep the existing ID
+            date: dateInput,
+            points,
+            kms,
+            perDiem,
+            notes,
+            expenses,
+            landLocations,
+            timestamp: new Date().getTime(),
+            lastModified: new Date().toISOString(),
+            createdAt: existingEntry.createdAt || new Date().toISOString() // Preserve original creation time
+        };
+    } else {
+        // Create new entry
+        entry = {
+            date: dateInput,
+            points,
+            kms,
+            perDiem,
+            notes,
+            expenses,
+            landLocations,
+            timestamp: new Date().getTime(),
+            lastModified: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+        };
     }
-
-    // Create complete entry object with all form data and metadata
-    const entry = {
-        date: dateInput,
-        points,
-        kms,
-        perDiem,
-        notes,
-        expenses,
-        landLocations,
-        timestamp: new Date().getTime(), // Track when entry was created/modified
-        lastModified: new Date().toISOString(), // ISO string for cloud sync
-        createdAt: entryId ? undefined : new Date().toISOString() // Only set on new entries
-    };
-    
-    // Remove undefined values
-    Object.keys(entry).forEach(key => {
-        if (entry[key] === undefined) {
-            delete entry[key];
-        }
-    });
 
     // Attempt to save entry to database with error handling
     try {
@@ -106,7 +115,7 @@ async function saveEntry() {
         loadEntries(); // Reload entries list to show updated data
         clearForm();   // Reset form for next entry
         
-        window.uiManager.showNotification('Entry saved successfully!');
+        window.uiManager.showNotification(isUpdate ? 'Entry updated successfully!' : 'Entry saved successfully!');
     } catch (error) {
         console.error('Error saving entry:', error);
         window.uiManager.showNotification('Error saving entry', true);
@@ -523,6 +532,59 @@ function initializeDate() {
     checkAndPopulateExistingEntry(todayFormatted);
 }
 
+/**
+ * Removes duplicate entries for the same date, keeping the most recent one
+ * This function can be called to clean up any duplicate entries that may have been created
+ * 
+ * @async
+ * @function removeDuplicateEntries
+ * @returns {Promise<number>} Number of duplicate entries removed
+ */
+async function removeDuplicateEntries() {
+    try {
+        const allEntries = await window.dbFunctions.getAllFromDB('entries');
+        const dateGroups = {};
+        let duplicatesRemoved = 0;
+        
+        // Group entries by date
+        allEntries.forEach(entry => {
+            if (!dateGroups[entry.date]) {
+                dateGroups[entry.date] = [];
+            }
+            dateGroups[entry.date].push(entry);
+        });
+        
+        // For each date with multiple entries, keep the most recent one
+        for (const date in dateGroups) {
+            const entries = dateGroups[date];
+            if (entries.length > 1) {
+                // Sort by lastModified timestamp, keep the most recent
+                entries.sort((a, b) => new Date(b.lastModified || 0) - new Date(a.lastModified || 0));
+                const keepEntry = entries[0];
+                const removeEntries = entries.slice(1);
+                
+                // Delete the older duplicates
+                for (const entry of removeEntries) {
+                    await window.dbFunctions.deleteFromDB('entries', entry.id);
+                    duplicatesRemoved++;
+                    console.log(`Removed duplicate entry for ${date}:`, entry.id);
+                }
+            }
+        }
+        
+        if (duplicatesRemoved > 0) {
+            window.uiManager.showNotification(`Removed ${duplicatesRemoved} duplicate entries`);
+            loadEntries(); // Refresh the display
+        }
+        
+        return duplicatesRemoved;
+    } catch (error) {
+        console.error('Error removing duplicate entries:', error);
+        window.uiManager.showNotification('Error cleaning up duplicate entries', true);
+        return 0;
+    }
+}
+
 // Make functions available globally
 window.entryManager = {
     saveEntry,
@@ -531,5 +593,6 @@ window.entryManager = {
     checkAndPopulateExistingEntry,
     loadEntries,
     deleteEntry,
-    initializeDate
+    initializeDate,
+    removeDuplicateEntries
 };

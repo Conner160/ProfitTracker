@@ -180,6 +180,31 @@ async function handleSyncAllData() {
     }
 }
 
+/**
+ * Handles the cleanup duplicates button click
+ * Triggers the duplicate removal process from entryManager
+ * 
+ * @async
+ * @function handleCleanupDuplicates
+ * @returns {Promise<void>} Resolves when cleanup process is complete
+ */
+async function handleCleanupDuplicates() {
+    try {
+        const confirmed = confirm('This will remove duplicate entries for the same date, keeping the most recent version of each.\n\nContinue with cleanup?');
+        if (!confirmed) {
+            return;
+        }
+        
+        const duplicatesRemoved = await window.entryManager.removeDuplicateEntries();
+        if (duplicatesRemoved === 0) {
+            window.uiManager.showNotification('No duplicate entries found');
+        }
+    } catch (error) {
+        console.error('Error in cleanup duplicates:', error);
+        window.uiManager.showNotification('Error cleaning up duplicates', true);
+    }
+}
+
 // Make functions available globally
 window.settingsManager = {
     loadSettings,
@@ -188,5 +213,6 @@ window.settingsManager = {
     getTechCode,
     getGstNumber,
     getTechName,
-    handleSyncAllData
+    handleSyncAllData,
+    handleCleanupDuplicates
 };
