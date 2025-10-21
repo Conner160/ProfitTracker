@@ -81,6 +81,82 @@
             outline: 2px solid var(--primary-color);
             outline-offset: 2px;
         }
+
+        /* Security Badge Styling */
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+            border: 2px solid #4caf50;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
+        }
+
+        .security-icon {
+            font-size: 24px;
+            color: #4caf50;
+        }
+
+        .security-text {
+            text-align: left;
+        }
+
+        .security-text strong {
+            color: #2e7d32;
+            font-size: 0.95rem;
+            display: block;
+        }
+
+        .security-text small {
+            color: #558b2f;
+            font-size: 0.8rem;
+        }
+
+        /* Security Features Section */
+        .security-features {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid #4caf50;
+        }
+
+        .security-features h4 {
+            color: #2e7d32;
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+        }
+
+        .security-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 15px 0;
+        }
+
+        .security-list li {
+            padding: 6px 0;
+            color: #424242;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .security-list li strong {
+            color: #2e7d32;
+        }
+
+        .powered-by {
+            color: #666;
+            font-size: 0.8rem;
+            text-align: center;
+            display: block;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
     </style>
 
 </head>
@@ -90,6 +166,13 @@
         <div class="login-header">
             <h1>🎯 ProfitTracker</h1>
             <p>Sign in to access your profit tracking dashboard</p>
+            <div class="security-badge">
+                <span class="security-icon">🔒</span>
+                <div class="security-text">
+                    <strong>Secured by Google Firebase</strong>
+                    <small>Enterprise-grade authentication & encryption</small>
+                </div>
+            </div>
         </div>
 
         <!-- Loading Spinner -->
@@ -130,7 +213,7 @@
                 <label for="signup-email">Company Email Address</label>
                 <input type="email" id="signup-email" required placeholder="your.email@clearconnectionsc.ca">
                 <small style="color: #666; font-size: 0.8rem;">
-                    Must be a @clearconnectionsc.ca, @clearconn.ca, or @clearconnectionsltd.ca email
+                    🏢 Company email required for security • Google verifies your Clear Connections identity
                 </small>
             </div>
             <div class="form-group">
@@ -170,7 +253,17 @@
         <div class="error-message" id="error-message"></div>
 
         <div class="footer-text">
-            Secure authentication for Clear Connections employees
+            <div class="security-features">
+                <h4>🛡️ Your Data is Protected</h4>
+                <ul class="security-list">
+                    <li>✅ <strong>Google Cloud Security:</strong> Bank-level encryption</li>
+                    <li>✅ <strong>Company Email Only:</strong> Clear Connections employees only</li>
+                    <li>✅ <strong>Real-time Sync:</strong> Data backed up instantly to Google servers</li>
+                    <li>✅ <strong>Email Verification:</strong> Prevents unauthorized access</li>
+                </ul>
+                <small class="powered-by">🔥 Powered by Google Firebase • 🏢 Built for Clear Connections Contracting
+                    Ltd.</small>
+            </div>
         </div>
     </div>
 

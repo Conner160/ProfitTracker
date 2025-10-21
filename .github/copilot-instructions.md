@@ -65,6 +65,21 @@ window.secureLog.error('Error message', errorObject);
 if (!window.cloudStorage) return;
 ```
 
+### Documentation & Change Management
+**Version Documentation Requirements**:
+- **MAJOR updates** (new features, architecture changes): Update main `CHANGELOG.md`
+- **MINOR updates** (enhancements, fixes): Append to existing `CHANGELOG.md` 
+- **PATCH updates** (bug fixes, tweaks): Append to existing `CHANGELOG.md`
+- **Format**: Follow semantic versioning (MAJOR.MINOR.PATCH) with Clear Connections context
+- **Content**: Include business impact, technical changes, and security implications
+- **Timing**: Document EVERY update - no exceptions for Clear Connections audit trail
+
+**Service Worker Version Management**:
+- **CRITICAL**: Update `CACHE_NAME` in `sw.js` for EVERY release (MAJOR.MINOR.PATCH)
+- **Format**: `profittracker-vX.Y.Z-{current_project}` (e.g., `profittracker-v2.4.0-secure`)
+- **PWA Cache**: Version increment forces cache refresh for all field workers
+- **Deployment**: Ensures workers get latest updates without manual cache clearing
+
 ### Data Persistence Patterns
 **Entry Structure**: Date-keyed objects with `{date, points, kilometers, perDiem, landLocations, cloudUpdatedAt}`
 **Settings Structure**: Single rates object with `{pointRate, mileageRate, perDiemRate, gstNumber, techCode}`
