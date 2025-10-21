@@ -270,6 +270,51 @@ async function signUpWithEmail() {
 }
 
 /**
+ * Clears service worker caches
+ * @function clearServiceWorkerCache
+ * @returns {Promise<void>}
+ */
+async function clearServiceWorkerCache() {
+    try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            console.log('🧹 Clearing service worker cache...');
+            
+            return new Promise((resolve, reject) => {
+                const messageChannel = new MessageChannel();
+                
+                messageChannel.port1.onmessage = (event) => {
+                    if (event.data.type === 'CACHE_CLEARED') {
+                        if (event.data.success) {
+                            console.log('✅ Service worker cache cleared');
+                            resolve();
+                        } else {
+                            console.error('❌ Failed to clear service worker cache:', event.data.error);
+                            resolve(); // Don't fail logout if cache clearing fails
+                        }
+                    }
+                };
+                
+                navigator.serviceWorker.controller.postMessage(
+                    { type: 'CLEAR_CACHE' },
+                    [messageChannel.port2]
+                );
+                
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    console.log('⚠️ Service worker cache clearing timed out');
+                    resolve();
+                }, 5000);
+            });
+        } else {
+            console.log('⚠️ Service worker not available, skipping cache clearing');
+        }
+    } catch (error) {
+        console.error('❌ Error clearing service worker cache:', error);
+        // Don't fail logout if cache clearing fails
+    }
+}
+
+/**
  * Clears all local data from browser storage
  * @function clearAllLocalData
  * @returns {Promise<void>}
@@ -293,15 +338,26 @@ async function clearAllLocalData() {
                 console.log('Offline settings queue already empty or not found:', e.message)
             );
             
-            // Clear settings store by removing the rates key
+            // Clear settings store completely - remove all settings keys
             await window.dbFunctions.deleteFromDB('settings', 'rates').catch(e => 
-                console.log('Settings already empty or not found:', e.message)
+                console.log('Settings rates already empty or not found:', e.message)
             );
+            
+            // Clear any other potential settings keys
+            const settingsKeys = ['rates', 'preferences', 'userSettings', 'appConfig'];
+            for (const key of settingsKeys) {
+                await window.dbFunctions.deleteFromDB('settings', key).catch(e => 
+                    console.log(`Settings key '${key}' already empty or not found:`, e.message)
+                );
+            }
             
             console.log('✅ IndexedDB data cleared');
         } else {
             console.log('⚠️ Database functions not available, skipping IndexedDB cleanup');
         }
+        
+        // Clear service worker cache
+        await clearServiceWorkerCache();
         
         // Clear localStorage and sessionStorage
         localStorage.clear();
@@ -537,6 +593,7 @@ window.authManager = {
     getUserId,
     signOutUser,
     clearAllLocalData,
+    clearServiceWorkerCache,
     isValidEmailDomain,
     isEmailVerified,
     sendEmailVerification,
