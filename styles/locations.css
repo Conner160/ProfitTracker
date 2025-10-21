@@ -11,56 +11,162 @@
 .landloc_p {
     background-color: var(--primary-color);
     color: white;
-    padding: 8px 12px;
-    margin: 5px;
-    border-radius: 4px;
-    cursor: move;
-    display: inline-block;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     user-select: none;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+    min-height: 48px; /* Minimum touch target */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .landloc_p:hover {
     background-color: var(--secondary-color);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .landloc_p.dragging {
-    opacity: 0.7;
-    transform: rotate(5deg);
-    z-index: 1000;
+    opacity: 0.9;
+    transform: rotate(3deg);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    transition: none;
 }
 
-.landloc_p.touch-dragging {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    transform: scale(1.05);
+/* Drag handle */
+.drag-handle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.8);
+    cursor: grab;
+    padding: 8px;
+    margin: -8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    touch-action: none;
+    user-select: none;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.landloc_p.long-press-pending {
-    animation: pulse 0.5s ease-in-out;
+.drag-handle:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,1);
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+.drag-handle:active {
+    cursor: grabbing;
+    transform: scale(0.95);
 }
 
-/* Mobile responsive adjustments for land locations */
-@media (hover: none) and (pointer: coarse) {
+/* Location content */
+.location-content {
+    flex: 1;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+/* Delete button */
+.delete-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.delete-btn:hover {
+    background: rgba(255,0,0,0.2);
+    color: white;
+    transform: scale(1.1);
+}
+
+.delete-btn:active {
+    transform: scale(0.9);
+}
+
+/* Drag placeholder */
+.drag-placeholder {
+    background: rgba(0,0,0,0.1);
+    border: 2px dashed rgba(0,0,0,0.3);
+    border-radius: 8px;
+    margin: 8px 0;
+    transition: all 0.2s;
+    min-height: 48px;
+}
+
+/* Smooth animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.landloc_p:not(.dragging) {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
     #landlocs {
-        min-height: 300px;
-        touch-action: none;
+        padding: 16px;
+        min-height: 200px;
     }
     
     .landloc_p {
-        display: block;
-        margin: 8px 0;
-        padding: 12px;
+        padding: 16px;
+        gap: 16px;
         font-size: 16px;
-        text-align: center;
+        min-height: 56px;
+    }
+    
+    .drag-handle {
+        font-size: 20px;
+        min-width: 40px;
+        min-height: 40px;
+    }
+    
+    .delete-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    .landloc_p:hover {
+        transform: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .drag-handle:hover {
+        background-color: rgba(255,255,255,0.1);
+    }
+    
+    .delete-btn:hover {
+        background: rgba(255,255,255,0.1);
+        transform: none;
     }
 }
 
@@ -102,12 +208,4 @@
 
 #de-landlocs sub:last-of-type {
     margin-bottom: 8px;
-}
-
-/* Disable hover effects on touch devices */
-@media (hover: none) {
-    .landloc_p:hover {
-        background-color: initial;
-        cursor: default;
-    }
 }

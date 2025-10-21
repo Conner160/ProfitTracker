@@ -51,261 +51,318 @@ function deleteLocation(id) {
 }
 
 /**
- * Adds drag-and-drop functionality to a location element
- * Sets up both desktop drag events and mobile touch events with long-press
- * activation. Includes click handling for deletion and prevents conflicts
- * between drag and click operations.
+ * Adds modern drag-and-drop functionality to a location element
+ * Mobile-first approach with dedicated drag handles and smooth animations
  * 
  * @function makeDraggable
  * @param {HTMLElement} element - The location element to make draggable
  * @returns {void}
  */
 function makeDraggable(element) {
-    element.draggable = true;
-    element.style.cursor = 'move';
+    // Create drag handle and delete button
+    const dragHandle = document.createElement('div');
+    dragHandle.className = 'drag-handle';
+    dragHandle.innerHTML = '☰'; // hamburger menu icon
+    dragHandle.setAttribute('aria-label', 'Drag to reorder');
     
-    // Add drag event listeners for desktop
-    element.addEventListener('dragstart', handleDragStart);
-    element.addEventListener('dragover', handleDragOver);
-    element.addEventListener('drop', handleDrop);
-    element.addEventListener('dragend', handleDragEnd);
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'delete-btn';
+    deleteButton.innerHTML = '×';
+    deleteButton.setAttribute('aria-label', 'Delete location');
+    deleteButton.type = 'button';
     
-    // Add touch event listeners for mobile
-    element.addEventListener('touchstart', handleTouchStart, { passive: false });
-    element.addEventListener('touchmove', handleTouchMove, { passive: false });
-    element.addEventListener('touchend', handleTouchEnd, { passive: false });
+    // Wrap content and add controls
+    const content = element.textContent;
+    element.innerHTML = '';
     
-    // Add click event listener for deletion
-    element.addEventListener('click', (e) => {
-        // Prevent deletion during drag operations or if touch dragging was active
-        if (!element.classList.contains('dragging') && !touchState.isDragging) {
-            deleteLocation(element.id);
-        }
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'location-content';
+    contentSpan.textContent = content;
+    
+    element.appendChild(dragHandle);
+    element.appendChild(contentSpan);
+    element.appendChild(deleteButton);
+    
+    // Add delete functionality
+    deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        deleteLocation(element.id);
     });
+    
+    // Make drag handle the draggable area
+    setupDragHandle(element, dragHandle);
 }
 
-// Desktop drag-and-drop state management
-let draggedElement = null; // Currently dragged element reference
-
-// Mobile touch drag state object - tracks touch interaction details
-let touchState = {
-    element: null,        // Element being touched/dragged
-    isDragging: false,    // Whether active drag is in progress
-    longPressTimer: null, // Timer for long-press activation
-    startY: 0,           // Initial touch Y coordinate
-    currentY: 0,         // Current touch Y coordinate
-    scrollEnabled: true,  // Whether page scrolling is enabled
-    originalPosition: null // Original element position for restoration
+// Modern drag-and-drop state management
+let dragState = {
+    element: null,           // Element being dragged
+    handle: null,           // Drag handle element
+    isDragging: false,      // Whether actively dragging
+    startX: 0,             // Initial X coordinate
+    startY: 0,             // Initial Y coordinate
+    currentX: 0,           // Current X coordinate
+    currentY: 0,           // Current Y coordinate
+    offsetX: 0,            // Offset from touch point to element edge
+    offsetY: 0,            // Offset from touch point to element edge
+    placeholder: null,      // Placeholder element
+    container: null,        // Container element
+    originalIndex: 0,       // Original position for restoration
+    scrolling: false        // Whether container is being scrolled
 };
 
 /**
- * Handles the start of a desktop drag operation
- * Sets up drag state and applies visual feedback. Called when user
- * starts dragging an element on desktop browsers.
- * 
- * @function handleDragStart
- * @param {DragEvent} e - Browser drag event
- * @returns {void}
+ * Sets up drag functionality for a drag handle
+ * @param {HTMLElement} element - The location element
+ * @param {HTMLElement} handle - The drag handle
  */
-function handleDragStart(e) {
-    draggedElement = e.target;
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+function setupDragHandle(element, handle) {
+    // Touch events (mobile-first)
+    handle.addEventListener('touchstart', handleTouchStart, { passive: false });
+    handle.addEventListener('touchmove', handleTouchMove, { passive: false });
+    handle.addEventListener('touchend', handleTouchEnd, { passive: false });
     
-    const landlocsDiv = document.getElementById('landlocs');
-    const afterElement = getDragAfterElement(landlocsDiv, e.clientY);
+    // Mouse events (desktop fallback)
+    handle.addEventListener('mousedown', handleMouseStart);
     
-    if (afterElement == null) {
-        landlocsDiv.appendChild(draggedElement);
-    } else {
-        landlocsDiv.insertBefore(draggedElement, afterElement);
-    }
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    // Update IDs after drop
-    updateLocationIds();
-}
-
-function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-    draggedElement = null;
+    // Prevent text selection
+    handle.addEventListener('selectstart', e => e.preventDefault());
+    handle.addEventListener('dragstart', e => e.preventDefault());
 }
 
 /**
- * Handles the start of a mobile touch interaction
- * Begins long-press timer for drag activation and stores touch coordinates.
- * Provides visual feedback during long-press detection period.
- * 
- * @function handleTouchStart
- * @param {TouchEvent} e - Browser touch event
- * @returns {void}
+ * Handles touch start - immediate drag activation
  */
 function handleTouchStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const touch = e.touches[0];
-    touchState.element = e.target;
-    touchState.startY = touch.clientY;
-    touchState.currentY = touch.clientY;
-    touchState.isDragging = false;
+    const element = e.target.closest('.landloc_p');
+    const container = document.getElementById('landlocs');
     
-    // Store original position for potential restoration
-    const parent = e.target.parentNode;
-    const siblings = Array.from(parent.children);
-    touchState.originalPosition = siblings.indexOf(e.target);
+    if (!element || !container) return;
     
-    // Start long press timer (0.5 seconds)
-    touchState.longPressTimer = setTimeout(() => {
-        startTouchDrag(e.target);
-    }, 500);
+    startDrag(element, e.target, touch.clientX, touch.clientY, container);
     
-    // Add visual feedback for long press
-    e.target.classList.add('long-press-pending');
-}
-
-function handleTouchMove(e) {
-    if (touchState.longPressTimer && !touchState.isDragging) {
-        const touch = e.touches[0];
-        const deltaY = Math.abs(touch.clientY - touchState.startY);
-        
-        // Cancel long press if user moves too much during the press
-        if (deltaY > 10) {
-            clearTimeout(touchState.longPressTimer);
-            touchState.longPressTimer = null;
-            touchState.element.classList.remove('long-press-pending');
-        }
-        return;
-    }
-    
-    if (touchState.isDragging) {
-        e.preventDefault(); // Prevent scrolling
-        const touch = e.touches[0];
-        touchState.currentY = touch.clientY;
-        
-        // Update visual position
-        const element = touchState.element;
-        element.style.transform = `translateY(${touchState.currentY - touchState.startY}px)`;
-        
-        // Find the element to insert before
-        const landlocsDiv = document.getElementById('landlocs');
-        const afterElement = getTouchDropTarget(landlocsDiv, touchState.currentY);
-        
-        if (afterElement == null) {
-            landlocsDiv.appendChild(element);
-        } else {
-            landlocsDiv.insertBefore(element, afterElement);
-        }
+    // Add haptic feedback
+    if (navigator.vibrate) {
+        navigator.vibrate(30);
     }
 }
 
-function handleTouchEnd(e) {
-    // Clear long press timer
-    if (touchState.longPressTimer) {
-        clearTimeout(touchState.longPressTimer);
-        touchState.longPressTimer = null;
-    }
+/**
+ * Handles mouse start for desktop
+ */
+function handleMouseStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
     
-    // Remove long press visual feedback
-    if (touchState.element) {
-        touchState.element.classList.remove('long-press-pending');
-    }
+    const element = e.target.closest('.landloc_p');
+    const container = document.getElementById('landlocs');
     
-    if (touchState.isDragging) {
-        // End drag operation
-        endTouchDrag();
-        // Prevent click event from firing
-        setTimeout(() => {
-            touchState.isDragging = false;
-        }, 100);
-    }
+    if (!element || !container) return;
     
-    // Reset touch state
-    touchState.element = null;
-    touchState.startY = 0;
-    touchState.currentY = 0;
+    startDrag(element, e.target, e.clientX, e.clientY, container);
+    
+    // Add mouse move and up listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseEnd);
 }
 
-function startTouchDrag(element) {
-    touchState.isDragging = true;
-    element.classList.add('dragging', 'touch-dragging');
-    element.classList.remove('long-press-pending');
+/**
+ * Starts drag operation
+ */
+function startDrag(element, handle, x, y, container) {
+    dragState.element = element;
+    dragState.handle = handle;
+    dragState.container = container;
+    dragState.isDragging = true;
+    dragState.startX = x;
+    dragState.startY = y;
+    dragState.currentX = x;
+    dragState.currentY = y;
     
-    // Disable page scrolling
+    // Store original index
+    const siblings = Array.from(container.children);
+    dragState.originalIndex = siblings.indexOf(element);
+    
+    // Calculate offset from touch/click point to element corner
+    const rect = element.getBoundingClientRect();
+    dragState.offsetX = x - rect.left;
+    dragState.offsetY = y - rect.top;
+    
+    // Create placeholder
+    dragState.placeholder = document.createElement('div');
+    dragState.placeholder.className = 'drag-placeholder';
+    dragState.placeholder.style.height = rect.height + 'px';
+    
+    // Insert placeholder and start visual drag
+    element.parentNode.insertBefore(dragState.placeholder, element);
+    element.classList.add('dragging');
+    
+    // Position element absolutely
+    element.style.position = 'fixed';
+    element.style.left = (rect.left) + 'px';
+    element.style.top = (rect.top) + 'px';
+    element.style.width = rect.width + 'px';
+    element.style.zIndex = '1000';
+    element.style.pointerEvents = 'none';
+    
+    // Prevent page scrolling
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
-    
-    // Disable text selection
-    document.body.style.userSelect = 'none';
-    document.body.style.webkitUserSelect = 'none';
-    document.body.style.mozUserSelect = 'none';
-    document.body.style.msUserSelect = 'none';
-    
-    // Prevent text selection events
-    document.addEventListener('selectstart', preventSelection);
-    document.addEventListener('dragstart', preventSelection);
-    
-    // Add haptic feedback if available
-    if (navigator.vibrate) {
-        navigator.vibrate(50);
-    }
 }
 
-function endTouchDrag() {
-    if (touchState.element) {
-        touchState.element.classList.remove('dragging', 'touch-dragging');
-        touchState.element.style.transform = '';
-        
-        // Re-enable page scrolling
-        document.body.style.overflow = '';
-        document.body.style.touchAction = '';
-        
-        // Re-enable text selection
-        document.body.style.userSelect = '';
-        document.body.style.webkitUserSelect = '';
-        document.body.style.mozUserSelect = '';
-        document.body.style.msUserSelect = '';
-        
-        // Remove text selection event prevention
-        document.removeEventListener('selectstart', preventSelection);
-        document.removeEventListener('dragstart', preventSelection);
-        
-        // Update IDs after drop
-        updateLocationIds();
-    }
-}
-
-// Helper function to prevent text selection during drag
-function preventSelection(e) {
+/**
+ * Handles touch move during drag
+ */
+function handleTouchMove(e) {
+    if (!dragState.isDragging) return;
+    
     e.preventDefault();
-    return false;
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    dragState.currentX = touch.clientX;
+    dragState.currentY = touch.clientY;
+    
+    updateDragPosition();
+    updateDropTarget();
 }
 
-// Helper function for touch drag targeting
-function getTouchDropTarget(container, y) {
-    const draggableElements = [...container.querySelectorAll('.landloc_p:not(.touch-dragging)')];
+/**
+ * Handles mouse move during drag
+ */
+function handleMouseMove(e) {
+    if (!dragState.isDragging) return;
     
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
+    e.preventDefault();
+    
+    dragState.currentX = e.clientX;
+    dragState.currentY = e.clientY;
+    
+    updateDragPosition();
+    updateDropTarget();
+}
+
+/**
+ * Updates drag element position
+ */
+function updateDragPosition() {
+    if (!dragState.element) return;
+    
+    const newX = dragState.currentX - dragState.offsetX;
+    const newY = dragState.currentY - dragState.offsetY;
+    
+    dragState.element.style.left = newX + 'px';
+    dragState.element.style.top = newY + 'px';
+}
+
+/**
+ * Updates drop target position
+ */
+function updateDropTarget() {
+    if (!dragState.container || !dragState.placeholder) return;
+    
+    const afterElement = getDropTarget(dragState.container, dragState.currentY);
+    
+    if (afterElement === null) {
+        dragState.container.appendChild(dragState.placeholder);
+    } else if (afterElement !== dragState.placeholder) {
+        dragState.container.insertBefore(dragState.placeholder, afterElement);
+    }
+}
+
+/**
+ * Handles touch end
+ */
+function handleTouchEnd(e) {
+    if (!dragState.isDragging) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    endDrag();
+}
+
+/**
+ * Handles mouse end
+ */
+function handleMouseEnd(e) {
+    if (!dragState.isDragging) return;
+    
+    e.preventDefault();
+    
+    // Remove mouse listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseEnd);
+    
+    endDrag();
+}
+
+/**
+ * Ends drag operation and cleans up
+ */
+function endDrag() {
+    if (!dragState.element || !dragState.placeholder) return;
+    
+    // Reset element styles
+    dragState.element.classList.remove('dragging');
+    dragState.element.style.position = '';
+    dragState.element.style.left = '';
+    dragState.element.style.top = '';
+    dragState.element.style.width = '';
+    dragState.element.style.zIndex = '';
+    dragState.element.style.pointerEvents = '';
+    
+    // Replace placeholder with element
+    dragState.placeholder.parentNode.replaceChild(dragState.element, dragState.placeholder);
+    
+    // Re-enable page interactions
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    
+    // Update IDs
+    updateLocationIds();
+    
+    // Reset drag state
+    resetDragState();
+    
+    // Add completion haptic feedback
+    if (navigator.vibrate) {
+        navigator.vibrate(20);
+    }
+}
+
+/**
+ * Resets drag state
+ */
+function resetDragState() {
+    dragState.element = null;
+    dragState.handle = null;
+    dragState.isDragging = false;
+    dragState.startX = 0;
+    dragState.startY = 0;
+    dragState.currentX = 0;
+    dragState.currentY = 0;
+    dragState.offsetX = 0;
+    dragState.offsetY = 0;
+    dragState.placeholder = null;
+    dragState.container = null;
+    dragState.originalIndex = 0;
+    dragState.scrolling = false;
+}
+
+/**
+ * Gets the element that should come after the drop position
+ */
+function getDropTarget(container, y) {
+    const elements = [...container.querySelectorAll('.landloc_p:not(.dragging), .drag-placeholder')];
+    
+    return elements.reduce((closest, child) => {
+        if (child === dragState.placeholder) return closest;
         
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-// Helper function to determine where to insert the dragged element
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.landloc_p:not(.dragging)')];
-    
-    return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
         
