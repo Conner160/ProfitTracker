@@ -257,14 +257,109 @@ async function showConflictResolutionDialog(localEntry, cloudEntry) {
  */
 async function showSettingsConflictDialog(localSettings, cloudSettings) {
     return new Promise((resolve) => {
-        const confirmed = confirm(
-            `Settings Conflict Found\n\n` +
-            `You have different rate settings in local storage vs cloud storage.\n\n` +
-            `Local: $${localSettings.pointRate}/pt, $${localSettings.kmRate}/km\n` +
-            `Cloud: $${cloudSettings.pointRate}/pt, $${cloudSettings.kmRate}/km\n\n` +
-            `Click OK to keep LOCAL settings, Cancel to keep CLOUD settings.`
-        );
-        resolve(confirmed);
+        // Create modal dialog
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        `;
+        
+        const formatSettingsData = (settings, title) => {
+            return `
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 8px 0;">
+                    <div style="font-weight: bold; margin-bottom: 12px; color: ${title.includes('Local') ? '#2196F3' : '#4CAF50'};">${title}</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px;">
+                        <div><strong>Point Rate:</strong> $${(settings.pointRate || 0).toFixed(2)}</div>
+                        <div><strong>KM Rate:</strong> $${(settings.kmRate || 0).toFixed(2)}</div>
+                        <div><strong>Full Per Diem:</strong> $${(settings.perDiemFullRate || 0).toFixed(0)}</div>
+                        <div><strong>Partial Per Diem:</strong> $${(settings.perDiemPartialRate || 0).toFixed(0)}</div>
+                        <div><strong>GST Enabled:</strong> ${settings.includeGST ? 'Yes' : 'No'}</div>
+                        <div><strong>Tech Code:</strong> ${settings.techCode || 'None'}</div>
+                        <div><strong>GST Number:</strong> ${settings.gstNumber || 'None'}</div>
+                        <div><strong>Business Name:</strong> ${settings.businessName || 'None'}</div>
+                    </div>
+                </div>
+            `;
+        };
+        
+        dialog.innerHTML = `
+            <h2 style="margin-top: 0; color: #333;">Settings Conflict Found</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                You have different settings in your local storage and cloud storage. 
+                Please choose which settings you would like to keep:
+            </p>
+            
+            <div style="margin: 20px 0;">
+                ${formatSettingsData(localSettings, '📱 Local Settings')}
+                ${formatSettingsData(cloudSettings, '☁️ Cloud Settings')}
+            </div>
+            
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button id="keep-cloud" style="
+                    padding: 12px 24px;
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">Keep Cloud Settings</button>
+                <button id="keep-local" style="
+                    padding: 12px 24px;
+                    background: #2196F3;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">Keep Local Settings</button>
+            </div>
+        `;
+        
+        modal.appendChild(dialog);
+        document.body.appendChild(modal);
+        
+        // Handle button clicks
+        dialog.querySelector('#keep-local').onclick = () => {
+            document.body.removeChild(modal);
+            resolve(true);
+        };
+        
+        dialog.querySelector('#keep-cloud').onclick = () => {
+            document.body.removeChild(modal);
+            resolve(false);
+        };
+        
+        // Handle ESC key to close dialog (default to cloud)
+        const handleKeyPress = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', handleKeyPress);
+                resolve(false);
+            }
+        };
+        document.addEventListener('keydown', handleKeyPress);
     });
 }
 
