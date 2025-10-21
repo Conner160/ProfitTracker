@@ -451,6 +451,7 @@ async function checkForOldData() {
         // Check if this device has already completed migration
         const migrationComplete = await hasDeviceCompletedMigration(userId, deviceId);
         if (migrationComplete) {
+            console.log('✅ This device has already completed migration, no old data check needed.');
             return; // Already migrated
         }
         
