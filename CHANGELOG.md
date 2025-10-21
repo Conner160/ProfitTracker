@@ -162,3 +162,38 @@ AFTER:  Proper UI state management with smooth transitions
 - **Employee Access**: All workers can now sign in to ProfitTracker
 - **Professional Experience**: Clean, responsive login interface
 - **No Manual Workarounds**: Forms appear automatically without page refresh
+
+---
+
+## [2.4.4] - 2025-10-21 - PATCH: Login UI Styling Fix
+
+### 🎨 **UI Layout Enhancement**
+**Business Impact**: Improves login page appearance for Clear Connections employees with proper button alignment.
+
+#### Issues Resolved
+- **CSS Override**: Removed inline `style` attributes that were overriding CSS flex styling
+- **Button Alignment**: Auth tabs now display with proper flex layout instead of cramped left alignment
+- **Clean Styling**: Allows CSS files to control layout instead of JavaScript inline styles
+- **Responsive Design**: Proper spacing and alignment across all device sizes
+
+#### Technical Improvements
+- **CSS Priority**: Used `removeAttribute('style')` instead of setting `display: block/flex`
+- **Separation of Concerns**: JavaScript manages visibility, CSS manages styling
+- **Flex Layout**: Auth tabs container now properly uses CSS flexbox rules
+- **State Management**: Clean style attribute removal when showing elements
+
+#### Files Modified
+- `scripts/login.js` - Updated `showLoginForms()` and `switchTab()` to remove inline styles
+- `sw.js` - Version increment to `v2.4.4-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### Technical Details
+```
+BEFORE: authTabs.style.display = 'flex' (overrides CSS)
+AFTER:  authTabs.removeAttribute('style') (allows CSS flex to work)
+```
+
+#### Clear Connections Benefits
+- **Professional Appearance**: Properly aligned login buttons and forms
+- **Responsive Design**: Consistent layout across mobile and desktop
+- **Brand Consistency**: UI matches design standards throughout the app

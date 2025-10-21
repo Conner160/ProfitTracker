@@ -143,14 +143,14 @@ function switchTab(tab) {
         signupTab.classList.remove('active');
         signinForm.classList.add('active');
         signupForm.classList.remove('active');
-        signinForm.style.display = 'block';
+        signinForm.removeAttribute('style'); // Let CSS styling take over
         signupForm.style.display = 'none';
     } else {
         signupTab.classList.add('active');
         signinTab.classList.remove('active');
         signupForm.classList.add('active');
         signinForm.classList.remove('active');
-        signupForm.style.display = 'block';
+        signupForm.removeAttribute('style'); // Let CSS styling take over
         signinForm.style.display = 'none';
     }
 }
@@ -407,10 +407,10 @@ function showLoginForms() {
     // Hide loading spinner
     loadingSpinner.style.display = 'none';
 
-    // Show auth tabs and forms
-    authTabs.style.display = 'block';
-    signinForm.style.display = 'block';
-    signupForm.style.display = 'none'; // Start with signin form
+    // Show auth tabs and forms - remove inline styles to allow CSS to take control
+    authTabs.removeAttribute('style'); // Let CSS flex styling take over
+    signinForm.removeAttribute('style'); // Let CSS styling take over
+    signupForm.style.display = 'none'; // Start with signin form hidden
 
     // Hide other UI elements
     hideVerificationNotice();
