@@ -8,6 +8,7 @@ class SyncManager {
         this.isOnline = navigator.onLine;
         this.lastSyncTime = localStorage.getItem('lastSyncTime') || null;
         this.syncConflicts = [];
+        this.hasPermissionError = false;
         
         // Listen for online/offline events
         window.addEventListener('online', () => {
@@ -31,7 +32,14 @@ class SyncManager {
             return;
         }
         
-        await this.performFullSync();
+        try {
+            await this.performFullSync();
+        } catch (error) {
+            console.log('Sync failed, continuing in local-only mode:', error.message);
+            if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
+                this.showPermissionError();
+            }
+        }
     }
 
     async onUserSignOut() {
@@ -42,7 +50,7 @@ class SyncManager {
     }
 
     async syncWhenOnline() {
-        if (this.isOnline && window.authManager?.getCurrentUser()) {
+        if (this.isOnline && window.authManager?.getCurrentUser() && !this.hasPermissionError) {
             await this.performSync();
         }
     }
@@ -88,6 +96,11 @@ class SyncManager {
             
         } catch (error) {
             console.error('Full sync failed:', error);
+            if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
+                console.log('📊 Cloud access denied - continuing with local data only');
+                this.showPermissionError();
+                return; // Don't throw, just continue locally
+            }
             throw error;
         } finally {
             this.isSyncing = false;
@@ -96,7 +109,7 @@ class SyncManager {
     }
 
     async performSync() {
-        if (this.isSyncing || !this.isOnline) return;
+        if (this.isSyncing || !this.isOnline || this.hasPermissionError) return;
         
         try {
             this.isSyncing = true;
@@ -122,6 +135,10 @@ class SyncManager {
             
         } catch (error) {
             console.error('Sync failed:', error);
+            if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
+                console.log('🔒 Cloud access denied - switching to local-only mode');
+                this.showPermissionError();
+            }
         } finally {
             this.isSyncing = false;
             this.updateSyncStatusUI();
@@ -275,13 +292,34 @@ class SyncManager {
         await this.performFullSync();
     }
 
+    showPermissionError() {
+        this.hasPermissionError = true;
+        
+        const syncStatus = document.getElementById('sync-status');
+        const syncText = document.getElementById('sync-text');
+        const syncIndicator = document.getElementById('sync-indicator');
+        
+        if (syncStatus && syncText && syncIndicator) {
+            syncStatus.style.display = 'block';
+            syncIndicator.textContent = '🔒';
+            syncText.textContent = 'Local Only';
+            syncStatus.title = 'Cloud sync unavailable - data saved locally only';
+        }
+        
+        // Show user notification
+        if (window.uiManager) {
+            window.uiManager.showNotification('Cloud sync unavailable. All data will be saved locally.', false);
+        }
+    }
+
     getSyncStatus() {
         return {
             isSyncing: this.isSyncing,
             isOnline: this.isOnline,
             lastSyncTime: this.lastSyncTime,
             isSignedIn: !!window.authManager?.getCurrentUser(),
-            hasConflicts: this.syncConflicts.length > 0
+            hasConflicts: this.syncConflicts.length > 0,
+            hasPermissionError: this.hasPermissionError
         };
     }
 }
