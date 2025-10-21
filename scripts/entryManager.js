@@ -352,6 +352,12 @@ async function loadEntries() {
  */
 async function loadEntriesImmediate() {
     try {
+        // Check if auth is still initializing
+        if (window.authManager?.isInitializing) {
+            console.log('⏳ Authentication still initializing, skipping entry load');
+            return;
+        }
+        
         let allEntries = [];
         
         // Cloud-first approach: try to load from cloud first
@@ -380,8 +386,8 @@ async function loadEntriesImmediate() {
                 }
             }
         } else {
-            // User not authenticated - show message
-            window.uiManager.showNotification('Please sign in to view your entries', true);
+            // User not authenticated - show empty state silently during initialization
+            console.log('User not authenticated, showing empty entries');
             allEntries = [];
         }
         

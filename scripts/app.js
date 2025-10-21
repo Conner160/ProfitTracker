@@ -67,37 +67,30 @@ function initializeApp() {
         window.appState.currentPayPeriodStart = window.dateUtils.getCurrentPayPeriodStart();
     }
     
-    // Initialize authentication first
+    // Initialize database first
+    await window.dbFunctions.initDB();
+    
+    // Set up UI components and navigation (before auth to show loading state)
+    setupPayPeriodControls();
+    setupEventListeners();
+    
+    // Initialize authentication and wait for it to complete
     if (window.authManager) {
-        window.authManager.initializeAuth();
+        await window.authManager.initializeAuth();
+        
+        // Only load data after authentication is fully resolved
+        // The auth state change handler will trigger data loading
+        // if user is signed in, otherwise we'll show appropriate messages
     }
-
-    // Initialize database and all dependent components
-    window.dbFunctions.initDB().then(async () => {
-        // Load user settings (rates, GST preference, etc.)
-        await window.settingsManager.loadSettings();
-        
-        // Set up UI components and navigation
-        setupPayPeriodControls();
-        
-        // Load and display entries for current pay period
-        window.entryManager.loadEntries();
-        
-        // Set up all event listeners for form interactions
-        setupEventListeners();
-        
-        // Initialize date picker with today's date
-        window.entryManager.initializeDate();
-        
-        // Calculate and display current form earnings
-        window.calculations.calculateEarnings();
-        
-        // Initialize drag and drop for any existing land locations
-        window.locationManager.initializeDragAndDrop();
-    }).catch(error => {
-        console.error('DB initialization failed:', error);
-        window.uiManager.showNotification('Failed to initialize database', true);
-    });
+    
+    // Initialize date picker with today's date (doesn't need auth)
+    window.entryManager.initializeDate();
+    
+    // Calculate and display current form earnings (uses default settings if not authenticated)
+    window.calculations.calculateEarnings();
+    
+    // Initialize drag and drop for any existing land locations
+    window.locationManager.initializeDragAndDrop();
 }
 
 /**

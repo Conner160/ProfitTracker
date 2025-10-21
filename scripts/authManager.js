@@ -18,6 +18,9 @@ async function initializeAuth() {
     try {
         console.log('🔐 Initializing authentication...');
         
+        // Mark as initializing
+        window.authManager.isInitializing = true;
+        
         // Wait for Firebase to be available
         await waitForFirebase();
         
@@ -32,8 +35,38 @@ async function initializeAuth() {
         authInitialized = true;
         console.log('✅ Authentication initialized');
         
+        // Wait a moment for initial auth state to be determined
+        setTimeout(() => {
+            window.authManager.isInitializing = false;
+            console.log('🔓 Authentication initialization complete');
+            
+            // Load data now that authentication is complete
+            if (currentUser) {
+                // User is signed in - load their data
+                if (window.settingsManager?.loadSettings) {
+                    window.settingsManager.loadSettings();
+                }
+                if (window.entryManager?.loadEntries) {
+                    window.entryManager.loadEntries();
+                }
+            } else {
+                // No user signed in - load defaults and show message
+                if (window.settingsManager?.loadSettings) {
+                    window.settingsManager.loadSettings();
+                }
+                if (window.entryManager?.loadEntries) {
+                    window.entryManager.loadEntries();
+                }
+                if (window.uiManager?.showNotification) {
+                    window.uiManager.showNotification('Please sign in to access your data', false, 3000);
+                }
+            }
+        }, 1000);
+        
     } catch (error) {
         console.error('❌ Error initializing authentication:', error);
+        window.authManager.isInitializing = false;
+        
         if (error.message && error.message.includes('configuration-not-found')) {
             console.log('🔧 Firebase Authentication not configured - using offline mode');
             showOfflineMode();
@@ -98,6 +131,11 @@ function handleAuthStateChange(user) {
         if (window.syncManager && window.syncManager.onUserSignIn) {
             window.syncManager.onUserSignIn(user);
         }
+        
+        // Load data if initialization is complete
+        if (!window.authManager.isInitializing) {
+            loadUserData();
+        }
     } else {
         console.log('👤 User signed out');
         showSignedOutUI();
@@ -105,6 +143,38 @@ function handleAuthStateChange(user) {
         // Handle sign out
         if (window.syncManager && window.syncManager.onUserSignOut) {
             window.syncManager.onUserSignOut();
+        }
+        
+        // Load default data if initialization is complete
+        if (!window.authManager.isInitializing) {
+            loadDefaultData();
+        }
+    }
+    
+    // Helper function to load user data after authentication
+    function loadUserData() {
+        // Load user settings and entries
+        if (window.settingsManager?.loadSettings) {
+            window.settingsManager.loadSettings();
+        }
+        if (window.entryManager?.loadEntries) {
+            window.entryManager.loadEntries();
+        }
+    }
+    
+    // Helper function to load default data when not authenticated
+    function loadDefaultData() {
+        // Load default settings and show empty entries
+        if (window.settingsManager?.loadSettings) {
+            window.settingsManager.loadSettings();
+        }
+        if (window.entryManager?.loadEntries) {
+            window.entryManager.loadEntries();
+        }
+        
+        // Show helpful message to user
+        if (window.uiManager?.showNotification) {
+            window.uiManager.showNotification('Please sign in to access your data', false, 3000);
         }
     }
 }
@@ -450,6 +520,7 @@ window.authManager = {
     isValidEmailDomain,
     isEmailVerified,
     sendEmailVerification,
+    isInitializing: true, // Start as initializing
     onAuthStateChanged: (callback) => {
         // Store callback for future use
         if (!window.authManager._callbacks) {

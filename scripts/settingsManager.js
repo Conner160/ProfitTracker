@@ -69,6 +69,13 @@ function populateSettingsForm(settings) {
  */
 async function loadSettings() {
     try {
+        // Check if auth is still initializing
+        if (window.authManager?.isInitializing) {
+            console.log('⏳ Authentication still initializing, using default settings');
+            populateSettingsForm(getDefaultSettings());
+            return;
+        }
+        
         let finalSettings = null;
         
         // Cloud-first approach: try to load from cloud first
@@ -102,8 +109,8 @@ async function loadSettings() {
                 }
             }
         } else {
-            // User not authenticated - show message
-            window.uiManager.showNotification('Please sign in to load your settings', true);
+            // User not authenticated - use defaults silently during initialization
+            console.log('User not authenticated, using default settings');
         }
         
         // Populate form fields with final settings or defaults
