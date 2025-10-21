@@ -6,6 +6,11 @@
     "display": "standalone",
     "theme_color": "#2b5797",
     "background_color": "#ffffff",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "scope": "./",
+    "protocol_handlers": [],
+    "categories": ["business", "productivity"],
     "icons": [
         {
             "src": "images/icon-180x180.png",

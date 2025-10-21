@@ -1,0 +1,69 @@
+# 🔒 Enhanced Security Headers for Apache Server
+<IfModule mod_headers.c>
+    # Content Security Policy - Strict
+    Header always set Content-Security-Policy "default-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://www.google.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com"
+    
+    # Prevent clickjacking
+    Header always set X-Frame-Options "DENY"
+    
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Enable XSS protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Permissions Policy
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    
+    # Strict Transport Security (HTTPS enforcement)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    
+    # Remove server signature
+    Header always unset Server
+    Header always unset X-Powered-By
+</IfModule>
+
+# 🔒 Block Access to Sensitive Files
+<FilesMatch "(CCC_Travel_Sheet\.xlsx|SECURITY_REPORT\.md|nginx\.conf|\.htaccess|\.htpasswd|\.git|\.env|package\.json|package-lock\.json)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 🔒 Block Access to Config Directory
+<Directory "config">
+    Order Allow,Deny
+    Deny from all
+</Directory>
+
+# HTTPS Redirection
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Cache Control for Security
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+    
+    # Cache static assets but with versioning
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/ico "access plus 1 year"
+</IfModule>
+
+# 🔒 Rate Limiting (if mod_evasive is available)
+<IfModule mod_evasive24.c>
+    DOSHashTableSize    2048
+    DOSPageCount        3
+    DOSPageInterval     1
+    DOSSiteCount        50
+    DOSSiteInterval     1
+    DOSBlockingPeriod   600
+</IfModule>

@@ -6,6 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProfitTracker - Sign In</title>
 
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' https://www.gstatic.com https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://firebaseapp.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+
+    <!-- HTTPS Enforcement -->
+    <script>
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            location.replace('https:' + window.location.href.substring(window.location.protocol.length));
+        }
+    </script>
+
     <!-- PWA Meta Tags -->
     <meta name="application-name" content="ProfitTracker">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -159,22 +174,18 @@
         </div>
     </div>
 
+    <!-- Environment Configuration -->
+    <script src="config/env.js"></script>
+
     <!-- Firebase Configuration -->
     <script type="module">
-        // Import Firebase modules
+        // Import Firebase modules with integrity verification
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
         import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAlVo_EYRnSTgnB55J-LRFpKG6ZGvA88_w",
-            authDomain: "profittrackerccc.firebaseapp.com",
-            projectId: "profittrackerccc",
-            storageBucket: "profittrackerccc.firebasestorage.app",
-            messagingSenderId: "272024960605",
-            appId: "1:272024960605:web:bffdb40e154d4e7eac57b4"
-        };
+        // 🔒 Use environment-specific Firebase configuration
+        const firebaseConfig = window.ENV_CONFIG.FIREBASE;
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -192,7 +203,7 @@
             onAuthStateChanged
         };
 
-        console.log('🔥 Firebase initialized for login page');
+        window.secureLog.log('🔥 Firebase initialized for login page');
     </script>
 
     <script>
