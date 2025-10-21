@@ -12,6 +12,52 @@ const PER_DIEM_FULL_RATE = 171;  // Default full per diem daily rate
 const PER_DIEM_PARTIAL_RATE = 46; // Default partial per diem daily rate
 
 /**
+ * Returns default settings object with base rates
+ * @returns {Object} Default settings configuration
+ */
+function getDefaultSettings() {
+    return {
+        name: 'rates',
+        pointRate: POINT_BASE_RATE,
+        kmRate: KM_BASE_RATE,
+        perDiemFullRate: PER_DIEM_FULL_RATE,
+        perDiemPartialRate: PER_DIEM_PARTIAL_RATE,
+        includeGST: false,
+        techCode: '',
+        gstNumber: '',
+        businessName: '',
+        lastModified: new Date().toISOString()
+    };
+}
+
+/**
+ * Populates the settings form with provided settings data
+ * @param {Object} settings - Settings object to populate form with
+ */
+function populateSettingsForm(settings) {
+    if (settings) {
+        document.getElementById('point-rate').value = settings.pointRate || POINT_BASE_RATE;
+        document.getElementById('km-rate').value = settings.kmRate || KM_BASE_RATE;
+        document.getElementById('per-diem-full-rate').value = settings.perDiemFullRate || PER_DIEM_FULL_RATE;
+        document.getElementById('per-diem-partial-rate').value = settings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
+        document.getElementById('gst-enabled').checked = settings.includeGST || false;
+        document.getElementById('tech-code').value = settings.techCode || '';
+        document.getElementById('gst-number').value = settings.gstNumber || '';
+        document.getElementById('business-name').value = settings.businessName || '';
+    } else {
+        // Use defaults
+        const defaults = getDefaultSettings();
+        populateSettingsForm(defaults);
+    }
+    
+    // Update per diem display and recalculate earnings
+    updatePerDiemDisplay();
+    if (window.calculations?.calculateEarnings) {
+        window.calculations.calculateEarnings();
+    }
+}
+
+/**
  * Loads saved settings from database and populates the settings form
  * Retrieves user preferences from IndexedDB and updates all rate input
  * fields with saved values. Falls back to default constants if no saved
@@ -23,74 +69,45 @@ const PER_DIEM_PARTIAL_RATE = 46; // Default partial per diem daily rate
  */
 async function loadSettings() {
     try {
-        // Get local settings
-        const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
-        let finalSettings = localSettings;
+        let finalSettings = null;
         
-        // If user is signed in and email verified, try to get cloud settings and resolve conflicts
+        // Cloud-first approach: try to load from cloud first
         if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
             try {
                 const userId = window.authManager.getCurrentUser().uid;
                 const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
                 
-                if (cloudSettings && localSettings) {
-                    // Both exist - check if they're different
-                    if (settingsAreDifferent(localSettings, cloudSettings)) {
-                        console.log('Settings conflict detected - showing user choice dialog');
-                        const choice = await showSettingsConflictDialog(localSettings, cloudSettings);
-                        
-                        if (choice === 'local') {
-                            console.log('User chose local settings');
-                            finalSettings = localSettings;
-                            // Update cloud with local settings
-                            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
-                        } else if (choice === 'cloud') {
-                            console.log('User chose cloud settings');
-                            finalSettings = cloudSettings;
-                            // Update local storage with cloud settings
-                            const settingsToSave = { ...cloudSettings, name: 'rates' };
-                            await window.dbFunctions.saveToDB('settings', settingsToSave);
-                        } else {
-                            // User cancelled - use local settings without syncing
-                            console.log('User cancelled settings sync');
-                            finalSettings = localSettings;
-                        }
-                    } else {
-                        // Settings are the same, use either one
-                        console.log('Settings are identical');
-                        finalSettings = localSettings;
-                    }
-                } else if (cloudSettings && !localSettings) {
-                    console.log('Using cloud settings (no local settings)');
+                if (cloudSettings) {
+                    console.log('✅ Settings loaded from cloud:', cloudSettings);
                     finalSettings = cloudSettings;
-                    // Save cloud settings locally
-                    const settingsToSave = { ...cloudSettings, name: 'rates' };
-                    await window.dbFunctions.saveToDB('settings', settingsToSave);
-                } else if (localSettings && !cloudSettings) {
-                    console.log('Uploading local settings to cloud');
-                    // Upload local settings to cloud
-                    await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                    
+                    // Clear any offline backup since cloud load succeeded
+                    await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
+                        // Ignore errors if no offline backup exists
+                    });
                 }
             } catch (cloudError) {
-                console.warn('Failed to sync settings with cloud:', cloudError);
-                // Continue with local settings if cloud fails
+                console.warn('☁️ Could not load settings from cloud, checking offline backup:', cloudError);
+                
+                // Fallback to offline backup
+                try {
+                    const offlineSettings = await window.dbFunctions.getFromDB('offline_settings', 'rates');
+                    if (offlineSettings) {
+                        console.log('💾 Settings loaded from offline backup:', offlineSettings);
+                        finalSettings = offlineSettings;
+                        window.uiManager.showNotification('📶 Showing offline settings. Connect to internet to sync latest changes.', false, 5000);
+                    }
+                } catch (offlineError) {
+                    console.error('Failed to load offline settings:', offlineError);
+                }
             }
+        } else {
+            // User not authenticated - show message
+            window.uiManager.showNotification('Please sign in to load your settings', true);
         }
         
         // Populate form fields with final settings or defaults
-        if (finalSettings) {
-            document.getElementById('point-rate').value = finalSettings.pointRate || POINT_BASE_RATE;
-            document.getElementById('km-rate').value = finalSettings.kmRate || KM_BASE_RATE;
-            document.getElementById('per-diem-full-rate').value = finalSettings.perDiemFullRate || PER_DIEM_FULL_RATE;
-            document.getElementById('per-diem-partial-rate').value = finalSettings.perDiemPartialRate || PER_DIEM_PARTIAL_RATE;
-            document.getElementById('gst-enabled').checked = finalSettings.includeGST !== false;
-            document.getElementById('tech-code').value = finalSettings.techCode || '';
-            document.getElementById('gst-number').value = finalSettings.gstNumber || '';
-            document.getElementById('business-name').value = finalSettings.businessName || '';
-        }
-        
-        // Update per diem labels with current rates
-        updatePerDiemLabels();
+        populateSettingsForm(finalSettings || getDefaultSettings());
     } catch (error) {
         console.error('Error loading settings:', error);
     }
@@ -129,27 +146,42 @@ async function saveSettings() {
     };
     
     try {
-        await window.dbFunctions.saveToDB('settings', settings);
-        
-        // If user is signed in and email verified, also save to cloud
-        if (window.authManager?.getCurrentUser() && window.authManager?.isEmailVerified()) {
-            try {
-                const userId = window.authManager.getCurrentUser().uid;
-                await window.cloudStorage.saveSettingsToCloud(userId, settings);
-                console.log('Settings saved to cloud');
-            } catch (cloudError) {
-                console.warn('Failed to save settings to cloud, will sync later:', cloudError);
-                // Don't fail the entire operation if cloud save fails
-            }
+        // Check if user is authenticated and email verified (required for cloud-first)
+        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
+            throw new Error('User must be signed in and email verified to save settings');
         }
+
+        const userId = window.authManager.getCurrentUser().uid;
         
-        window.calculations.calculateEarnings();
-        window.entryManager.loadEntries();
-        window.uiManager.showNotification('Settings saved');
-        window.uiManager.toggleSettings();
+        // Try to save directly to cloud first
+        try {
+            await window.cloudStorage.saveSettingsToCloud(userId, settings);
+            console.log('✅ Settings saved to cloud');
+            
+            // Clear any existing offline backup since cloud save succeeded
+            await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
+                // Ignore errors if no offline backup exists
+            });
+            
+            window.calculations.calculateEarnings();
+            window.entryManager.loadEntries();
+            window.uiManager.showNotification('Settings saved');
+            window.uiManager.toggleSettings();
+            
+        } catch (cloudError) {
+            console.warn('☁️ Cloud save failed, storing locally for offline sync:', cloudError);
+            
+            // Save to offline backup for later sync
+            await window.dbFunctions.saveToDB('offline_settings', settings);
+            
+            window.calculations.calculateEarnings();
+            window.entryManager.loadEntries();
+            window.uiManager.showNotification('Could not save to cloud. Settings saved locally and will sync when connection is restored.', false, 5000);
+            window.uiManager.toggleSettings();
+        }
     } catch (error) {
         console.error('Error saving settings:', error);
-        window.uiManager.showNotification('Error saving settings', true);
+        window.uiManager.showNotification('Error saving settings: ' + error.message, true);
     }
 }
 
@@ -501,5 +533,7 @@ window.settingsManager = {
     uploadSettingsToCloud,
     downloadSettingsFromCloud,
     settingsAreDifferent,
-    showSettingsConflictDialog
+    showSettingsConflictDialog,
+    getDefaultSettings,
+    populateSettingsForm
 };

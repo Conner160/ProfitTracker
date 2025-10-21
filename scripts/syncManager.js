@@ -47,6 +47,9 @@ class SyncManager {
                 await window.settingsManager.loadSettings();
             }
             
+            // Process any offline queue items that failed to sync previously
+            await this.processOfflineQueue();
+            
             await this.performFullSync();
         } catch (error) {
             console.log('Sync failed, continuing in local-only mode:', error.message);
@@ -69,143 +72,6 @@ class SyncManager {
         }
     }
 
-    /**
-     * Shows mass conflict resolution dialog for multiple entry conflicts
-     * @param {Array} conflicts - Array of conflict objects with {date, localEntry, cloudEntry}
-     * @returns {Promise<Object>} Object with resolution choices and mass preference
-     */
-    async showMassConflictDialog(conflicts) {
-        return new Promise((resolve) => {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-                <div class="modal-content mass-conflict-modal">
-                    <h3>Multiple Entry Conflicts Found</h3>
-                    <p>Found ${conflicts.length} conflicting entries between local and cloud data.</p>
-                    
-                    <div class="mass-choice-options">
-                        <h4>How would you like to resolve these conflicts?</h4>
-                        <label>
-                            <input type="radio" name="mass-choice" value="one-by-one">
-                            Review each conflict individually
-                        </label>
-                        <label>
-                            <input type="radio" name="mass-choice" value="keep-local">
-                            Keep all local entries (overwrite cloud)
-                        </label>
-                        <label>
-                            <input type="radio" name="mass-choice" value="keep-cloud">
-                            Keep all cloud entries (overwrite local)
-                        </label>
-                        <label>
-                            <input type="radio" name="mass-choice" value="keep-newer">
-                            Automatically keep the most recently modified
-                        </label>
-                    </div>
-                    
-                    <div class="modal-buttons">
-                        <button id="apply-mass-choice" class="conflict-btn" disabled>Apply Choice</button>
-                        <button id="cancel-mass-choice" class="conflict-btn">Cancel Sync</button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // Enable apply button when choice is made
-            const radioButtons = modal.querySelectorAll('input[name="mass-choice"]');
-            const applyBtn = modal.querySelector('#apply-mass-choice');
-            
-            radioButtons.forEach(radio => {
-                radio.addEventListener('change', () => {
-                    applyBtn.disabled = false;
-                });
-            });
-            
-            // Handle apply button
-            applyBtn.addEventListener('click', () => {
-                const selectedChoice = modal.querySelector('input[name="mass-choice"]:checked');
-                const choice = selectedChoice ? selectedChoice.value : 'cancel';
-                document.body.removeChild(modal);
-                resolve({ massChoice: choice });
-            });
-            
-            // Handle cancel button
-            modal.querySelector('#cancel-mass-choice').addEventListener('click', () => {
-                document.body.removeChild(modal);
-                resolve({ massChoice: 'cancel' });
-            });
-        });
-    }
-
-    /**
-     * Resolves conflicts between local and cloud entries
-     * @param {Array} conflicts - Array of conflict objects
-     * @returns {Promise<Object>} Resolution results
-     */
-    async resolveConflicts(conflicts) {
-        if (conflicts.length === 0) return { resolved: [], cancelled: [] };
-        
-        // Ask user how they want to handle multiple conflicts
-        const massChoice = await this.showMassConflictDialog(conflicts);
-        
-        if (massChoice.massChoice === 'cancel') {
-            return { resolved: [], cancelled: conflicts.map(c => c.date) };
-        }
-        
-        const resolved = [];
-        const cancelled = [];
-        
-        if (massChoice.massChoice === 'one-by-one') {
-            // Handle each conflict individually using entryManager's dialog
-            for (const conflict of conflicts) {
-                const choice = await window.entryManager.showEntryConflictDialog(
-                    conflict.date, 
-                    conflict.localEntry, 
-                    conflict.cloudEntry, 
-                    'Local', 
-                    'Cloud'
-                );
-                
-                if (choice === 'cancel') {
-                    cancelled.push(conflict.date);
-                } else if (choice === 'entry1') {
-                    resolved.push({ date: conflict.date, keepEntry: conflict.localEntry, source: 'local' });
-                } else {
-                    resolved.push({ date: conflict.date, keepEntry: conflict.cloudEntry, source: 'cloud' });
-                }
-            }
-        } else {
-            // Apply mass choice to all conflicts
-            for (const conflict of conflicts) {
-                let keepEntry, source;
-                
-                if (massChoice.massChoice === 'keep-local') {
-                    keepEntry = conflict.localEntry;
-                    source = 'local';
-                } else if (massChoice.massChoice === 'keep-cloud') {
-                    keepEntry = conflict.cloudEntry;
-                    source = 'cloud';
-                } else if (massChoice.massChoice === 'keep-newer') {
-                    const localModified = new Date(conflict.localEntry.lastModified || conflict.localEntry.timestamp || 0);
-                    const cloudModified = new Date(conflict.cloudEntry.lastModified || conflict.cloudEntry.cloudUpdatedAt || 0);
-                    
-                    if (localModified >= cloudModified) {
-                        keepEntry = conflict.localEntry;
-                        source = 'local';
-                    } else {
-                        keepEntry = conflict.cloudEntry;
-                        source = 'cloud';
-                    }
-                }
-                
-                resolved.push({ date: conflict.date, keepEntry, source });
-            }
-        }
-        
-        return { resolved, cancelled };
-    }
-
     async performFullSync() {
         if (this.isSyncing) return;
         
@@ -224,25 +90,29 @@ class SyncManager {
                 throw new Error('Email not verified - sync disabled');
             }
             
-            // Get all local entries
             const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
+            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
             
-            // Get cloud entries from last 2 months
+            // Filter to only recent entries (last 2 months) for automatic sync
             const twoMonthsAgo = new Date();
             twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            
+            const localEntries = allLocalEntries.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= twoMonthsAgo;
+            });
             
             const cloudEntries = allCloudEntries.filter(entry => {
                 const entryDate = new Date(entry.date);
                 return entryDate >= twoMonthsAgo;
             });
             
-            console.log(`Local entries: ${allLocalEntries.length}, Cloud entries (2-month): ${cloudEntries.length}`);
+            console.log(`Local entries: ${localEntries.length}, Cloud entries: ${cloudEntries.length}`);
             
             // If this is the first sync (no cloud data), upload all local data
-            if (cloudEntries.length === 0 && allLocalEntries.length > 0) {
+            if (cloudEntries.length === 0 && localEntries.length > 0) {
                 console.log('First sync: uploading all local data to cloud...');
-                await this.uploadAllLocalData(allLocalEntries);
+                await this.uploadAllLocalData(localEntries);
                 
                 // Also upload settings on first sync
                 if (window.settingsManager?.uploadSettingsToCloud) {
@@ -253,8 +123,22 @@ class SyncManager {
                 return;
             }
             
-            // Perform intelligent sync with conflict resolution
-            await this.performIntelligentSync(userId, allLocalEntries, cloudEntries);
+            // If user has cloud data but no local data, download everything
+            if (localEntries.length === 0 && cloudEntries.length > 0) {
+                console.log('Downloading all cloud data to local storage...');
+                await this.downloadAllCloudData(cloudEntries);
+                
+                // Also download settings
+                if (window.settingsManager?.downloadSettingsFromCloud) {
+                    await window.settingsManager.downloadSettingsFromCloud();
+                }
+                
+                this.updateLastSyncTime();
+                return;
+            }
+            
+            // Perform two-way sync
+            await this.performTwoWaySync(localEntries, cloudEntries);
             
             // Sync settings after entries
             if (window.settingsManager?.syncSettings) {
@@ -274,90 +158,6 @@ class SyncManager {
         } finally {
             this.isSyncing = false;
             this.updateSyncStatusUI();
-        }
-    }
-
-    /**
-     * Performs intelligent sync with conflict resolution
-     * @param {string} userId - User ID
-     * @param {Array} localEntries - Local entries
-     * @param {Array} cloudEntries - Cloud entries
-     */
-    async performIntelligentSync(userId, localEntries, cloudEntries) {
-        // Create maps for easier lookup
-        const localEntriesMap = new Map(localEntries.map(entry => [entry.date, entry]));
-        const cloudEntriesMap = new Map(cloudEntries.map(entry => [entry.date, entry]));
-        
-        // Find conflicts (entries that exist in both but are different)
-        const conflicts = [];
-        const entriesToUpload = []; // Local entries not in cloud
-        const entriesToDownload = []; // Cloud entries not in local
-        
-        // Check each cloud entry against local
-        for (const cloudEntry of cloudEntries) {
-            const localEntry = localEntriesMap.get(cloudEntry.date);
-            
-            if (localEntry) {
-                // Entry exists in both - check if they're different
-                if (window.entryManager.entriesAreDifferent(localEntry, cloudEntry)) {
-                    conflicts.push({ date: cloudEntry.date, localEntry, cloudEntry });
-                }
-            } else {
-                // Cloud entry doesn't exist locally
-                entriesToDownload.push(cloudEntry);
-            }
-        }
-        
-        // Check for local entries not in cloud
-        for (const localEntry of localEntries) {
-            if (!cloudEntriesMap.has(localEntry.date)) {
-                entriesToUpload.push(localEntry);
-            }
-        }
-        
-        console.log(`Found ${conflicts.length} conflicts, ${entriesToUpload.length} to upload, ${entriesToDownload.length} to download`);
-        
-        // Handle conflicts first
-        if (conflicts.length > 0) {
-            const resolution = await this.resolveConflicts(conflicts);
-            
-            // Apply resolved conflicts
-            for (const resolved of resolution.resolved) {
-                if (resolved.source === 'local') {
-                    // Keep local, update cloud
-                    await window.cloudStorage.saveEntryToCloud(userId, resolved.keepEntry);
-                    console.log(`Kept local entry for ${resolved.date}, updated cloud`);
-                } else {
-                    // Keep cloud, update local
-                    await window.dbFunctions.saveToDB('entries', resolved.keepEntry);
-                    console.log(`Kept cloud entry for ${resolved.date}, updated local`);
-                }
-            }
-            
-            if (resolution.resolved.length > 0) {
-                window.uiManager.showNotification(`Resolved ${resolution.resolved.length} conflicts`);
-            }
-        }
-        
-        // Upload new local entries
-        if (entriesToUpload.length > 0) {
-            console.log(`Uploading ${entriesToUpload.length} new local entries...`);
-            for (const entry of entriesToUpload) {
-                await window.cloudStorage.saveEntryToCloud(userId, entry);
-            }
-        }
-        
-        // Download new cloud entries
-        if (entriesToDownload.length > 0) {
-            console.log(`Downloading ${entriesToDownload.length} new cloud entries...`);
-            for (const entry of entriesToDownload) {
-                await window.dbFunctions.saveToDB('entries', entry);
-            }
-        }
-        
-        // Refresh UI if there were any changes
-        if (conflicts.length > 0 || entriesToUpload.length > 0 || entriesToDownload.length > 0) {
-            window.entryManager.loadEntries();
         }
     }
 
@@ -1221,8 +1021,191 @@ class SyncManager {
             isSignedIn: !!window.authManager?.getCurrentUser(),
             hasConflicts: this.syncConflicts.length > 0,
             hasPermissionError: this.hasPermissionError,
-            performManualSyncAll: this.performManualSyncAll.bind(this)
+            performManualSyncAll: this.performManualSyncAll.bind(this),
+            processOfflineQueue: this.processOfflineQueue.bind(this)
         };
+    }
+
+    /**
+     * Processes offline queue and syncs failed operations to cloud
+     * Handles conflict resolution when offline changes conflict with cloud data
+     */
+    async processOfflineQueue() {
+        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
+            console.log('User not authenticated, skipping offline queue processing');
+            return;
+        }
+
+        const userId = window.authManager.getCurrentUser().uid;
+        console.log('🔄 Processing offline queue...');
+
+        try {
+            // Process offline entries
+            const offlineEntries = await window.dbFunctions.getOfflineQueue('offline_entries');
+            if (offlineEntries.length > 0) {
+                console.log(`Processing ${offlineEntries.length} offline entries...`);
+                
+                for (const offlineEntry of offlineEntries) {
+                    try {
+                        if (offlineEntry.offlineAction === 'save') {
+                            // Check if entry exists in cloud
+                            const cloudEntries = await window.cloudStorage.getEntriesFromCloud(userId);
+                            const existingCloudEntry = cloudEntries.find(e => e.date === offlineEntry.date);
+                            
+                            if (existingCloudEntry) {
+                                // Conflict: show user dialog to choose which version to keep
+                                const choice = await this.showOfflineConflictDialog('entry', offlineEntry, existingCloudEntry);
+                                
+                                if (choice === 'offline') {
+                                    await window.cloudStorage.saveEntryToCloud(userId, offlineEntry);
+                                    console.log('✅ Offline entry synced to cloud:', offlineEntry.date);
+                                } else if (choice === 'cloud') {
+                                    console.log('🔄 Keeping cloud version for:', offlineEntry.date);
+                                } else {
+                                    console.log('❌ User cancelled sync for:', offlineEntry.date);
+                                    continue; // Skip removing from offline queue
+                                }
+                            } else {
+                                // No conflict, sync to cloud
+                                await window.cloudStorage.saveEntryToCloud(userId, offlineEntry);
+                                console.log('✅ Offline entry synced to cloud:', offlineEntry.date);
+                            }
+                        } else if (offlineEntry.offlineAction === 'delete') {
+                            await window.cloudStorage.deleteEntryFromCloud(userId, offlineEntry.date);
+                            console.log('✅ Offline delete synced to cloud:', offlineEntry.date);
+                        }
+                        
+                        // Remove from offline queue after successful sync
+                        await window.dbFunctions.deleteFromDB('offline_entries', offlineEntry.date);
+                        
+                    } catch (error) {
+                        console.error('Failed to sync offline entry:', offlineEntry.date, error);
+                        // Keep in offline queue for next attempt
+                    }
+                }
+            }
+
+            // Process offline settings
+            const offlineSettings = await window.dbFunctions.getOfflineQueue('offline_settings');
+            if (offlineSettings.length > 0) {
+                console.log(`Processing ${offlineSettings.length} offline settings...`);
+                
+                for (const offlineSetting of offlineSettings) {
+                    try {
+                        // Check if settings exist in cloud
+                        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+                        
+                        if (cloudSettings) {
+                            // Conflict: show user dialog to choose which version to keep
+                            const choice = await this.showOfflineConflictDialog('settings', offlineSetting, cloudSettings);
+                            
+                            if (choice === 'offline') {
+                                await window.cloudStorage.saveSettingsToCloud(userId, offlineSetting);
+                                console.log('✅ Offline settings synced to cloud');
+                            } else if (choice === 'cloud') {
+                                console.log('🔄 Keeping cloud settings');
+                            } else {
+                                console.log('❌ User cancelled settings sync');
+                                continue; // Skip removing from offline queue
+                            }
+                        } else {
+                            // No conflict, sync to cloud
+                            await window.cloudStorage.saveSettingsToCloud(userId, offlineSetting);
+                            console.log('✅ Offline settings synced to cloud');
+                        }
+                        
+                        // Remove from offline queue after successful sync
+                        await window.dbFunctions.deleteFromDB('offline_settings', offlineSetting.name);
+                        
+                    } catch (error) {
+                        console.error('Failed to sync offline settings:', error);
+                        // Keep in offline queue for next attempt
+                    }
+                }
+            }
+
+            // Refresh UI after offline sync
+            if (window.entryManager) {
+                window.entryManager.loadEntries();
+            }
+            if (window.settingsManager) {
+                window.settingsManager.loadSettings();
+            }
+
+            console.log('✅ Offline queue processing complete');
+            
+        } catch (error) {
+            console.error('Error processing offline queue:', error);
+        }
+    }
+
+    /**
+     * Shows conflict resolution dialog for offline sync conflicts
+     * @param {string} type - 'entry' or 'settings'
+     * @param {Object} offlineData - The offline version
+     * @param {Object} cloudData - The cloud version
+     * @returns {Promise<string>} User choice: 'offline', 'cloud', or 'cancel'
+     */
+    async showOfflineConflictDialog(type, offlineData, cloudData) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'conflict-modal';
+            modal.innerHTML = `
+                <div class="conflict-dialog">
+                    <h3>🔄 Sync Conflict Detected</h3>
+                    <p>You have offline changes that conflict with cloud data:</p>
+                    
+                    <div class="conflict-options">
+                        <div class="conflict-choice">
+                            <input type="radio" id="use-offline-${type}" name="conflict-choice" value="offline">
+                            <label for="use-offline-${type}">
+                                <strong>Use Offline Version</strong>
+                                <small>Modified: ${new Date(offlineData.lastModified || offlineData.offlineTimestamp).toLocaleString()}</small>
+                            </label>
+                        </div>
+                        
+                        <div class="conflict-choice">
+                            <input type="radio" id="use-cloud-${type}" name="conflict-choice" value="cloud">
+                            <label for="use-cloud-${type}">
+                                <strong>Use Cloud Version</strong>
+                                <small>Modified: ${new Date(cloudData.lastModified || cloudData.cloudUpdatedAt).toLocaleString()}</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="conflict-actions">
+                        <button id="apply-conflict-choice" disabled>Apply Choice</button>
+                        <button id="cancel-conflict-choice">Cancel</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Enable apply button when choice is made
+            const radioButtons = modal.querySelectorAll('input[name="conflict-choice"]');
+            const applyBtn = modal.querySelector('#apply-conflict-choice');
+
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    applyBtn.disabled = false;
+                });
+            });
+
+            // Handle apply button
+            applyBtn.addEventListener('click', () => {
+                const selectedChoice = modal.querySelector('input[name="conflict-choice"]:checked');
+                const choice = selectedChoice ? selectedChoice.value : 'cancel';
+                document.body.removeChild(modal);
+                resolve(choice);
+            });
+
+            // Handle cancel button
+            modal.querySelector('#cancel-conflict-choice').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                resolve('cancel');
+            });
+        });
     }
 }
 
