@@ -159,6 +159,27 @@ async function getTechName() {
     }
 }
 
+/**
+ * Handles the sync all data button click
+ * Triggers the manual sync all process from syncManager
+ * 
+ * @async
+ * @function handleSyncAllData
+ * @returns {Promise<void>} Resolves when sync all process is complete
+ */
+async function handleSyncAllData() {
+    try {
+        if (window.syncManager && window.syncManager.performManualSyncAll) {
+            await window.syncManager.performManualSyncAll();
+        } else {
+            window.uiManager.showNotification('Sync not available - please check your connection', true);
+        }
+    } catch (error) {
+        console.error('Error in sync all data:', error);
+        window.uiManager.showNotification('Error syncing all data', true);
+    }
+}
+
 // Make functions available globally
 window.settingsManager = {
     loadSettings,
@@ -166,5 +187,6 @@ window.settingsManager = {
     updatePerDiemLabels,
     getTechCode,
     getGstNumber,
-    getTechName
+    getTechName,
+    handleSyncAllData
 };

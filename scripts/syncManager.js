@@ -69,8 +69,22 @@ class SyncManager {
                 throw new Error('User not authenticated');
             }
             
-            const localEntries = await window.dbFunctions.getAllFromDB('entries');
-            const cloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
+            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            
+            // Filter to only recent entries (last 2 months) for automatic sync
+            const twoMonthsAgo = new Date();
+            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+            
+            const localEntries = allLocalEntries.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= twoMonthsAgo;
+            });
+            
+            const cloudEntries = allCloudEntries.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= twoMonthsAgo;
+            });
             
             console.log(`Local entries: ${localEntries.length}, Cloud entries: ${cloudEntries.length}`);
             
@@ -114,12 +128,24 @@ class SyncManager {
         try {
             this.isSyncing = true;
             
-            // Get entries modified since last sync
+            // Get entries modified since last sync (only last 2 months)
             const lastSync = this.lastSyncTime ? new Date(this.lastSyncTime) : null;
+            const twoMonthsAgo = new Date();
+            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+            
             const localEntries = await window.dbFunctions.getAllFromDB('entries');
-            const modifiedLocalEntries = lastSync 
-                ? localEntries.filter(entry => new Date(entry.lastModified || entry.date) > lastSync)
-                : localEntries;
+            
+            // Filter entries: only sync recent entries (last 2 months) or recently modified
+            const modifiedLocalEntries = localEntries.filter(entry => {
+                const entryDate = new Date(entry.date);
+                const modifiedDate = new Date(entry.lastModified || entry.createdAt || entry.date);
+                
+                // Include if entry date is within 2 months OR if recently modified
+                const isRecentEntry = entryDate >= twoMonthsAgo;
+                const isRecentlyModified = lastSync ? modifiedDate > lastSync : false;
+                
+                return isRecentEntry || isRecentlyModified;
+            });
             
             // Upload modified local entries
             if (modifiedLocalEntries.length > 0) {
@@ -781,6 +807,126 @@ class SyncManager {
         }
     }
 
+    async performManualSyncAll() {
+        if (!window.authManager?.getCurrentUser()) {
+            window.uiManager?.showNotification('Please sign in to sync all data', true);
+            return;
+        }
+
+        if (this.isSyncing) {
+            window.uiManager?.showNotification('Sync already in progress', true);
+            return;
+        }
+
+        try {
+            const userId = window.authManager.getUserId();
+            const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
+            const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+
+            // Calculate data sizes
+            const localDataSize = this.calculateDataSize(allLocalEntries);
+            const cloudDataSize = this.calculateDataSize(allCloudEntries);
+
+            // Show sync direction choice dialog
+            const direction = await this.showSyncAllDialog(allLocalEntries.length, allCloudEntries.length, localDataSize, cloudDataSize);
+            
+            if (direction === 'cancel') {
+                return;
+            }
+
+            this.isSyncing = true;
+            this.updateSyncStatusUI();
+
+            if (direction === 'upload') {
+                // Upload all local data to cloud (overwrite cloud)
+                console.log('Uploading all local data to cloud...');
+                await this.uploadAllLocalData(allLocalEntries);
+                window.uiManager?.showNotification(`Successfully uploaded ${allLocalEntries.length} entries to cloud`);
+            } else if (direction === 'download') {
+                // Download all cloud data to device (overwrite local)
+                console.log('Downloading all cloud data to device...');
+                await this.downloadAllCloudData(allCloudEntries);
+                window.uiManager?.showNotification(`Successfully downloaded ${allCloudEntries.length} entries from cloud`);
+            }
+
+            this.updateLastSyncTime();
+            
+        } catch (error) {
+            console.error('Manual sync all failed:', error);
+            window.uiManager?.showNotification('Sync all failed: ' + error.message, true);
+        } finally {
+            this.isSyncing = false;
+            this.updateSyncStatusUI();
+        }
+    }
+
+    calculateDataSize(entries) {
+        const jsonString = JSON.stringify(entries);
+        const sizeInBytes = new Blob([jsonString]).size;
+        
+        if (sizeInBytes < 1024) {
+            return sizeInBytes + ' bytes';
+        } else if (sizeInBytes < 1024 * 1024) {
+            return (sizeInBytes / 1024).toFixed(1) + ' KB';
+        } else {
+            return (sizeInBytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+    }
+
+    async showSyncAllDialog(localCount, cloudCount, localSize, cloudSize) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'conflict-modal';
+            modal.innerHTML = `
+                <div class="conflict-modal-content">
+                    <h2>🔄 Sync All Data</h2>
+                    <p>Choose which data to keep. This will overwrite the other location completely.</p>
+                    
+                    <div class="sync-all-options">
+                        <div class="sync-option">
+                            <h3>📱 Upload Device Data to Cloud</h3>
+                            <p><strong>Local entries:</strong> ${localCount}</p>
+                            <p><strong>Data size:</strong> ${localSize}</p>
+                            <p>This will <strong>overwrite all cloud data</strong> with your device data.</p>
+                            <button id="upload-all" class="conflict-btn primary">Upload to Cloud</button>
+                        </div>
+                        
+                        <div class="sync-option">
+                            <h3>☁️ Download Cloud Data to Device</h3>
+                            <p><strong>Cloud entries:</strong> ${cloudCount}</p>
+                            <p><strong>Data size:</strong> ${cloudSize}</p>
+                            <p>This will <strong>overwrite all device data</strong> with cloud data.</p>
+                            <button id="download-all" class="conflict-btn primary">Download from Cloud</button>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button id="cancel-sync-all" class="conflict-btn">Cancel</button>
+                    </div>
+                </div>
+                <div class="conflict-modal-overlay"></div>
+            `;
+
+            // Add event listeners
+            modal.querySelector('#upload-all')?.addEventListener('click', () => {
+                this.removeConflictModal(modal);
+                resolve('upload');
+            });
+
+            modal.querySelector('#download-all')?.addEventListener('click', () => {
+                this.removeConflictModal(modal);
+                resolve('download');
+            });
+
+            modal.querySelector('#cancel-sync-all')?.addEventListener('click', () => {
+                this.removeConflictModal(modal);
+                resolve('cancel');
+            });
+
+            document.body.appendChild(modal);
+        });
+    }
+
     showPermissionError() {
         this.hasPermissionError = true;
         
@@ -808,7 +954,8 @@ class SyncManager {
             lastSyncTime: this.lastSyncTime,
             isSignedIn: !!window.authManager?.getCurrentUser(),
             hasConflicts: this.syncConflicts.length > 0,
-            hasPermissionError: this.hasPermissionError
+            hasPermissionError: this.hasPermissionError,
+            performManualSyncAll: this.performManualSyncAll.bind(this)
         };
     }
 }
