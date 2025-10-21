@@ -411,7 +411,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
         
         // Enable apply button when choice is made
         const radioButtons = modal.querySelectorAll('input[name="settings-choice"]');
-        const applyBtn = modal.getElementById('apply-settings-choice');
+        const applyBtn = modal.querySelector('#apply-settings-choice');
         
         radioButtons.forEach(radio => {
             radio.addEventListener('change', () => {
@@ -428,7 +428,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
         });
         
         // Handle cancel button
-        modal.getElementById('cancel-settings-choice').addEventListener('click', () => {
+        modal.querySelector('#cancel-settings-choice').addEventListener('click', () => {
             document.body.removeChild(modal);
             resolve('cancel');
         });
