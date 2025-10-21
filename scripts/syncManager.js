@@ -226,10 +226,11 @@ class SyncManager {
             }
         }
         
-        // Handle conflicts (for now, prefer cloud version)
-        for (const conflict of conflicts) {
-            console.warn('Sync conflict detected for entry:', conflict.local.id);
-            entriesToDownload.push(conflict.cloud);
+        // Handle conflicts with user choice
+        if (conflicts.length > 0) {
+            console.log(`Detected ${conflicts.length} sync conflicts`);
+            const resolution = await this.showConflictResolutionDialog(conflicts);
+            this.applyConflictResolution(conflicts, resolution, entriesToUpload, entriesToDownload);
         }
         
         // Upload local changes
@@ -257,10 +258,15 @@ class SyncManager {
 
     entriesAreDifferent(entry1, entry2) {
         // Compare key fields to detect differences
-        const fields = ['date', 'location', 'mileage', 'fuelCost', 'lodging', 'meals', 'other', 'notes'];
+        const fields = ['date', 'points', 'kms', 'perDiem', 'hotelExpense', 'gasExpense', 'foodExpense', 'locations', 'notes'];
         
         for (const field of fields) {
-            if (entry1[field] !== entry2[field]) {
+            // Handle array fields (locations) specially
+            if (Array.isArray(entry1[field]) && Array.isArray(entry2[field])) {
+                if (JSON.stringify(entry1[field]) !== JSON.stringify(entry2[field])) {
+                    return true;
+                }
+            } else if (entry1[field] !== entry2[field]) {
                 return true;
             }
         }
@@ -290,6 +296,489 @@ class SyncManager {
         this.lastSyncTime = null;
         localStorage.removeItem('lastSyncTime');
         await this.performFullSync();
+    }
+
+    async showConflictResolutionDialog(conflicts) {
+        return new Promise((resolve) => {
+            // Create conflict resolution modal
+            const modal = this.createConflictModal(conflicts, resolve);
+            document.body.appendChild(modal);
+        });
+    }
+
+    createConflictModal(conflicts, resolve) {
+        const modal = document.createElement('div');
+        modal.className = 'conflict-modal';
+        modal.innerHTML = `
+            <div class="conflict-modal-content">
+                <h2>🔄 Sync Conflicts Detected</h2>
+                <p>Found ${conflicts.length} conflicting entries between your device and cloud storage.</p>
+                
+                <div class="conflict-options">
+                    <button id="overwrite-cloud" class="conflict-btn primary">📤 Overwrite Cloud (Keep Device Data)</button>
+                    <button id="overwrite-device" class="conflict-btn">📥 Overwrite Device (Keep Cloud Data)</button>
+                    <button id="choose-each" class="conflict-btn">🔍 Choose for Each Entry</button>
+                </div>
+                
+                <div id="individual-conflicts" style="display: none;">
+                    ${conflicts.map((conflict, index) => this.createConflictComparisonHTML(conflict, index)).join('')}
+                    <div class="conflict-actions">
+                        <button id="apply-choices" class="conflict-btn primary">Apply Choices</button>
+                        <button id="cancel-sync" class="conflict-btn">Cancel Sync</button>
+                    </div>
+                </div>
+            </div>
+            <div class="conflict-modal-overlay"></div>
+        `;
+
+        // Add event listeners
+        this.setupConflictModalListeners(modal, conflicts, resolve);
+        
+        return modal;
+    }
+
+    createConflictComparisonHTML(conflict, index) {
+        const local = conflict.local;
+        const cloud = conflict.cloud;
+        
+        const formatDate = (dateStr) => {
+            return new Date(dateStr).toLocaleString();
+        };
+        
+        return `
+            <div class="conflict-entry" data-index="${index}">
+                <h3>Entry for ${local.date}</h3>
+                <div class="conflict-comparison">
+                    <div class="conflict-option local">
+                        <h4>📱 Device Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(local.lastModified || local.createdAt)}</p>
+                            <p><strong>Points:</strong> ${local.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${local.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${local.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${local.hotelExpense || 0}, Gas: $${local.gasExpense || 0}, Food: $${local.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(local.locations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${local.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="local" checked> Keep Device Version</label>
+                    </div>
+                    <div class="conflict-option cloud">
+                        <h4>☁️ Cloud Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(cloud.lastModified || cloud.createdAt)}</p>
+                            <p><strong>Points:</strong> ${cloud.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${cloud.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${cloud.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${cloud.hotelExpense || 0}, Gas: $${cloud.gasExpense || 0}, Food: $${cloud.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(cloud.locations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${cloud.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="cloud"> Keep Cloud Version</label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupConflictModalListeners(modal, conflicts, resolve) {
+        const overwriteCloud = modal.querySelector('#overwrite-cloud');
+        const overwriteDevice = modal.querySelector('#overwrite-device');
+        const chooseEach = modal.querySelector('#choose-each');
+        const individualSection = modal.querySelector('#individual-conflicts');
+        const applyChoices = modal.querySelector('#apply-choices');
+        const cancelSync = modal.querySelector('#cancel-sync');
+
+        overwriteCloud?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-cloud' });
+        });
+
+        overwriteDevice?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-device' });
+        });
+
+        chooseEach?.addEventListener('click', () => {
+            individualSection.style.display = 'block';
+            overwriteCloud.style.display = 'none';
+            overwriteDevice.style.display = 'none';
+            chooseEach.style.display = 'none';
+        });
+
+        applyChoices?.addEventListener('click', () => {
+            const choices = [];
+            conflicts.forEach((_, index) => {
+                const selected = modal.querySelector(`input[name="conflict-${index}"]:checked`);
+                choices.push(selected ? selected.value : 'local');
+            });
+            this.removeConflictModal(modal);
+            resolve({ type: 'individual', choices });
+        });
+
+        cancelSync?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'cancel' });
+        });
+    }
+
+    removeConflictModal(modal) {
+        if (modal && modal.parentNode) {
+            modal.parentNode.removeChild(modal);
+        }
+    }
+
+    applyConflictResolution(conflicts, resolution, entriesToUpload, entriesToDownload) {
+        if (resolution.type === 'cancel') {
+            console.log('Sync cancelled by user');
+            throw new Error('Sync cancelled by user');
+        }
+
+        if (resolution.type === 'overwrite-cloud') {
+            // Keep all local versions (upload them)
+            conflicts.forEach(conflict => {
+                entriesToUpload.push(conflict.local);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping device data`);
+        } else if (resolution.type === 'overwrite-device') {
+            // Keep all cloud versions (download them)
+            conflicts.forEach(conflict => {
+                entriesToDownload.push(conflict.cloud);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping cloud data`);
+        } else if (resolution.type === 'individual') {
+            // Apply individual choices
+            conflicts.forEach((conflict, index) => {
+                const choice = resolution.choices[index];
+                if (choice === 'local') {
+                    entriesToUpload.push(conflict.local);
+                } else {
+                    entriesToDownload.push(conflict.cloud);
+                }
+            });
+            console.log(`Resolved ${conflicts.length} conflicts individually`);
+        }
+    }
+
+    async showConflictResolutionDialog(conflicts) {
+        return new Promise((resolve) => {
+            // Create conflict resolution modal
+            const modal = this.createConflictModal(conflicts, resolve);
+            document.body.appendChild(modal);
+        });
+    }
+
+    createConflictModal(conflicts, resolve) {
+        const modal = document.createElement('div');
+        modal.className = 'conflict-modal';
+        modal.innerHTML = `
+            <div class="conflict-modal-content">
+                <h2>🔄 Sync Conflicts Detected</h2>
+                <p>Found ${conflicts.length} conflicting entries between your device and cloud storage.</p>
+                
+                <div class="conflict-options">
+                    <button id="overwrite-cloud" class="conflict-btn primary">📤 Overwrite Cloud (Keep Device Data)</button>
+                    <button id="overwrite-device" class="conflict-btn">📥 Overwrite Device (Keep Cloud Data)</button>
+                    <button id="choose-each" class="conflict-btn">🔍 Choose for Each Entry</button>
+                </div>
+                
+                <div id="individual-conflicts" style="display: none;">
+                    ${conflicts.map((conflict, index) => this.createConflictComparisonHTML(conflict, index)).join('')}
+                    <div class="conflict-actions">
+                        <button id="apply-choices" class="conflict-btn primary">Apply Choices</button>
+                        <button id="cancel-sync" class="conflict-btn">Cancel Sync</button>
+                    </div>
+                </div>
+            </div>
+            <div class="conflict-modal-overlay"></div>
+        `;
+
+        // Add event listeners
+        this.setupConflictModalListeners(modal, conflicts, resolve);
+        
+        return modal;
+    }
+
+    createConflictComparisonHTML(conflict, index) {
+        const local = conflict.local;
+        const cloud = conflict.cloud;
+        
+        const formatDate = (dateStr) => {
+            return new Date(dateStr).toLocaleString();
+        };
+        
+        return `
+            <div class="conflict-entry" data-index="${index}">
+                <h3>Entry for ${local.date}</h3>
+                <div class="conflict-comparison">
+                    <div class="conflict-option local">
+                        <h4>📱 Device Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(local.lastModified || local.createdAt)}</p>
+                            <p><strong>Points:</strong> ${local.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${local.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${local.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${local.hotelExpense || 0}, Gas: $${local.gasExpense || 0}, Food: $${local.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(local.landLocations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${local.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="local" checked> Keep Device Version</label>
+                    </div>
+                    <div class="conflict-option cloud">
+                        <h4>☁️ Cloud Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(cloud.lastModified || cloud.createdAt)}</p>
+                            <p><strong>Points:</strong> ${cloud.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${cloud.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${cloud.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${cloud.hotelExpense || 0}, Gas: $${cloud.gasExpense || 0}, Food: $${cloud.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(cloud.landLocations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${cloud.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="cloud"> Keep Cloud Version</label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupConflictModalListeners(modal, conflicts, resolve) {
+        const overwriteCloud = modal.querySelector('#overwrite-cloud');
+        const overwriteDevice = modal.querySelector('#overwrite-device');
+        const chooseEach = modal.querySelector('#choose-each');
+        const individualSection = modal.querySelector('#individual-conflicts');
+        const applyChoices = modal.querySelector('#apply-choices');
+        const cancelSync = modal.querySelector('#cancel-sync');
+
+        overwriteCloud?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-cloud' });
+        });
+
+        overwriteDevice?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-device' });
+        });
+
+        chooseEach?.addEventListener('click', () => {
+            individualSection.style.display = 'block';
+            overwriteCloud.style.display = 'none';
+            overwriteDevice.style.display = 'none';
+            chooseEach.style.display = 'none';
+        });
+
+        applyChoices?.addEventListener('click', () => {
+            const choices = [];
+            conflicts.forEach((_, index) => {
+                const selected = modal.querySelector(`input[name="conflict-${index}"]:checked`);
+                choices.push(selected ? selected.value : 'local');
+            });
+            this.removeConflictModal(modal);
+            resolve({ type: 'individual', choices });
+        });
+
+        cancelSync?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'cancel' });
+        });
+    }
+
+    removeConflictModal(modal) {
+        if (modal && modal.parentNode) {
+            modal.parentNode.removeChild(modal);
+        }
+    }
+
+    applyConflictResolution(conflicts, resolution, entriesToUpload, entriesToDownload) {
+        if (resolution.type === 'cancel') {
+            console.log('Sync cancelled by user');
+            throw new Error('Sync cancelled by user');
+        }
+
+        if (resolution.type === 'overwrite-cloud') {
+            // Keep all local versions (upload them)
+            conflicts.forEach(conflict => {
+                entriesToUpload.push(conflict.local);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping device data`);
+        } else if (resolution.type === 'overwrite-device') {
+            // Keep all cloud versions (download them)
+            conflicts.forEach(conflict => {
+                entriesToDownload.push(conflict.cloud);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping cloud data`);
+        } else if (resolution.type === 'individual') {
+            // Apply individual choices
+            conflicts.forEach((conflict, index) => {
+                const choice = resolution.choices[index];
+                if (choice === 'local') {
+                    entriesToUpload.push(conflict.local);
+                } else {
+                    entriesToDownload.push(conflict.cloud);
+                }
+            });
+            console.log(`Resolved ${conflicts.length} conflicts individually`);
+        }
+    }
+
+    async showConflictResolutionDialog(conflicts) {
+        return new Promise((resolve) => {
+            // Create conflict resolution modal
+            const modal = this.createConflictModal(conflicts, resolve);
+            document.body.appendChild(modal);
+        });
+    }
+
+    createConflictModal(conflicts, resolve) {
+        const modal = document.createElement('div');
+        modal.className = 'conflict-modal';
+        modal.innerHTML = `
+            <div class="conflict-modal-content">
+                <h2>🔄 Sync Conflicts Detected</h2>
+                <p>Found ${conflicts.length} conflicting entries between your device and cloud storage.</p>
+                
+                <div class="conflict-options">
+                    <button id="overwrite-cloud" class="conflict-btn primary">📤 Overwrite Cloud (Keep Device Data)</button>
+                    <button id="overwrite-device" class="conflict-btn">📥 Overwrite Device (Keep Cloud Data)</button>
+                    <button id="choose-each" class="conflict-btn">🔍 Choose for Each Entry</button>
+                </div>
+                
+                <div id="individual-conflicts" style="display: none;">
+                    ${conflicts.map((conflict, index) => this.createConflictComparisonHTML(conflict, index)).join('')}
+                    <div class="conflict-actions">
+                        <button id="apply-choices" class="conflict-btn primary">Apply Choices</button>
+                        <button id="cancel-sync" class="conflict-btn">Cancel Sync</button>
+                    </div>
+                </div>
+            </div>
+            <div class="conflict-modal-overlay"></div>
+        `;
+
+        // Add event listeners
+        this.setupConflictModalListeners(modal, conflicts, resolve);
+        
+        return modal;
+    }
+
+    createConflictComparisonHTML(conflict, index) {
+        const local = conflict.local;
+        const cloud = conflict.cloud;
+        
+        const formatDate = (dateStr) => {
+            return new Date(dateStr).toLocaleString();
+        };
+        
+        return `
+            <div class="conflict-entry" data-index="${index}">
+                <h3>Entry for ${local.date}</h3>
+                <div class="conflict-comparison">
+                    <div class="conflict-option local">
+                        <h4>📱 Device Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(local.lastModified || local.createdAt)}</p>
+                            <p><strong>Points:</strong> ${local.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${local.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${local.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${local.hotelExpense || 0}, Gas: $${local.gasExpense || 0}, Food: $${local.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(local.landLocations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${local.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="local" checked> Keep Device Version</label>
+                    </div>
+                    <div class="conflict-option cloud">
+                        <h4>☁️ Cloud Version</h4>
+                        <div class="entry-details">
+                            <p><strong>Last Modified:</strong> ${formatDate(cloud.lastModified || cloud.createdAt)}</p>
+                            <p><strong>Points:</strong> ${cloud.points || 0}</p>
+                            <p><strong>Kilometers:</strong> ${cloud.kms || 0}</p>
+                            <p><strong>Per Diem:</strong> ${cloud.perDiem || 'none'}</p>
+                            <p><strong>Expenses:</strong> Hotel: $${cloud.hotelExpense || 0}, Gas: $${cloud.gasExpense || 0}, Food: $${cloud.foodExpense || 0}</p>
+                            <p><strong>Locations:</strong> ${(cloud.landLocations || []).join(', ') || 'None'}</p>
+                            <p><strong>Notes:</strong> ${cloud.notes || 'None'}</p>
+                        </div>
+                        <label><input type="radio" name="conflict-${index}" value="cloud"> Keep Cloud Version</label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupConflictModalListeners(modal, conflicts, resolve) {
+        const overwriteCloud = modal.querySelector('#overwrite-cloud');
+        const overwriteDevice = modal.querySelector('#overwrite-device');
+        const chooseEach = modal.querySelector('#choose-each');
+        const individualSection = modal.querySelector('#individual-conflicts');
+        const applyChoices = modal.querySelector('#apply-choices');
+        const cancelSync = modal.querySelector('#cancel-sync');
+
+        overwriteCloud?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-cloud' });
+        });
+
+        overwriteDevice?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'overwrite-device' });
+        });
+
+        chooseEach?.addEventListener('click', () => {
+            individualSection.style.display = 'block';
+            overwriteCloud.style.display = 'none';
+            overwriteDevice.style.display = 'none';
+            chooseEach.style.display = 'none';
+        });
+
+        applyChoices?.addEventListener('click', () => {
+            const choices = [];
+            conflicts.forEach((_, index) => {
+                const selected = modal.querySelector(`input[name="conflict-${index}"]:checked`);
+                choices.push(selected ? selected.value : 'local');
+            });
+            this.removeConflictModal(modal);
+            resolve({ type: 'individual', choices });
+        });
+
+        cancelSync?.addEventListener('click', () => {
+            this.removeConflictModal(modal);
+            resolve({ type: 'cancel' });
+        });
+    }
+
+    removeConflictModal(modal) {
+        if (modal && modal.parentNode) {
+            modal.parentNode.removeChild(modal);
+        }
+    }
+
+    applyConflictResolution(conflicts, resolution, entriesToUpload, entriesToDownload) {
+        if (resolution.type === 'cancel') {
+            console.log('Sync cancelled by user');
+            throw new Error('Sync cancelled by user');
+        }
+
+        if (resolution.type === 'overwrite-cloud') {
+            // Keep all local versions (upload them)
+            conflicts.forEach(conflict => {
+                entriesToUpload.push(conflict.local);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping device data`);
+        } else if (resolution.type === 'overwrite-device') {
+            // Keep all cloud versions (download them)
+            conflicts.forEach(conflict => {
+                entriesToDownload.push(conflict.cloud);
+            });
+            console.log(`Resolved ${conflicts.length} conflicts: keeping cloud data`);
+        } else if (resolution.type === 'individual') {
+            // Apply individual choices
+            conflicts.forEach((conflict, index) => {
+                const choice = resolution.choices[index];
+                if (choice === 'local') {
+                    entriesToUpload.push(conflict.local);
+                } else {
+                    entriesToDownload.push(conflict.cloud);
+                }
+            });
+            console.log(`Resolved ${conflicts.length} conflicts individually`);
+        }
     }
 
     showPermissionError() {

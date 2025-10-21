@@ -74,8 +74,16 @@ async function saveEntry() {
         expenses,
         landLocations,
         timestamp: new Date().getTime(), // Track when entry was created/modified
-        lastModified: new Date().toISOString() // ISO string for cloud sync
+        lastModified: new Date().toISOString(), // ISO string for cloud sync
+        createdAt: entryId ? undefined : new Date().toISOString() // Only set on new entries
     };
+    
+    // Remove undefined values
+    Object.keys(entry).forEach(key => {
+        if (entry[key] === undefined) {
+            delete entry[key];
+        }
+    });
 
     // Attempt to save entry to database with error handling
     try {
