@@ -270,24 +270,42 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
 
 /**
  * Migrates data from old local storage to cloud-first architecture
- * Preserves existing local data by uploading it to cloud before clearing local storage
+ * Uses device-specific tracking to handle multiple user devices
  */
 async function migrateToCloudFirst() {
     try {
-        console.log('🔄 Starting migration to cloud-first architecture...');
+        console.log('🔄 Starting device-specific migration to cloud-first architecture...');
         
-        // Check if migration has already been completed
-        const migrationComplete = localStorage.getItem('cloudFirstMigrationComplete');
-        if (migrationComplete === 'true') {
-            console.log('✅ Migration already completed, skipping...');
+        // Since migration is now called after authManager initialization, this should always pass
+        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
+            console.error('❌ CRITICAL: Migration called without authentication! This indicates a timing bug.');
+            console.log('Auth Manager state:', {
+                exists: !!window.authManager,
+                currentUser: !!window.authManager?.getCurrentUser(),
+                emailVerified: window.authManager?.isEmailVerified()
+            });
             return;
         }
         
-                // Ensure user is authenticated before migrating data\n        // Since migration is now called after authManager initialization, this should always pass\n        if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {\n            console.error('❌ CRITICAL: Migration called without authentication! This indicates a timing bug.');\n            console.log('Auth Manager state:', {\n                exists: !!window.authManager,\n                currentUser: !!window.authManager?.getCurrentUser(),\n                emailVerified: window.authManager?.isEmailVerified()\n            });\n            return;\n        }
-        
         const userId = window.authManager.getCurrentUser().uid;
-        let migratedEntries = 0;
-        let migratedSettings = false;
+        const deviceId = getDeviceId();
+        
+        // Register this device if not already registered
+        await registerDevice(userId, deviceId);
+        
+        // Check if this device has already completed migration
+        const alreadyMigrated = await hasDeviceCompletedMigration(userId, deviceId);
+        if (alreadyMigrated) {
+            console.log('✅ This device has already completed migration, skipping...');
+            return;
+        }
+        
+        let migrationResults = {
+            migratedEntries: 0,
+            skippedEntries: 0,
+            conflictedEntries: 0,
+            attempts: 1
+        };
         
         // Migrate old entries to cloud
         try {
@@ -392,6 +410,20 @@ async function migrateToCloudFirst() {
     } catch (error) {
         console.error('❌ Migration failed:', error);
         
+        // Try to update device status even if migration failed
+        try {
+            const userId = window.authManager?.getCurrentUser()?.uid;
+            const deviceId = getDeviceId();
+            if (userId && deviceId) {
+                await updateDeviceMigrationStatus(userId, deviceId, 'failed', {
+                    error: error.message,
+                    attempts: 1
+                });
+            }
+        } catch (statusError) {
+            console.warn('Could not update device status after migration failure:', statusError);
+        }
+        
         // Show error notification but don't block app
         if (window.uiManager && window.uiManager.showNotification) {
             window.uiManager.showNotification('⚠️ Some data migration failed. Contact support if you\'re missing data.', true, 8000);
@@ -410,8 +442,12 @@ async function checkForOldData() {
             return;
         }
         
-        const migrationComplete = localStorage.getItem('cloudFirstMigrationComplete');
-        if (migrationComplete === 'true') {
+        const userId = window.authManager.getCurrentUser().uid;
+        const deviceId = getDeviceId();
+        
+        // Check if this device has already completed migration
+        const migrationComplete = await hasDeviceCompletedMigration(userId, deviceId);
+        if (migrationComplete) {
             return; // Already migrated
         }
         
@@ -424,8 +460,12 @@ async function checkForOldData() {
             // Auto-migrate data to preserve it
             await migrateToCloudFirst();
         } else {
-            // No old data, just mark migration complete
-            localStorage.setItem('cloudFirstMigrationComplete', 'true');
+            // No old data, just mark migration complete for this device
+            await updateDeviceMigrationStatus(userId, deviceId, 'completed', {
+                migratedEntries: 0,
+                conflictedEntries: 0,
+                migratedSettings: false
+            });
         }
     } catch (error) {
         console.warn('Could not check for old data:', error);
