@@ -197,3 +197,117 @@ AFTER:  authTabs.removeAttribute('style') (allows CSS flex to work)
 - **Professional Appearance**: Properly aligned login buttons and forms
 - **Responsive Design**: Consistent layout across mobile and desktop
 - **Brand Consistency**: UI matches design standards throughout the app
+
+---
+
+## [2.5.0] - 2025-10-21 - MINOR: Email Alias & Username Support
+
+### 🏢 **Clear Connections Employee Experience Enhancement**
+**Business Impact**: Dramatically improves signin experience for field workers with flexible email/username options.
+
+#### New Features
+- **Username-Only Signin**: Workers can sign in with just 'joeblow' instead of full email
+- **Email Alias Support**: All Clear Connections domains work (@clearconnectionsc.ca, @clearconn.ca, @clearconnectionsltd.ca)
+- **Cross-Alias Authentication**: Sign up with one domain, sign in with any alias
+- **Canonical Account Creation**: All accounts created with primary domain for consistency
+
+#### Authentication Workflow
+- **Signup**: Always creates account with @clearconnectionsc.ca (canonical)
+- **Signin Options**: 
+  - Username only: `joeblow` (tries all domain aliases)
+  - Any company email: `joeblow@clearconn.ca`, `joeblow@clearconnectionsltd.ca`
+  - Original email: `joeblow@clearconnectionsc.ca`
+
+#### Technical Implementation
+- **Email Normalization**: `normalizeEmailInput()` handles username-only and validation
+- **Alias Resolution**: `getEmailAliases()` generates all possible email variations
+- **Sequential Signin**: Tries each alias until authentication succeeds
+- **Domain Validation**: Ensures only Clear Connections domains accepted
+
+#### Files Modified
+- `scripts/login.js` - Complete email alias system with username support
+- `login.html` - Updated placeholders and helper text for new functionality
+- `sw.js` - Version increment to `v2.5.0-secure`
+- `CHANGELOG.md` - This feature documentation
+
+#### User Experience Examples
+```
+Signup: joeblow@clearconn.ca → Account: joeblow@clearconnectionsc.ca
+Signin Options:
+  - 'joeblow' ✅
+  - 'joeblow@clearconn.ca' ✅  
+  - 'joeblow@clearconnectionsltd.ca' ✅
+  - 'joeblow@clearconnectionsc.ca' ✅
+```
+
+#### Clear Connections Benefits
+- **Simplified Access**: Workers remember just their username
+- **Flexible Email**: Any company domain alias works for signin
+- **Reduced Support**: No confusion about which email to use
+- **Professional Workflow**: Matches how employees actually use email aliases
+
+---
+
+## [2.5.1] - 2025-10-21 - PATCH: Email Branding Update
+
+### 📧 **Professional Email Communication**
+**Business Impact**: Verification emails now properly represent Clear Connections Contracting Ltd Management instead of generic Firebase branding.
+
+#### Branding Enhancements
+- **Professional Sender**: Emails now appear from Clear Connections Contracting Ltd Management
+- **Company Consistency**: Email branding matches company identity and standards
+- **Employee Recognition**: Workers receive emails from recognizable company source
+- **Trust Building**: Professional communication reinforces app legitimacy
+
+#### Technical Implementation
+- **Action Code Settings**: Added `EMAIL_ACTION_CODE_SETTINGS` with company branding configuration
+- **Verification Emails**: Both signup and resend verification use Clear Connections branding
+- **Redirect Handling**: Proper post-verification redirect to ProfitTracker dashboard
+- **Console Messaging**: Updated logging to reflect professional email source
+
+#### Files Modified
+- `scripts/login.js` - Added email branding configuration and updated verification calls
+- `sw.js` - Version increment to `v2.5.1-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### User Experience
+- **Before**: Generic "noreply@profittrackerccc.firebaseapp.com" sender
+- **After**: Professional "Clear Connections Contracting Ltd Management" branding
+- **Recognition**: Employees immediately recognize company communication
+- **Professionalism**: Email appears as official company correspondence
+
+#### Clear Connections Benefits
+- **Brand Consistency**: All communications reflect company identity
+- **Employee Trust**: Professional emails build confidence in the system
+- **Reduced Confusion**: Clear company sender prevents spam concerns
+- **Corporate Standards**: Maintains professional communication protocols
+
+---
+
+## [2.5.2] - 2025-10-21 - PATCH: Login Visual Enhancement
+
+### 💸 **Improved Brand Recognition**
+**Business Impact**: Login screen now uses money emoji (💸) that better represents profit tracking for Clear Connections employees.
+
+#### Visual Improvements
+- **Title Emoji**: Changed from 🎯 (target) to 💸 (money with wings)
+- **Thematic Consistency**: Emoji now directly represents profit/earnings tracking
+- **Visual Recognition**: Clearer connection to financial/profit management
+- **Employee Understanding**: Immediate visual cue about app purpose
+
+#### Files Modified
+- `login.html` - Updated ProfitTracker title emoji from 🎯 to 💸
+- `sw.js` - Version increment to `v2.5.2-secure`
+- `CHANGELOG.md` - This patch documentation
+
+#### User Experience
+- **Before**: 🎯 ProfitTracker (target/goal metaphor)
+- **After**: 💸 ProfitTracker (direct profit/money representation)
+- **Clarity**: Immediate visual understanding of app's financial purpose
+- **Branding**: Better alignment with profit tracking functionality
+
+#### Clear Connections Benefits
+- **Visual Clarity**: Employees immediately understand app's profit focus
+- **Professional Appearance**: Money emoji reinforces financial management purpose
+- **Brand Alignment**: Visual consistency with profit tracking mission
+- **User Recognition**: Clear connection between emoji and app functionality
