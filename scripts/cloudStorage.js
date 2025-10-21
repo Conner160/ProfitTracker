@@ -5,12 +5,12 @@
  */
 
 /**
- * Saves an entry to Firestore
+ * Saves an entry to Firestore using date as document ID
  * @async
  * @function saveEntryToCloud
  * @param {string} userId - User ID
  * @param {Object} entry - Entry object to save
- * @returns {Promise<string>} Document ID of the saved entry
+ * @returns {Promise<string>} Date of the saved entry
  */
 async function saveEntryToCloud(userId, entry) {
     try {
@@ -21,11 +21,11 @@ async function saveEntryToCloud(userId, entry) {
             cloudCreatedAt: entry.cloudCreatedAt || new Date()
         };
         
-        const entriesRef = window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'entries');
-        const docRef = await window.firebaseModules.addDoc(entriesRef, entryWithMetadata);
+        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', entry.date);
+        await window.firebaseModules.setDoc(entryRef, entryWithMetadata);
         
-        console.log('☁️ Entry saved to cloud:', docRef.id);
-        return docRef.id;
+        console.log('☁️ Entry saved to cloud:', entry.date);
+        return entry.date;
     } catch (error) {
         console.error('❌ Error saving entry to cloud:', error);
         throw error;
@@ -37,21 +37,21 @@ async function saveEntryToCloud(userId, entry) {
  * @async
  * @function updateEntryInCloud
  * @param {string} userId - User ID
- * @param {string} entryId - Entry document ID
+ * @param {string} date - Entry date (YYYY-MM-DD)
  * @param {Object} entry - Updated entry object
  * @returns {Promise<void>}
  */
-async function updateEntryInCloud(userId, entryId, entry) {
+async function updateEntryInCloud(userId, date, entry) {
     try {
         const entryWithMetadata = {
             ...entry,
             cloudUpdatedAt: new Date()
         };
         
-        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', entryId);
+        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         await window.firebaseModules.updateDoc(entryRef, entryWithMetadata);
         
-        console.log('☁️ Entry updated in cloud:', entryId);
+        console.log('☁️ Entry updated in cloud:', date);
     } catch (error) {
         console.error('❌ Error updating entry in cloud:', error);
         throw error;
@@ -63,15 +63,15 @@ async function updateEntryInCloud(userId, entryId, entry) {
  * @async
  * @function deleteEntryFromCloud
  * @param {string} userId - User ID
- * @param {string} entryId - Entry document ID
+ * @param {string} date - Entry date (YYYY-MM-DD)
  * @returns {Promise<void>}
  */
-async function deleteEntryFromCloud(userId, entryId) {
+async function deleteEntryFromCloud(userId, date) {
     try {
-        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', entryId);
+        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         await window.firebaseModules.deleteDoc(entryRef);
         
-        console.log('☁️ Entry deleted from cloud:', entryId);
+        console.log('☁️ Entry deleted from cloud:', date);
     } catch (error) {
         console.error('❌ Error deleting entry from cloud:', error);
         throw error;
@@ -93,8 +93,7 @@ async function getAllEntriesFromCloud(userId) {
         const entries = [];
         querySnapshot.forEach((doc) => {
             entries.push({
-                id: doc.id,
-                cloudId: doc.id,
+                date: doc.id, // Date is the document ID
                 ...doc.data()
             });
         });
@@ -112,18 +111,17 @@ async function getAllEntriesFromCloud(userId) {
  * @async
  * @function getEntryFromCloud
  * @param {string} userId - User ID
- * @param {string} entryId - Entry document ID
+ * @param {string} date - Entry date (YYYY-MM-DD)
  * @returns {Promise<Object|null>} Entry object or null if not found
  */
-async function getEntryFromCloud(userId, entryId) {
+async function getEntryFromCloud(userId, date) {
     try {
-        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', entryId);
+        const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         const docSnap = await window.firebaseModules.getDoc(entryRef);
         
         if (docSnap.exists()) {
             return {
-                id: docSnap.id,
-                cloudId: docSnap.id,
+                date: docSnap.id, // Date is the document ID
                 ...docSnap.data()
             };
         } else {
@@ -208,8 +206,7 @@ function setupEntriesListener(userId, callback) {
             const entries = [];
             querySnapshot.forEach((doc) => {
                 entries.push({
-                    id: doc.id,
-                    cloudId: doc.id,
+                    date: doc.id, // Date is the document ID
                     ...doc.data()
                 });
             });

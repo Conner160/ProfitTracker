@@ -320,7 +320,7 @@ class SyncManager {
         if (entriesToDownload.length > 0) {
             console.log(`Downloading ${entriesToDownload.length} cloud changes...`);
             for (const entry of entriesToDownload) {
-                await window.dbFunctions.updateEntry(entry.id, entry);
+                await window.dbFunctions.updateEntry(entry.date, entry);
             }
         }
         
@@ -348,9 +348,7 @@ class SyncManager {
         return false;
     }
 
-    generateLocalId() {
-        return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    }
+    // generateLocalId method removed - using dates as primary keys
 
     updateLastSyncTime() {
         this.lastSyncTime = new Date().toISOString();

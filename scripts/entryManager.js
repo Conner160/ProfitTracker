@@ -513,55 +513,16 @@ function initializeDate() {
 
 /**
  * Removes duplicate entries for the same date, keeping the most recent one
- * This function can be called to clean up any duplicate entries that may have been created
+ * NOTE: This function is no longer needed since entries now use date as primary key,
+ * which automatically prevents duplicates.
  * 
  * @async
  * @function removeDuplicateEntries
- * @returns {Promise<number>} Number of duplicate entries removed
+ * @returns {Promise<number>} Always returns 0 (no duplicates possible)
  */
 async function removeDuplicateEntries() {
-    try {
-        const allEntries = await window.dbFunctions.getAllFromDB('entries');
-        const dateGroups = {};
-        let duplicatesRemoved = 0;
-        
-        // Group entries by date
-        allEntries.forEach(entry => {
-            if (!dateGroups[entry.date]) {
-                dateGroups[entry.date] = [];
-            }
-            dateGroups[entry.date].push(entry);
-        });
-        
-        // For each date with multiple entries, keep the most recent one
-        for (const date in dateGroups) {
-            const entries = dateGroups[date];
-            if (entries.length > 1) {
-                // Sort by lastModified timestamp, keep the most recent
-                entries.sort((a, b) => new Date(b.lastModified || 0) - new Date(a.lastModified || 0));
-                const keepEntry = entries[0];
-                const removeEntries = entries.slice(1);
-                
-                // Delete the older duplicates
-                for (const entry of removeEntries) {
-                    await window.dbFunctions.deleteFromDB('entries', entry.id);
-                    duplicatesRemoved++;
-                    console.log(`Removed duplicate entry for ${date}:`, entry.id);
-                }
-            }
-        }
-        
-        if (duplicatesRemoved > 0) {
-            window.uiManager.showNotification(`Removed ${duplicatesRemoved} duplicate entries`);
-            loadEntries(); // Refresh the display
-        }
-        
-        return duplicatesRemoved;
-    } catch (error) {
-        console.error('Error removing duplicate entries:', error);
-        window.uiManager.showNotification('Error cleaning up duplicate entries', true);
-        return 0;
-    }
+    window.uiManager.showNotification('No duplicate cleanup needed - entries use date as unique key');
+    return 0;
 }
 
 // Make functions available globally
