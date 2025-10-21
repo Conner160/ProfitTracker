@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProfitTracker - Sign In</title>
-    
+
     <!-- PWA Meta Tags -->
     <meta name="application-name" content="ProfitTracker">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,21 +15,21 @@
     <meta name="format-detection" content="telephone=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#2196F3">
-    
+
     <!-- Icons -->
     <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192x192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192x192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="images/icon-512x512.png">
     <link rel="shortcut icon" href="images/icon-192x192.png">
-    
+
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="styles/base.css">
     <link rel="stylesheet" href="styles/forms.css">
     <link rel="stylesheet" href="styles/utilities.css">
-    
+
     <style>
         /* Login-specific styles */
         body {
@@ -201,8 +202,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .footer-text {
@@ -220,6 +226,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-header">
@@ -243,13 +250,11 @@
         <form class="auth-form active" id="signin-form" style="display: none;">
             <div class="form-group">
                 <label for="signin-email">Email Address</label>
-                <input type="email" id="signin-email" required 
-                       placeholder="your.email@clearconnectionsc.ca">
+                <input type="email" id="signin-email" required placeholder="your.email@clearconnectionsc.ca">
             </div>
             <div class="form-group">
                 <label for="signin-password">Password</label>
-                <input type="password" id="signin-password" required 
-                       placeholder="Enter your password">
+                <input type="password" id="signin-password" required placeholder="Enter your password">
             </div>
             <button type="submit" class="auth-button" id="signin-button">
                 Sign In
@@ -260,21 +265,19 @@
         <form class="auth-form" id="signup-form" style="display: none;">
             <div class="form-group">
                 <label for="signup-email">Company Email Address</label>
-                <input type="email" id="signup-email" required 
-                       placeholder="your.email@clearconnectionsc.ca">
+                <input type="email" id="signup-email" required placeholder="your.email@clearconnectionsc.ca">
                 <small style="color: #666; font-size: 0.8rem;">
                     Must be a @clearconnectionsc.ca, @clearconn.ca, or @clearconnectionsltd.ca email
                 </small>
             </div>
             <div class="form-group">
                 <label for="signup-password">Password</label>
-                <input type="password" id="signup-password" required 
-                       placeholder="Create a secure password" minlength="6">
+                <input type="password" id="signup-password" required placeholder="Create a secure password"
+                    minlength="6">
             </div>
             <div class="form-group">
                 <label for="signup-confirm">Confirm Password</label>
-                <input type="password" id="signup-confirm" required 
-                       placeholder="Confirm your password">
+                <input type="password" id="signup-confirm" required placeholder="Confirm your password">
             </div>
             <button type="submit" class="auth-button" id="signup-button">
                 Create Account
@@ -337,4 +340,5 @@
     <!-- Login Logic -->
     <script src="scripts/login.js"></script>
 </body>
+
 </html>
