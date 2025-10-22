@@ -343,19 +343,20 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js"></script>
-
-    <!-- Firebase Auth Provider Import -->
-    <script>
-        // Make OAuthProvider available globally after Firebase auth is loaded
-        window.OAuthProvider = firebase.auth.OAuthProvider;
-    </script>
+    <!-- Firebase SDKs - Compat versions for script tag loading -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
     <!-- Environment Configuration -->
-    <script src="config/env.js"></script>
+    <script>
+        // Only load env.js if not already loaded to prevent redeclaration errors
+        if (!window.ENV_CONFIG) {
+            const envScript = document.createElement('script');
+            envScript.src = 'config/env.js';
+            document.head.appendChild(envScript);
+        }
+    </script>
 
     <!-- Enhanced Login Script -->
     <script>
@@ -375,12 +376,17 @@
          */
         async function initializeApp() {
             try {
-                window.secureLog.info('[LOGIN] Initializing Microsoft SSO login for Clear Connections...');
+                // Wait for Firebase to be available
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase not loaded');
+                }
 
                 // Wait for environment config
                 if (!window.ENV_CONFIG) {
                     throw new Error('Environment configuration not loaded');
                 }
+
+                window.secureLog.info('[LOGIN] Initializing Microsoft SSO login for Clear Connections...');
 
                 // Initialize Firebase
                 window.firebaseModules = {
@@ -464,8 +470,8 @@
 
                 window.secureLog.info('[LOGIN] Starting Microsoft SSO authentication...');
 
-                // Create Microsoft provider using the global OAuthProvider
-                const provider = new window.OAuthProvider('microsoft.com');
+                // Create Microsoft provider using Firebase compat API
+                const provider = new firebase.auth.OAuthProvider('microsoft.com');
                 provider.setCustomParameters({
                     tenant: window.ENV_CONFIG.MICROSOFT.tenantId,
                     prompt: 'select_account'
@@ -527,8 +533,25 @@
         // Event Listeners
         microsoftSigninBtn.addEventListener('click', handleMicrosoftSignIn);
 
-        // Initialize when DOM is ready
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        // Initialize when all dependencies are ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait a bit for all scripts to load
+            setTimeout(() => {
+                if (typeof firebase !== 'undefined' && window.ENV_CONFIG) {
+                    initializeApp();
+                } else {
+                    // Retry after a short delay
+                    setTimeout(() => {
+                        if (typeof firebase !== 'undefined' && window.ENV_CONFIG) {
+                            initializeApp();
+                        } else {
+                            console.error('Failed to load Firebase or environment configuration');
+                            showError('Failed to load required components. Please refresh the page.');
+                        }
+                    }, 1000);
+                }
+            }, 100);
+        });
 
         // Handle keyboard accessibility
         document.addEventListener('keydown', (event) => {
@@ -740,9 +763,6 @@ border-top: 1px solid #e0e0e0;
             }
         });
     </script>
-
-    <!-- Login Logic -->
-    <script src="scripts/login.js"></script>
 </body>
 
 </html>
