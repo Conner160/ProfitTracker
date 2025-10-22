@@ -327,7 +327,7 @@
     <script type="module">
         // Import Firebase functions - Updated to v10.13.0 for consistency
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
         import { getFirestore, doc, collection, addDoc, setDoc, updateDoc, deleteDoc, getDocs, getDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         // 🔒 Use environment-specific Firebase configuration
@@ -343,6 +343,7 @@
         window.firebaseDb = db;
         window.firebaseModules = {
             GoogleAuthProvider,
+            OAuthProvider,
             signInWithPopup,
             signInWithEmailAndPassword,
             createUserWithEmailAndPassword,

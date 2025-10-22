@@ -68,8 +68,8 @@ const ENV_CONFIG = {
 
     // 🔐 Microsoft Azure AD Configuration for SSO Integration
     MICROSOFT: {
-        clientId: "12345678-1234-1234-1234-123456789abc", // Replace with actual client ID from Azure
-        tenantId: "87654321-4321-4321-4321-cba987654321", // Replace with actual tenant ID from Azure
+        clientId: "b4741460-1291-419b-8bb3-b1be73e6e90a", // Replace with actual client ID from Azure
+        tenantId: "5ac07110-7b77-4ed3-a558-9f97eaa46f47", // Replace with actual tenant ID from Azure
         redirectUri: window.location.origin + "/ProfitTracker/",
         scopes: ["User.Read", "email", "openid", "profile"]
     },

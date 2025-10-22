@@ -31,7 +31,13 @@ function initializeMicrosoftProvider() {
             throw new Error('Microsoft configuration not found in ENV_CONFIG');
         }
 
-        microsoftProvider = new firebase.auth.OAuthProvider('microsoft.com');
+        if (!window.firebaseModules || !window.firebaseModules.OAuthProvider) {
+            throw new Error('Firebase modules not available for Microsoft provider initialization');
+        }
+
+        // Use the properly initialized Firebase auth modules
+        const OAuthProvider = window.firebaseModules.OAuthProvider;
+        microsoftProvider = new OAuthProvider('microsoft.com');
         microsoftProvider.setCustomParameters({
             tenant: window.ENV_CONFIG.MICROSOFT.tenantId, // Clear Connections tenant
             prompt: 'select_account' // Allow account switching for shared devices
@@ -86,8 +92,12 @@ async function signInWithMicrosoft() {
             throw new Error('Microsoft provider not initialized');
         }
 
-        // Perform Microsoft SSO authentication
-        const result = await firebase.auth().signInWithPopup(microsoftProvider);
+        if (!window.firebaseAuth) {
+            throw new Error('Firebase authentication not available');
+        }
+
+        // Perform Microsoft SSO authentication using the properly initialized Firebase auth
+        const result = await window.firebaseModules.signInWithPopup(window.firebaseAuth, microsoftProvider);
         const user = result.user;
         const credential = result.credential;
 
@@ -100,7 +110,7 @@ async function signInWithMicrosoft() {
         // Validate Clear Connections email domain
         if (!validateCompanyEmail(user.email)) {
             // Sign out immediately if not company email
-            await firebase.auth().signOut();
+            await window.firebaseModules.signOut(window.firebaseAuth);
             throw new Error(`Access denied. Please use your Clear Connections company email.`);
         }
 
@@ -847,7 +857,7 @@ function initializeAuthManager() {
     window.secureLog.info('[AUTH] 🔐 Initializing Microsoft SSO authentication manager...');
 
     // Wait for Firebase to be ready
-    if (!window.firebaseModules || !window.firebaseModules.auth) {
+    if (!window.firebaseModules || !window.firebaseModules.OAuthProvider) {
         window.secureLog.error('[AUTH] Firebase not ready for Microsoft provider initialization');
         return false;
     }
