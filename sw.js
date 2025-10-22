@@ -1,4 +1,4 @@
-const CACHE_NAME = 'profittracker-v2.5.2-secure';
+const CACHE_NAME = 'profittracker-v3.0.0-microsoft-sso';
 
 // 🔒 PRODUCTION MODE TOGGLE - Set to false for production deployment
 const IS_DEVELOPMENT = true; // Change to false for production
@@ -11,7 +11,7 @@ const secureLog = {
   info: (...args) => IS_DEVELOPMENT && console.info('[SW]', ...args)
 };
 
-// Security: Validate origin for all requests
+// Security: Validate origin for all requests - Enhanced for Microsoft SSO
 const ALLOWED_ORIGINS = [
   self.location.origin,
   'https://www.gstatic.com',
@@ -19,7 +19,9 @@ const ALLOWED_ORIGINS = [
   'https://firebaseapp.com',
   'https://firestore.googleapis.com',
   'https://identitytoolkit.googleapis.com',
-  'https://securetoken.googleapis.com'
+  'https://securetoken.googleapis.com',
+  'https://login.microsoftonline.com', // Microsoft SSO
+  'https://graph.microsoft.com'        // Microsoft Graph API
 ];
 
 // 🔒 Restricted Files - Block access to sensitive file

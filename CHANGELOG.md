@@ -4,6 +4,70 @@
 
 All notable changes to ProfitTracker will be documented in this file following semantic versioning (MAJOR.MINOR.PATCH).
 
+## [3.0.0] - 2025-10-22 - MICROSOFT 365 SSO INTEGRATION
+
+### 🔐 **MAJOR UPDATE: Authentication System Overhaul**
+**Business Impact**: One-click access for all Clear Connections employees using existing Microsoft 365 credentials.
+
+#### Added
+- **Microsoft 365 Single Sign-On**: Seamless authentication using company M365 credentials
+- **Azure AD Integration**: Enterprise-grade authentication infrastructure with company tenant isolation
+- **Enhanced Security Features**: Inherits M365 MFA, conditional access policies, and security monitoring
+- **Centralized User Management**: IT can manage ProfitTracker access directly through M365 Admin Center
+- **Professional Integration**: Consistent experience with Outlook, Teams, SharePoint, and other company tools
+
+#### Changed
+- **Authentication Method**: Replaced email/password system with Microsoft SSO popup flow
+- **Login Experience**: Modern Microsoft 365 branded interface with Clear Connections company information
+- **User Provisioning**: Automatic ProfitTracker access for employees added to M365 tenant
+- **Session Management**: Enhanced sign-out process with complete Microsoft session cleanup
+- **Domain Validation**: Company email verification now handled through Microsoft token claims
+
+#### Security Enhancements
+- **Enterprise Security**: All authentication now protected by Microsoft 365 enterprise security infrastructure
+- **Token Validation**: Azure AD token claims validation ensures only Clear Connections employees access system
+- **Enhanced CSP**: Updated Content Security Policy to allow Microsoft authentication endpoints
+- **Service Worker Security**: Added Microsoft domains to allowed origins for secure communication
+- **Complete Session Cleanup**: Sign-out process now clears all local data, cache, and service worker registrations
+
+#### Technical Implementation
+- **Azure AD App Registration**: ProfitTracker registered as official Clear Connections company application
+- **Firebase Microsoft Provider**: Configured Microsoft OAuth provider with company tenant restrictions
+- **Environment Configuration**: Added Microsoft client ID, tenant ID, and company domain validation
+- **Authentication Manager**: Complete rewrite supporting Microsoft provider initialization and domain validation
+- **Login Interface**: New Microsoft 365 branded login page with company-specific domain restrictions
+
+#### Files Modified
+- `config/env.js` - Added Microsoft Azure AD configuration and company domain validation
+- `scripts/authManager.js` - Complete rewrite with Microsoft SSO provider and enhanced security
+- `login.html` - New Microsoft 365 branded interface with enterprise security messaging
+- `sw.js` - Updated to v3.0.0-microsoft-sso with Microsoft domain allowlist
+- `.github/copilot-instructions.md` - Added Microsoft SSO integration documentation
+
+#### Business Benefits for Clear Connections
+- **Reduced IT Support**: Eliminates password reset requests and account lockout issues
+- **Enhanced Security**: Automatic inheritance of company-wide security policies and MFA requirements
+- **Simplified Onboarding**: New employees automatically get ProfitTracker access when added to M365
+- **Professional Experience**: Seamless integration with existing company authentication infrastructure
+- **Centralized Management**: Single control point for user access management through familiar M365 tools
+- **Audit Compliance**: All authentication events logged in M365 audit trail for compliance reporting
+
+#### Migration Notes
+- **Backward Compatibility**: Existing user data preserved during authentication system transition
+- **Zero Downtime**: Seamless cutover from email/password to Microsoft SSO
+- **User Communication**: Employees informed about new one-click sign-in experience
+- **Rollback Capability**: Emergency rollback procedures documented for business continuity
+
+#### Clear Connections Technical Specifications
+```
+Authentication Flow: Employee → Microsoft 365 → Azure AD → ProfitTracker
+Domain Validation: @clearconnectionsc.ca, @clearconn.ca, @clearconnectionsltd.ca
+Security Level: Enterprise M365 (MFA, Conditional Access, Security Monitoring)
+Management: M365 Admin Center → User Access → ProfitTracker Application
+```
+
+---
+
 ## [2.0.0] - 2025-10-21 - MAJOR ARCHITECTURE OVERHAUL
 
 ### 🏗️ **BREAKING CHANGES: Offline-First → Online-First Architecture**

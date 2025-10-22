@@ -64,7 +64,22 @@ const ENV_CONFIG = {
     FIREBASE: IS_DEVELOPMENT ? FIREBASE_CONFIG.development : FIREBASE_CONFIG.production,
     API_RATE_LIMIT: IS_DEVELOPMENT ? 1000 : 100, // Requests per minute
     CACHE_DURATION: IS_DEVELOPMENT ? 300 : 3600, // Cache duration in seconds
-    DEBUG_MODE: IS_DEVELOPMENT
+    DEBUG_MODE: IS_DEVELOPMENT,
+
+    // 🔐 Microsoft Azure AD Configuration for SSO Integration
+    MICROSOFT: {
+        clientId: "12345678-1234-1234-1234-123456789abc", // Replace with actual client ID from Azure
+        tenantId: "87654321-4321-4321-4321-cba987654321", // Replace with actual tenant ID from Azure
+        redirectUri: window.location.origin + "/ProfitTracker/",
+        scopes: ["User.Read", "email", "openid", "profile"]
+    },
+
+    // 🏢 Clear Connections Company Domain Validation
+    COMPANY_DOMAINS: [
+        'clearconnectionsc.ca',
+        'clearconn.ca',
+        'clearconnectionsltd.ca'
+    ]
 };
 
 // Make available globally
@@ -73,3 +88,4 @@ window.IS_DEVELOPMENT = IS_DEVELOPMENT;
 
 // Log environment detection (only in development)
 secureLog.info('Environment detected:', IS_DEVELOPMENT ? 'DEVELOPMENT' : 'PRODUCTION');
+secureLog.info('[ENV] Microsoft SSO configuration loaded for Clear Connections');
