@@ -708,68 +708,27 @@ border-top: 1px solid #e0e0e0;
         </div>
     </div>
 
-    <!-- Environment Configuration -->
-    <script src="config/env.js"></script>
-
-    <!-- Firebase Configuration -->
-    <script type="module">
-        // Import Firebase modules with integrity verification
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
-        import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-
-        // 🔒 Use environment-specific Firebase configuration
-        const firebaseConfig = window.ENV_CONFIG.FIREBASE;
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Make available globally for login script
-        window.firebaseApp = app;
-        window.firebaseAuth = auth;
-        window.firebaseDb = db;
-        window.firebaseModules = {
-            signInWithEmailAndPassword,
-            createUserWithEmailAndPassword,
-            sendEmailVerification,
-            onAuthStateChanged
-        };
-
-        window.secureLog.log('🔥 Firebase initialized for login page');
-    </script>
+    <!-- Firebase SDKs - Compat versions for script tag loading -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
     <script>
-        /**
-         * Toggles password visibility for a given input field
-         * @param {string} fieldId - The ID of the password input field
-         */
-        function togglePassword(fieldId) {
-            const passwordField = document.getElementById(fieldId);
-            const icon = document.getElementById(fieldId + '-icon');
-
-            if (passwordField && icon) {
-                if (passwordField.type === 'password') {
-                    passwordField.type = 'text';
-                    icon.textContent = '🙈';
-                    icon.setAttribute('aria-label', 'Hide password');
-                } else {
-                    passwordField.type = 'password';
-                    icon.textContent = '👁️';
-                    icon.setAttribute('aria-label', 'Show password');
-                }
-            }
-        }
-
-        // Add keyboard support for password toggles
-        document.addEventListener('keydown', function (e) {
-            if (e.target.classList.contains('password-toggle') && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                e.target.click();
-            }
-        });
+        window.secureLog.info('[LOGIN] Microsoft SSO login page loaded for Clear Connections');
     </script>
+</body>
+
+</html>
+}
+
+// Add keyboard support for password toggles
+document.addEventListener('keydown', function (e) {
+if (e.target.classList.contains('password-toggle') && (e.key === 'Enter' || e.key === ' ')) {
+e.preventDefault();
+e.target.click();
+}
+});
+</script>
 </body>
 
 </html>
