@@ -124,33 +124,450 @@
             font-size: 1.3em;
         }
 
-        .security-list {
+        .company-info p {
+            color: #495057;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .company-info ul {
             list-style: none;
             padding: 0;
-            margin: 0 0 15px 0;
+            margin: 15px 0;
         }
 
-        .security-list li {
-            padding: 6px 0;
-            color: #424242;
-            font-size: 0.9rem;
-            line-height: 1.4;
+        .company-info ul li {
+            background: #e9ecef;
+            margin: 5px 0;
+            padding: 8px 15px;
+            border-radius: 8px;
+            color: #495057;
+            font-weight: 500;
         }
 
-        .security-list li strong {
-            color: #2e7d32;
+        .microsoft-signin-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 15px 30px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 300px;
+            box-shadow: 0 4px 15px rgba(0, 120, 212, 0.3);
         }
 
-        .powered-by {
-            color: #666;
-            font-size: 0.8rem;
-            text-align: center;
-            display: block;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #e0e0e0;
+        .microsoft-signin-btn:hover {
+            background: #106ebe;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 120, 212, 0.4);
+        }
+
+        .microsoft-signin-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .microsoft-icon {
+            width: 24px;
+            height: 24px;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIHZpZXdCb3g9IjAgMCAyMSAyMSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMSIgeT0iMSIgd2lkdGg9IjkiIGhlaWdodD0iOSIgZmlsbD0iI0YyNTAyMiIvPgo8cmVjdCB4PSIxMSIgeT0iMSIgd2lkdGg9IjkiIGhlaWdodD0iOSIgZmlsbD0iIzdGQkEwMCIvPgo8cmVjdCB4PSIxIiB5PSIxMSIgd2lkdGg9IjkiIGhlaWdodD0iOSIgZmlsbD0iIzAwQTRFRiIvPgo8cmVjdCB4PSIxMSIgeT0iMTEiIHdpZHRoPSI5IiBoZWlnaHQ9IjkiIGZpbGw9IiNGRkI5MDAiLz4KPC9zdmc+');
+            background-size: contain;
+        }
+
+        .loading-spinner {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            padding: 30px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0078d4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-message {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+            font-weight: 500;
+        }
+
+        .signin-help {
+            background: #e7f3ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .signin-help p {
+            color: #0078d4;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .signin-help ul {
+            text-align: left;
+            color: #495057;
+            line-height: 1.6;
+        }
+
+        .signin-help ul li {
+            margin-bottom: 8px;
+        }
+
+        .login-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 0.9em;
+            color: #6c757d;
+            line-height: 1.5;
+        }
+
+        .login-footer p {
+            margin-bottom: 10px;
+        }
+
+        .copyright {
+            font-weight: 600;
+            color: #495057;
+            margin-top: 15px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .login-container {
+                padding: 30px 20px;
+                margin: 20px;
+            }
+
+            .login-header h1 {
+                font-size: 2em;
+            }
+
+            .microsoft-signin-btn {
+                min-width: 250px;
+                padding: 12px 20px;
+            }
         }
     </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <!-- Header with Clear Connections Branding -->
+        <div class="login-header">
+            <h1>💸 ProfitTracker</h1>
+            <div class="security-badge">
+                🔒 Secured by Microsoft 365 Enterprise
+            </div>
+            <p class="subtitle">Professional Earnings Tracking for Clear Connections Field Workers</p>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="loading-spinner">
+            <div class="spinner"></div>
+            <span>Initializing Microsoft SSO...</span>
+        </div>
+
+        <!-- Microsoft SSO Sign-In -->
+        <div id="microsoft-signin" class="microsoft-signin-container" style="display: none;">
+            <div class="company-info">
+                <h3>🏢 Clear Connections Contracting Ltd.</h3>
+                <p>Use your company Microsoft 365 account to access ProfitTracker</p>
+                <p><strong>Authorized domains:</strong></p>
+                <ul>
+                    <li>@clearconnectionsc.ca</li>
+                    <li>@clearconn.ca</li>
+                    <li>@clearconnectionsltd.ca</li>
+                </ul>
+            </div>
+
+            <button id="microsoft-signin-btn" class="microsoft-signin-btn">
+                <div class="microsoft-icon"></div>
+                Sign in with Microsoft 365
+            </button>
+
+            <div id="error-message" class="error-message"></div>
+
+            <div class="signin-help">
+                <p><strong>🔐 Enterprise Security Features:</strong></p>
+                <ul>
+                    <li>✅ Single Sign-On with your M365 account</li>
+                    <li>✅ Multi-Factor Authentication support</li>
+                    <li>✅ Same credentials as Outlook, Teams, SharePoint</li>
+                    <li>✅ Centralized access management</li>
+                    <li>✅ Bank-level encryption for all data</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Footer with Company Information -->
+        <div class="login-footer">
+            <p>🛡️ <strong>Enterprise Security:</strong> Your data is protected by Microsoft 365 security infrastructure
+                with bank-level encryption and enterprise access controls.</p>
+            <p>🏢 <strong>Company System:</strong> Secure authentication for Clear Connections Contracting Ltd.
+                management and authorized employees only.</p>
+            <p>📧 <strong>Access Control:</strong> Company email verification required. Your Microsoft 365 identity
+                provides seamless access to ProfitTracker.</p>
+            <p class="copyright">© 2025 Clear Connections Contracting Ltd. | Professional Profit Tracking System</p>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js"></script>
+
+    <!-- Firebase Auth Provider Import -->
+    <script>
+        // Make OAuthProvider available globally after Firebase auth is loaded
+        window.OAuthProvider = firebase.auth.OAuthProvider;
+    </script>
+
+    <!-- Environment Configuration -->
+    <script src="config/env.js"></script>
+
+    <!-- Enhanced Login Script -->
+    <script>
+        /**
+         * Microsoft 365 SSO Login Handler
+         * Clear Connections Contracting Ltd. - Professional Employee Authentication
+         */
+
+        // UI Elements
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const microsoftSigninContainer = document.getElementById('microsoft-signin');
+        const microsoftSigninBtn = document.getElementById('microsoft-signin-btn');
+        const errorMessage = document.getElementById('error-message');
+
+        /**
+         * Initialize Firebase and Microsoft SSO
+         */
+        async function initializeApp() {
+            try {
+                window.secureLog.info('[LOGIN] Initializing Microsoft SSO login for Clear Connections...');
+
+                // Wait for environment config
+                if (!window.ENV_CONFIG) {
+                    throw new Error('Environment configuration not loaded');
+                }
+
+                // Initialize Firebase
+                window.firebaseModules = {
+                    app: firebase.initializeApp(window.ENV_CONFIG.FIREBASE),
+                    auth: firebase.auth,
+                    firestore: firebase.firestore,
+                    onAuthStateChanged: firebase.auth().onAuthStateChanged.bind(firebase.auth()),
+                    signInWithPopup: firebase.auth().signInWithPopup.bind(firebase.auth()),
+                    signOut: firebase.auth().signOut.bind(firebase.auth())
+                };
+
+                // Make Firebase auth available globally
+                window.firebaseAuth = firebase.auth();
+
+                window.secureLog.info('[LOGIN] 🔥 Firebase initialized for Microsoft SSO');
+
+                // Check if user is already authenticated
+                firebase.auth().onAuthStateChanged((user) => {
+                    if (user && user.email && isValidCompanyEmail(user.email)) {
+                        window.secureLog.info(`[LOGIN] User already authenticated: ${user.email}`);
+                        redirectToApp();
+                    } else if (user) {
+                        // Invalid email, sign out
+                        window.secureLog.warn('[LOGIN] Invalid company email, signing out');
+                        firebase.auth().signOut();
+                        showSigninForm();
+                    } else {
+                        showSigninForm();
+                    }
+                });
+
+            } catch (error) {
+                window.secureLog.error('[LOGIN] Initialization failed:', error);
+                showError('Failed to initialize Microsoft SSO. Please refresh the page and try again.');
+            }
+        }
+
+        /**
+         * Validate Clear Connections company email
+         */
+        function isValidCompanyEmail(email) {
+            if (!email) return false;
+            const domain = email.split('@')[1]?.toLowerCase();
+            return window.ENV_CONFIG.COMPANY_DOMAINS.includes(domain);
+        }
+
+        /**
+         * Show sign-in form
+         */
+        function showSigninForm() {
+            loadingSpinner.style.display = 'none';
+            microsoftSigninContainer.style.display = 'block';
+            microsoftSigninBtn.disabled = false;
+        }
+
+        /**
+         * Show error message
+         */
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            microsoftSigninBtn.disabled = false;
+            microsoftSigninBtn.innerHTML = '<div class="microsoft-icon"></div> Sign in with Microsoft 365';
+        }
+
+        /**
+         * Hide error message
+         */
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        /**
+         * Microsoft 365 Sign-In Handler
+         */
+        async function handleMicrosoftSignIn() {
+            try {
+                hideError();
+                microsoftSigninBtn.disabled = true;
+                microsoftSigninBtn.innerHTML = '<div class="spinner"></div> Signing in...';
+
+                window.secureLog.info('[LOGIN] Starting Microsoft SSO authentication...');
+
+                // Create Microsoft provider using the global OAuthProvider
+                const provider = new window.OAuthProvider('microsoft.com');
+                provider.setCustomParameters({
+                    tenant: window.ENV_CONFIG.MICROSOFT.tenantId,
+                    prompt: 'select_account'
+                });
+
+                // Add required scopes
+                provider.addScope('User.Read');
+                provider.addScope('email');
+                provider.addScope('openid');
+                provider.addScope('profile');
+
+                // Perform sign-in with popup
+                const result = await firebase.auth().signInWithPopup(provider);
+                const user = result.user;
+
+                window.secureLog.info(`[LOGIN] Microsoft SSO successful: ${user.email}`);
+
+                // Validate company email
+                if (!isValidCompanyEmail(user.email)) {
+                    await firebase.auth().signOut();
+                    throw new Error('Access denied. Please use your Clear Connections company email address.');
+                }
+
+                window.secureLog.info('[LOGIN] ✅ Clear Connections employee authenticated successfully');
+                redirectToApp();
+
+            } catch (error) {
+                window.secureLog.error('[LOGIN] Microsoft SSO failed:', error);
+
+                let userMessage = 'Sign-in failed. Please try again.';
+
+                if (error.code === 'auth/popup-closed-by-user') {
+                    userMessage = 'Sign-in cancelled. Please try again to access ProfitTracker.';
+                } else if (error.code === 'auth/popup-blocked') {
+                    userMessage = 'Popup blocked by your browser. Please allow popups for this site and try again.';
+                } else if (error.code === 'auth/network-request-failed') {
+                    userMessage = 'Network error. Please check your internet connection and try again.';
+                } else if (error.code === 'auth/internal-error') {
+                    userMessage = 'Microsoft authentication service temporarily unavailable. Please try again in a few minutes.';
+                } else if (error.message.includes('Access denied')) {
+                    userMessage = error.message;
+                }
+
+                showError(userMessage);
+            }
+        }
+
+        /**
+         * Redirect to main application
+         */
+        function redirectToApp() {
+            window.secureLog.info('[LOGIN] Redirecting to ProfitTracker application...');
+            // Add a small delay to show completion
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1000);
+        }
+
+        // Event Listeners
+        microsoftSigninBtn.addEventListener('click', handleMicrosoftSignIn);
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Handle keyboard accessibility
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && document.activeElement === microsoftSigninBtn) {
+                handleMicrosoftSignIn();
+            }
+        });
+
+        window.secureLog.info('[LOGIN] Microsoft SSO login page loaded for Clear Connections');
+    </script>
+</body>
+
+</html> .security-list {
+list-style: none;
+padding: 0;
+margin: 0 0 15px 0;
+}
+
+.security-list li {
+padding: 6px 0;
+color: #424242;
+font-size: 0.9rem;
+line-height: 1.4;
+}
+
+.security-list li strong {
+color: #2e7d32;
+}
+
+.powered-by {
+color: #666;
+font-size: 0.8rem;
+text-align: center;
+display: block;
+margin-top: 10px;
+padding-top: 10px;
+border-top: 1px solid #e0e0e0;
+}
+</style>
 
 </head>
 
