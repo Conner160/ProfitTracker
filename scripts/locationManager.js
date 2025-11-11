@@ -16,18 +16,18 @@
  */
 function addLandLocation() {
     const location = prompt('Enter land location:');
-    
+
     if (location && location.trim() !== '') {
         const landlocsDiv = document.getElementById('landlocs');
         const locationElement = document.createElement('p');
         locationElement.classList.add("landloc_p");
         locationElement.textContent = location.trim();
-        
+
         // Enable drag-and-drop functionality
         makeDraggable(locationElement);
-        
+
         landlocsDiv.appendChild(locationElement);
-        
+
         // Update sequential IDs after adding new location
         updateLocationIds();
     }
@@ -64,32 +64,32 @@ function makeDraggable(element) {
     dragHandle.className = 'drag-handle';
     dragHandle.innerHTML = '☰'; // hamburger menu icon
     dragHandle.setAttribute('aria-label', 'Drag to reorder');
-    
+
     const deleteButton = document.createElement('button');
     deleteButton.className = 'delete-btn';
     deleteButton.innerHTML = '×';
     deleteButton.setAttribute('aria-label', 'Delete location');
     deleteButton.type = 'button';
-    
+
     // Wrap content and add controls
     const content = element.textContent;
     element.innerHTML = '';
-    
+
     const contentSpan = document.createElement('span');
     contentSpan.className = 'location-content';
     contentSpan.textContent = content;
-    
+
     element.appendChild(dragHandle);
     element.appendChild(contentSpan);
     element.appendChild(deleteButton);
-    
+
     // Add delete functionality
     deleteButton.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
         deleteLocation(element.id);
     });
-    
+
     // Make drag handle the draggable area
     setupDragHandle(element, dragHandle);
 }
@@ -121,10 +121,10 @@ function setupDragHandle(element, handle) {
     handle.addEventListener('touchstart', handleTouchStart, { passive: false });
     handle.addEventListener('touchmove', handleTouchMove, { passive: false });
     handle.addEventListener('touchend', handleTouchEnd, { passive: false });
-    
+
     // Mouse events (desktop fallback)
     handle.addEventListener('mousedown', handleMouseStart);
-    
+
     // Prevent text selection
     handle.addEventListener('selectstart', e => e.preventDefault());
     handle.addEventListener('dragstart', e => e.preventDefault());
@@ -136,15 +136,15 @@ function setupDragHandle(element, handle) {
 function handleTouchStart(e) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const touch = e.touches[0];
     const element = e.target.closest('.landloc_p');
     const container = document.getElementById('landlocs');
-    
+
     if (!element || !container) return;
-    
+
     startDrag(element, e.target, touch.clientX, touch.clientY, container);
-    
+
     // Add haptic feedback
     if (navigator.vibrate) {
         navigator.vibrate(30);
@@ -157,14 +157,14 @@ function handleTouchStart(e) {
 function handleMouseStart(e) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const element = e.target.closest('.landloc_p');
     const container = document.getElementById('landlocs');
-    
+
     if (!element || !container) return;
-    
+
     startDrag(element, e.target, e.clientX, e.clientY, container);
-    
+
     // Add mouse move and up listeners
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseEnd);
@@ -182,25 +182,25 @@ function startDrag(element, handle, x, y, container) {
     dragState.startY = y;
     dragState.currentX = x;
     dragState.currentY = y;
-    
+
     // Store original index
     const siblings = Array.from(container.children);
     dragState.originalIndex = siblings.indexOf(element);
-    
+
     // Calculate offset from touch/click point to element corner
     const rect = element.getBoundingClientRect();
     dragState.offsetX = x - rect.left;
     dragState.offsetY = y - rect.top;
-    
+
     // Create placeholder
     dragState.placeholder = document.createElement('div');
     dragState.placeholder.className = 'drag-placeholder';
     dragState.placeholder.style.height = rect.height + 'px';
-    
+
     // Insert placeholder and start visual drag
     element.parentNode.insertBefore(dragState.placeholder, element);
     element.classList.add('dragging');
-    
+
     // Position element absolutely
     element.style.position = 'fixed';
     element.style.left = (rect.left) + 'px';
@@ -208,7 +208,7 @@ function startDrag(element, handle, x, y, container) {
     element.style.width = rect.width + 'px';
     element.style.zIndex = '1000';
     element.style.pointerEvents = 'none';
-    
+
     // Prevent page scrolling
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
@@ -219,14 +219,14 @@ function startDrag(element, handle, x, y, container) {
  */
 function handleTouchMove(e) {
     if (!dragState.isDragging) return;
-    
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     const touch = e.touches[0];
     dragState.currentX = touch.clientX;
     dragState.currentY = touch.clientY;
-    
+
     updateDragPosition();
     updateDropTarget();
 }
@@ -236,12 +236,12 @@ function handleTouchMove(e) {
  */
 function handleMouseMove(e) {
     if (!dragState.isDragging) return;
-    
+
     e.preventDefault();
-    
+
     dragState.currentX = e.clientX;
     dragState.currentY = e.clientY;
-    
+
     updateDragPosition();
     updateDropTarget();
 }
@@ -251,10 +251,10 @@ function handleMouseMove(e) {
  */
 function updateDragPosition() {
     if (!dragState.element) return;
-    
+
     const newX = dragState.currentX - dragState.offsetX;
     const newY = dragState.currentY - dragState.offsetY;
-    
+
     dragState.element.style.left = newX + 'px';
     dragState.element.style.top = newY + 'px';
 }
@@ -264,9 +264,9 @@ function updateDragPosition() {
  */
 function updateDropTarget() {
     if (!dragState.container || !dragState.placeholder) return;
-    
+
     const afterElement = getDropTarget(dragState.container, dragState.currentY);
-    
+
     if (afterElement === null) {
         dragState.container.appendChild(dragState.placeholder);
     } else if (afterElement !== dragState.placeholder) {
@@ -279,10 +279,10 @@ function updateDropTarget() {
  */
 function handleTouchEnd(e) {
     if (!dragState.isDragging) return;
-    
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     endDrag();
 }
 
@@ -291,13 +291,13 @@ function handleTouchEnd(e) {
  */
 function handleMouseEnd(e) {
     if (!dragState.isDragging) return;
-    
+
     e.preventDefault();
-    
+
     // Remove mouse listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseEnd);
-    
+
     endDrag();
 }
 
@@ -306,7 +306,7 @@ function handleMouseEnd(e) {
  */
 function endDrag() {
     if (!dragState.element || !dragState.placeholder) return;
-    
+
     // Reset element styles
     dragState.element.classList.remove('dragging');
     dragState.element.style.position = '';
@@ -315,20 +315,20 @@ function endDrag() {
     dragState.element.style.width = '';
     dragState.element.style.zIndex = '';
     dragState.element.style.pointerEvents = '';
-    
+
     // Replace placeholder with element
     dragState.placeholder.parentNode.replaceChild(dragState.element, dragState.placeholder);
-    
+
     // Re-enable page interactions
     document.body.style.overflow = '';
     document.body.style.touchAction = '';
-    
+
     // Update IDs
     updateLocationIds();
-    
+
     // Reset drag state
     resetDragState();
-    
+
     // Add completion haptic feedback
     if (navigator.vibrate) {
         navigator.vibrate(20);
@@ -359,13 +359,13 @@ function resetDragState() {
  */
 function getDropTarget(container, y) {
     const elements = [...container.querySelectorAll('.landloc_p:not(.dragging), .drag-placeholder')];
-    
+
     return elements.reduce((closest, child) => {
         if (child === dragState.placeholder) return closest;
-        
+
         const box = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
-        
+
         if (offset < 0 && offset > closest.offset) {
             return { offset: offset, element: child };
         } else {
@@ -378,7 +378,7 @@ function getDropTarget(container, y) {
 function updateLocationIds() {
     const landlocsDiv = document.getElementById('landlocs');
     const locationElements = landlocsDiv.querySelectorAll('.landloc_p');
-    
+
     locationElements.forEach((element, index) => {
         element.id = `ll_${index}`;
     });
@@ -415,7 +415,14 @@ function initializeDragAndDrop() {
 function getLandLocations() {
     const landlocsDiv = document.getElementById('landlocs');
     const locationElements = landlocsDiv.querySelectorAll('.landloc_p');
-    return Array.from(locationElements).map(element => element.textContent.trim());
+    return Array.from(locationElements).map(element => {
+        // Prefer the explicit content span added by makeDraggable so UI controls
+        // (drag handle, delete button) are not included in the returned text.
+        const contentSpan = element.querySelector('.location-content');
+        if (contentSpan) return contentSpan.textContent.trim();
+        // Fallback: use the element textContent if the structure isn't present
+        return element.textContent.trim();
+    });
 }
 
 /**
@@ -431,7 +438,7 @@ function setLandLocations(locations) {
     const landlocsDiv = document.getElementById('landlocs');
     // Clear existing locations
     landlocsDiv.innerHTML = '';
-    
+
     // Add each location
     if (locations && Array.isArray(locations)) {
         locations.forEach(locationText => {
@@ -439,14 +446,14 @@ function setLandLocations(locations) {
                 const locationElement = document.createElement('p');
                 locationElement.classList.add("landloc_p");
                 locationElement.textContent = locationText.trim();
-                
+
                 // Make element draggable
                 makeDraggable(locationElement);
-                
+
                 landlocsDiv.appendChild(locationElement);
             }
         });
-        
+
         // Update all IDs after adding
         updateLocationIds();
     }
