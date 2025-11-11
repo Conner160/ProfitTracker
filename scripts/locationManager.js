@@ -415,7 +415,14 @@ function initializeDragAndDrop() {
 function getLandLocations() {
     const landlocsDiv = document.getElementById('landlocs');
     const locationElements = landlocsDiv.querySelectorAll('.landloc_p');
-    return Array.from(locationElements).map(element => element.textContent.trim());
+    return Array.from(locationElements).map(element => {
+        // Prefer the explicit content span added by makeDraggable so UI controls
+        // (drag handle, delete button) are not included in the returned text.
+        const contentSpan = element.querySelector('.location-content');
+        if (contentSpan) return contentSpan.textContent.trim();
+        // Fallback: use the element textContent if the structure isn't present
+        return element.textContent.trim();
+    });
 }
 
 /**
