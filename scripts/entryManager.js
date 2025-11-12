@@ -132,7 +132,7 @@ function clearForm() {
     document.getElementById('kms').value = '';
 
     // Reset per diem to "full" (default)
-    document.querySelector('input[name="per-diem"][value="full"]').checked = true;
+    document.querySelector('input[name="per-diem"][value="none"]').checked = true;
     document.getElementById('notes').value = '';
 
     // Clear all expense input fields
@@ -239,7 +239,7 @@ async function checkAndPopulateExistingEntry(date) {
             // Clear form if no existing entry
             document.getElementById('points').value = '';
             document.getElementById('kms').value = '';
-            document.querySelector('input[name="per-diem"][value="full"]').checked = true;
+            document.querySelector('input[name="per-diem"][value="none"]').checked = true;
             document.getElementById('notes').value = '';
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';
