@@ -21,10 +21,47 @@
     position: relative;
 }
 
+/* Drag handle and delete button rendered via pseudo-elements so they don't
+   contaminate element.textContent used by mapping logic. The actual elements
+   remain in the DOM to receive events, but contain no text. */
+.landloc_p .drag-handle,
+.landloc_p .delete-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.landloc_p .drag-handle {
+    left: 6px;
+}
+
+.landloc_p .drag-handle::before {
+    content: "☰";
+    opacity: 0.9;
+}
+
+/* Add padding to location content so text doesn't overlap the controls */
+.landloc_p .location-content {
+    display: inline-block;
+    /* reserve space for left drag-handle and avoid overlap */
+    padding: 0 10px 0 10px;
+}
+
 .landloc_p:hover {
     background-color: var(--secondary-color);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .landloc_p.dragging {
@@ -34,7 +71,7 @@
 }
 
 .landloc_p.touch-dragging {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
 }
 
@@ -43,9 +80,17 @@
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* Mobile responsive adjustments for land locations */
@@ -54,7 +99,7 @@
         min-height: 300px;
         touch-action: none;
     }
-    
+
     .landloc_p {
         display: block;
         margin: 8px 0;
