@@ -21,7 +21,11 @@ function addLandLocation() {
         const landlocsDiv = document.getElementById('landlocs');
         const locationElement = document.createElement('p');
         locationElement.classList.add("landloc_p");
-        locationElement.textContent = location.trim();
+        // Create an explicit content span so UI controls won't pollute the text
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'location-content';
+        contentSpan.textContent = location.trim();
+        locationElement.appendChild(contentSpan);
 
         // Enable drag-and-drop functionality
         makeDraggable(locationElement);
@@ -59,39 +63,31 @@ function deleteLocation(id) {
  * @returns {void}
  */
 function makeDraggable(element) {
-    // Create drag handle and delete button
-    const dragHandle = document.createElement('div');
-    dragHandle.className = 'drag-handle';
-    dragHandle.innerHTML = '☰'; // hamburger menu icon
-    dragHandle.setAttribute('aria-label', 'Drag to reorder');
+    // If the element already contains a '.location-content' span, preserve it.
+    // Otherwise wrap the element's textContent in a new span to separate UI
+    // controls from saved data.
+    const existingContent = element.querySelector('.location-content');
+    if (!existingContent) {
+        const content = element.textContent || '';
+        element.innerHTML = '';
 
-    const deleteButton = document.createElement('button');
-    deleteButton.className = 'delete-btn';
-    deleteButton.innerHTML = '×';
-    deleteButton.setAttribute('aria-label', 'Delete location');
-    deleteButton.type = 'button';
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'location-content';
+        contentSpan.textContent = content;
 
-    // Wrap content and add controls
-    const content = element.textContent;
-    element.innerHTML = '';
+        element.appendChild(contentSpan);
+    }
 
-    const contentSpan = document.createElement('span');
-    contentSpan.className = 'location-content';
-    contentSpan.textContent = content;
-
-    element.appendChild(dragHandle);
-    element.appendChild(contentSpan);
-    element.appendChild(deleteButton);
-
-    // Add delete functionality
-    deleteButton.addEventListener('click', (e) => {
+    element.addEventListener('click', (e) => {
+        // If a drag operation is in progress, ignore clicks
+        if (dragState && dragState.isDragging) return;
         e.stopPropagation();
         e.preventDefault();
         deleteLocation(element.id);
     });
 
-    // Make drag handle the draggable area
-    setupDragHandle(element, dragHandle);
+    // Make the entire element the draggable area (drag can start anywhere)
+    setupDragHandle(element, element);
 }
 
 // Modern drag-and-drop state management
@@ -134,36 +130,45 @@ function setupDragHandle(element, handle) {
  * Handles touch start - immediate drag activation
  */
 function handleTouchStart(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
+    // Start potential drag tracking but do NOT immediately start the drag.
+    // This allows taps/clicks to register as deletion, while small moves
+    // that exceed the threshold will initiate a drag and prevent the click.
     const touch = e.touches[0];
-    const element = e.target.closest('.landloc_p');
+    const el = e.target.closest('.landloc_p');
     const container = document.getElementById('landlocs');
 
-    if (!element || !container) return;
+    if (!el || !container) return;
 
-    startDrag(element, e.target, touch.clientX, touch.clientY, container);
-
-    // Add haptic feedback
-    if (navigator.vibrate) {
-        navigator.vibrate(30);
-    }
+    // Record potential drag start
+    dragState.element = el;
+    dragState.handle = e.target;
+    dragState.container = container;
+    dragState.isDragging = false;
+    dragState.potentialDrag = true;
+    dragState.startX = touch.clientX;
+    dragState.startY = touch.clientY;
+    dragState.currentX = touch.clientX;
+    dragState.currentY = touch.clientY;
 }
 
 /**
  * Handles mouse start for desktop
  */
 function handleMouseStart(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const element = e.target.closest('.landloc_p');
+    // Similar to touch: record potential drag start and wait for movement
+    const el = e.target.closest('.landloc_p');
     const container = document.getElementById('landlocs');
+    if (!el || !container) return;
 
-    if (!element || !container) return;
-
-    startDrag(element, e.target, e.clientX, e.clientY, container);
+    dragState.element = el;
+    dragState.handle = e.target;
+    dragState.container = container;
+    dragState.isDragging = false;
+    dragState.potentialDrag = true;
+    dragState.startX = e.clientX;
+    dragState.startY = e.clientY;
+    dragState.currentX = e.clientX;
+    dragState.currentY = e.clientY;
 
     // Add mouse move and up listeners
     document.addEventListener('mousemove', handleMouseMove);
@@ -218,14 +223,28 @@ function startDrag(element, handle, x, y, container) {
  * Handles touch move during drag
  */
 function handleTouchMove(e) {
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    dragState.currentX = touch.clientX;
+    dragState.currentY = touch.clientY;
+
+    // If we were only tracking a potential drag, check movement threshold
+    if (!dragState.isDragging && dragState.potentialDrag) {
+        const dx = Math.abs(dragState.currentX - dragState.startX);
+        const dy = Math.abs(dragState.currentY - dragState.startY);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 6) {
+            // start actual drag
+            startDrag(dragState.element, dragState.handle, dragState.currentX, dragState.currentY, dragState.container);
+        }
+        return;
+    }
+
     if (!dragState.isDragging) return;
 
     e.preventDefault();
     e.stopPropagation();
-
-    const touch = e.touches[0];
-    dragState.currentX = touch.clientX;
-    dragState.currentY = touch.clientY;
 
     updateDragPosition();
     updateDropTarget();
@@ -235,12 +254,22 @@ function handleTouchMove(e) {
  * Handles mouse move during drag
  */
 function handleMouseMove(e) {
+    dragState.currentX = e.clientX;
+    dragState.currentY = e.clientY;
+
+    if (!dragState.isDragging && dragState.potentialDrag) {
+        const dx = Math.abs(dragState.currentX - dragState.startX);
+        const dy = Math.abs(dragState.currentY - dragState.startY);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 6) {
+            startDrag(dragState.element, dragState.handle, dragState.currentX, dragState.currentY, dragState.container);
+        }
+        return;
+    }
+
     if (!dragState.isDragging) return;
 
     e.preventDefault();
-
-    dragState.currentX = e.clientX;
-    dragState.currentY = e.clientY;
 
     updateDragPosition();
     updateDropTarget();
@@ -278,27 +307,31 @@ function updateDropTarget() {
  * Handles touch end
  */
 function handleTouchEnd(e) {
-    if (!dragState.isDragging) return;
+    // If an actual drag was in progress, end it. Otherwise it's a tap/click
+    if (dragState.isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        endDrag();
+    }
 
-    e.preventDefault();
-    e.stopPropagation();
-
-    endDrag();
+    // Reset potentialDrag flag so click handlers can proceed
+    dragState.potentialDrag = false;
 }
 
 /**
  * Handles mouse end
  */
 function handleMouseEnd(e) {
-    if (!dragState.isDragging) return;
-
-    e.preventDefault();
-
     // Remove mouse listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseEnd);
 
-    endDrag();
+    if (dragState.isDragging) {
+        e.preventDefault();
+        endDrag();
+    }
+
+    dragState.potentialDrag = false;
 }
 
 /**
@@ -445,7 +478,11 @@ function setLandLocations(locations) {
             if (locationText && locationText.trim()) {
                 const locationElement = document.createElement('p');
                 locationElement.classList.add("landloc_p");
-                locationElement.textContent = locationText.trim();
+                // Create a content span explicitly so text isn't mixed with UI
+                const contentSpan = document.createElement('span');
+                contentSpan.className = 'location-content';
+                contentSpan.textContent = locationText.trim();
+                locationElement.appendChild(contentSpan);
 
                 // Make element draggable
                 makeDraggable(locationElement);
