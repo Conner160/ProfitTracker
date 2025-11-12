@@ -10,11 +10,13 @@ class SyncManager {
         this.syncConflicts = [];
         this.hasPermissionError = false;
 
-        // Listen for online/offline events
+        // Listen for online/offline events but DO NOT auto-sync.
+        // Auto-sync has been disabled due to frequent conflicts; syncing
+        // must be initiated manually by the user via the UI.
         window.addEventListener('online', () => {
             this.isOnline = true;
             this.updateSyncStatusUI();
-            this.syncWhenOnline();
+            // Intentionally do NOT call syncWhenOnline() to prevent automatic sync
         });
 
         window.addEventListener('offline', () => {
@@ -24,48 +26,10 @@ class SyncManager {
     }
 
     async onUserSignIn(user) {
-        window.secureLog.log('🔐 User signed in, initializing online-first sync...');
+        window.secureLog.log('🔐 User signed in successfully');
 
-        // ✅ Check if required dependencies are available
-        if (!window.cloudStorage || !window.dbFunctions) {
-            window.secureLog.warn('Sync dependencies not available, operating in local-only mode');
-            window.uiManager?.updateSyncStatus('offline', 'Dependencies unavailable');
-            return;
-        }
+        this.updateSyncStatusUI();
 
-        // 📧 Check if email is verified for cloud operations
-        if (!user.emailVerified) {
-            window.secureLog.warn('Email not verified, cloud sync disabled');
-            window.uiManager?.showNotification('📧 Please verify your email to enable cloud sync', true);
-            window.uiManager?.updateSyncStatus('offline', 'Email verification required');
-            return;
-        }
-
-        window.secureLog.log('✅ Email verified, starting online-first sync...');
-
-        // 🌐 Only proceed with sync if online
-        if (!navigator.onLine) {
-            window.secureLog.log('📵 Offline detected, skipping cloud sync');
-            window.uiManager?.updateSyncStatus('offline', 'No internet connection');
-            return;
-        }
-
-        try {
-            // 🎯 Load settings first to ensure rates are current (online-first)
-            if (window.settingsManager?.loadSettings) {
-                await window.settingsManager.loadSettings();
-            }
-
-            // 🔄 Process offline queue only after confirming online status
-            await this.processOfflineQueue();
-
-            await this.performFullSync();
-        } catch (error) {
-            console.log('Sync failed, continuing in local-only mode:', error.message);
-            if (error.code === 'permission-denied' || error.message.includes('insufficient permissions')) {
-                this.showPermissionError();
-            }
-        }
     }
 
     async onUserSignOut() {
@@ -76,9 +40,7 @@ class SyncManager {
     }
 
     async syncWhenOnline() {
-        if (this.isOnline && window.authManager?.getCurrentUser() && !this.hasPermissionError) {
-            await this.performSync();
-        }
+        return;
     }
 
     async performFullSync() {
@@ -99,7 +61,9 @@ class SyncManager {
                 throw new Error('Email not verified - sync disabled');
             }
 
-            const allLocalEntries = await window.dbFunctions.getAllFromDB('entries');
+            // Local entries are no longer persisted permanently. Use the
+            // offline queue as the source of local changes to upload.
+            const allLocalEntries = await window.dbFunctions.getAllFromDB('offline_entries').catch(() => []);
             const allCloudEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
 
             // Filter to only recent entries (last 2 months) for automatic sync
@@ -187,7 +151,8 @@ class SyncManager {
             const twoMonthsAgo = new Date();
             twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
-            const localEntries = await window.dbFunctions.getAllFromDB('entries');
+            // Use offline queue as the source of local modifications to sync
+            const localEntries = await window.dbFunctions.getAllFromDB('offline_entries').catch(() => []);
 
             // Filter entries: only sync recent entries (last 2 months) or recently modified
             const modifiedLocalEntries = localEntries.filter(entry => {
@@ -244,22 +209,13 @@ class SyncManager {
 
     async downloadAllCloudData(cloudEntries) {
         try {
-            // Clear local database first
-            await window.dbFunctions.clearAllEntries();
+            // We intentionally do NOT persist cloud entries into the local
+            // 'entries' store. The app will treat cloud as the source of truth
+            // and only use local storage for offline queue items. Refresh the
+            // UI so it pulls fresh data from cloud.
+            console.log(`Loaded ${cloudEntries.length} entries from cloud (not saved locally)`);
 
-            // Add all cloud entries to local database
-            for (const entry of cloudEntries) {
-                // Ensure entry has date as primary key
-                if (entry.date) {
-                    await window.dbFunctions.saveToDB('entries', entry);
-                } else {
-                    console.warn('Skipping entry without date:', entry);
-                }
-            }
-
-            console.log(`Successfully downloaded ${cloudEntries.length} entries from cloud`);
-
-            // Refresh UI
+            // Refresh UI (entryManager.loadEntries will read from cloud when online)
             if (window.entryManager) {
                 window.entryManager.loadEntries();
             }
@@ -328,17 +284,13 @@ class SyncManager {
             }
         }
 
-        // Download cloud changes
+        // Cloud is source of truth - do not persist cloud entries locally.
+        // Instead, refresh the UI so it loads the latest data from cloud.
         if (entriesToDownload.length > 0) {
-            console.log(`Downloading ${entriesToDownload.length} cloud changes...`);
-            for (const entry of entriesToDownload) {
-                await window.dbFunctions.updateEntry(entry.date, entry);
+            console.log(`Cloud has ${entriesToDownload.length} newer entries (not saved locally)`);
+            if (window.entryManager) {
+                window.entryManager.loadEntries();
             }
-        }
-
-        // Refresh UI if there were changes
-        if (entriesToDownload.length > 0 && window.entryManager) {
-            window.entryManager.loadEntries();
         }
     }
 
@@ -1220,3 +1172,33 @@ class SyncManager {
 
 // Initialize sync manager
 window.syncManager = new SyncManager();
+
+// Disable all syncing/migration operations globally per user request.
+// Keep the object available so UI code that references it doesn't break,
+// but make key operations no-ops that log a clear message.
+const _disabledMsg = 'Syncing disabled by configuration - no local/cloud sync will run.';
+window.syncManager.performFullSync = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.performSync = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.syncWhenOnline = async function () {
+    // intentionally no-op
+};
+window.syncManager.uploadAllLocalData = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.downloadAllCloudData = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.performTwoWaySync = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.forceTwoWaySync = async function () {
+    console.warn(_disabledMsg);
+};
+window.syncManager.showConflictResolutionDialog = async function () {
+    console.warn(_disabledMsg);
+    return 'cancel';
+};

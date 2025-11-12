@@ -49,7 +49,7 @@ function populateSettingsForm(settings) {
         const defaults = getDefaultSettings();
         populateSettingsForm(defaults);
     }
-    
+
     // Update per diem display and recalculate earnings
     updatePerDiemLabels();
     if (window.calculations?.calculateEarnings) {
@@ -58,51 +58,37 @@ function populateSettingsForm(settings) {
 }
 
 /**
- * Loads saved settings from database and populates the settings form
- * Retrieves user preferences from IndexedDB and updates all rate input
- * fields with saved values. Falls back to default constants if no saved
- * settings exist. Called during app initialization.
- * 
+ * Loads saved settings from cloud and populates the settings form
+ * This application no longer supports local settings storage. Loading
+ * will fail while offline.
+ *
  * @async
  * @function loadSettings
- * @returns {Promise<void>} Resolves when settings are loaded and form is populated
+ * @returns {Promise<void>}
  */
 async function loadSettings() {
     try {
-        let finalSettings = null;
+        if (!navigator.onLine) {
+            window.uiManager.showNotification('You must be online to load settings', true);
+            return;
+        }
+
         const userId = window.authManager.getCurrentUser().uid;
-        
-        // Cloud-first approach: load from cloud (authentication is guaranteed)
         try {
             const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
-            
             if (cloudSettings) {
                 console.log('✅ Settings loaded from cloud:', cloudSettings);
-                finalSettings = cloudSettings;
-                
-                // Clear any offline backup since cloud load succeeded
-                await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
-                    // Ignore errors if no offline backup exists
-                });
+                populateSettingsForm(cloudSettings);
+                window.uiManager.updateSyncStatus('online', 'Settings loaded from cloud');
+                return;
             }
         } catch (cloudError) {
-            console.warn('☁️ Could not load settings from cloud, checking offline backup:', cloudError);
-            
-            // Fallback to offline backup
-            try {
-                const offlineSettings = await window.dbFunctions.getFromDB('offline_settings', 'rates');
-                if (offlineSettings) {
-                    console.log('💾 Settings loaded from offline backup:', offlineSettings);
-                    finalSettings = offlineSettings;
-                    window.uiManager.showNotification('📶 Showing offline settings. Connect to internet to sync latest changes.', false, 5000);
-                }
-            } catch (offlineError) {
-                console.error('Failed to load offline settings:', offlineError);
-            }
+            console.error('Failed to load settings from cloud:', cloudError);
+            window.uiManager.showNotification('Unable to load settings from cloud', true);
         }
-        
-        // Populate form fields with final settings or defaults
-        populateSettingsForm(finalSettings || getDefaultSettings());
+
+        // Fallback to defaults only
+        populateSettingsForm(getDefaultSettings());
     } catch (error) {
         console.error('Error loading settings:', error);
     }
@@ -139,39 +125,22 @@ async function saveSettings() {
         businessName: document.getElementById('business-name').value.trim(),
         lastModified: new Date().toISOString() // Add timestamp for conflict resolution
     };
-    
+
     try {
-        const userId = window.authManager.getCurrentUser().uid;
-        
-        // Try to save directly to cloud first
-        try {
-            await window.cloudStorage.saveSettingsToCloud(userId, settings);
-            console.log('✅ Settings saved to cloud');
-            
-            // Clear any existing offline backup since cloud save succeeded
-            await window.dbFunctions.deleteFromDB('offline_settings', 'rates').catch(() => {
-                // Ignore errors if no offline backup exists
-            });
-            
-            window.calculations.calculateEarnings();
-            window.entryManager.loadEntries();
-            window.uiManager.showNotification('Settings saved');
-            window.uiManager.toggleSettings();
-            
-        } catch (cloudError) {
-            console.warn('☁️ Cloud save failed, storing locally for offline sync:', cloudError);
-            
-            // Save to offline backup for later sync
-            await window.dbFunctions.saveToDB('offline_settings', settings);
-            
-            window.calculations.calculateEarnings();
-            window.entryManager.loadEntries();
-            window.uiManager.showNotification('Could not save to cloud. Settings saved locally and will sync when connection is restored.', false, 5000);
-            window.uiManager.toggleSettings();
+        if (!navigator.onLine) {
+            window.uiManager.showNotification('You must be online to save settings', true);
+            return;
         }
+
+        const userId = window.authManager.getCurrentUser().uid;
+        await window.cloudStorage.saveSettingsToCloud(userId, settings);
+        window.calculations.calculateEarnings();
+        window.entryManager.loadEntries();
+        window.uiManager.showNotification('Settings saved to cloud', false, 1500);
+        window.uiManager.toggleSettings();
     } catch (error) {
-        console.error('Error saving settings:', error);
-        window.uiManager.showNotification('Error saving settings: ' + error.message, true);
+        console.error('Error saving settings to cloud:', error);
+        window.uiManager.showNotification('Error saving settings to cloud', true);
     }
 }
 
@@ -186,11 +155,11 @@ async function saveSettings() {
 function updatePerDiemLabels() {
     const fullRate = parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE;
     const partialRate = parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE;
-    
+
     // Update the bracket amounts in radio button labels
     const fullAmount = document.getElementById('full-perdiem-amount');
     const partialAmount = document.getElementById('partial-perdiem-amount');
-    
+
     if (fullAmount) {
         fullAmount.textContent = `($${fullRate.toFixed(0)})`;
     }
@@ -207,10 +176,12 @@ function updatePerDiemLabels() {
  */
 async function getTechCode() {
     try {
-        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
-        return settings?.techCode || '';
+        if (!navigator.onLine) return '';
+        const userId = window.authManager.getCurrentUser().uid;
+        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        return cloudSettings?.techCode || '';
     } catch (error) {
-        console.error('Error getting tech code:', error);
+        console.error('Error getting tech code from cloud:', error);
         return '';
     }
 }
@@ -223,10 +194,12 @@ async function getTechCode() {
  */
 async function getGstNumber() {
     try {
-        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
-        return settings?.gstNumber || '';
+        if (!navigator.onLine) return '';
+        const userId = window.authManager.getCurrentUser().uid;
+        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        return cloudSettings?.gstNumber || '';
     } catch (error) {
-        console.error('Error getting GST number:', error);
+        console.error('Error getting GST number from cloud:', error);
         return '';
     }
 }
@@ -239,10 +212,12 @@ async function getGstNumber() {
  */
 async function getTechName() {
     try {
-        const settings = await window.dbFunctions.getFromDB('settings', 'rates');
-        return settings?.businessName || '';
+        if (!navigator.onLine) return '';
+        const userId = window.authManager.getCurrentUser().uid;
+        const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
+        return cloudSettings?.businessName || '';
     } catch (error) {
-        console.error('Error getting tech name:', error);
+        console.error('Error getting tech name from cloud:', error);
         return '';
     }
 }
@@ -259,37 +234,42 @@ async function syncSettings() {
         console.log('No user signed in, skipping settings sync');
         return;
     }
-    
+
     try {
         const userId = window.authManager.getCurrentUser().uid;
         const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
         const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
-        
+
         if (cloudSettings && localSettings) {
             // Both exist - resolve conflict based on lastModified timestamp
             const localModified = new Date(localSettings.lastModified || 0);
             const cloudModified = new Date(cloudSettings.cloudUpdatedAt || cloudSettings.lastModified || 0);
-            
+
             if (cloudModified > localModified) {
-                console.log('📥 Downloading newer settings from cloud');
-                const settingsToSave = { ...cloudSettings, name: 'rates' };
-                await window.dbFunctions.saveToDB('settings', settingsToSave);
-                // Reload settings in UI if settings panel is open
+                console.log('📥 Using newer settings from cloud');
+                // Do not persist to local permanent store; just reload settings
                 await loadSettings();
             } else if (localModified > cloudModified) {
                 console.log('📤 Uploading newer settings to cloud');
-                await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+                // Upload any offline-backed settings to cloud
+                const offline = await window.dbFunctions.getFromDB('offline_settings', 'rates');
+                if (offline) {
+                    await window.cloudStorage.saveSettingsToCloud(userId, offline);
+                }
             } else {
                 console.log('⚡ Settings already in sync');
             }
         } else if (cloudSettings && !localSettings) {
             console.log('📥 Downloading settings from cloud (no local settings)');
-            const settingsToSave = { ...cloudSettings, name: 'rates' };
-            await window.dbFunctions.saveToDB('settings', settingsToSave);
+            // Do not save into local permanent store; just load into UI
             await loadSettings();
         } else if (localSettings && !cloudSettings) {
             console.log('📤 Uploading settings to cloud (no cloud settings)');
-            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+            // Local settings should be in offline_settings for upload
+            const offlineLocal = await window.dbFunctions.getFromDB('offline_settings', 'rates');
+            if (offlineLocal) {
+                await window.cloudStorage.saveSettingsToCloud(userId, offlineLocal);
+            }
         }
     } catch (error) {
         console.error('Error syncing settings:', error);
@@ -307,13 +287,26 @@ async function uploadSettingsToCloud() {
     if (!window.authManager?.getCurrentUser()) {
         return;
     }
-    
+
     try {
         const userId = window.authManager.getCurrentUser().uid;
-        const localSettings = await window.dbFunctions.getFromDB('settings', 'rates');
-        
-        if (localSettings) {
-            await window.cloudStorage.saveSettingsToCloud(userId, localSettings);
+        // Prefer offline backup if present, otherwise read current form values
+        const offlineSettings = await window.dbFunctions.getFromDB('offline_settings', 'rates');
+        const settingsToUpload = offlineSettings || {
+            name: 'rates',
+            pointRate: parseFloat(document.getElementById('point-rate').value) || POINT_BASE_RATE,
+            kmRate: parseFloat(document.getElementById('km-rate').value) || KM_BASE_RATE,
+            perDiemFullRate: parseFloat(document.getElementById('per-diem-full-rate').value) || PER_DIEM_FULL_RATE,
+            perDiemPartialRate: parseFloat(document.getElementById('per-diem-partial-rate').value) || PER_DIEM_PARTIAL_RATE,
+            includeGST: document.getElementById('gst-enabled').checked,
+            techCode: document.getElementById('tech-code').value.trim().toUpperCase(),
+            gstNumber: document.getElementById('gst-number').value.trim().toUpperCase(),
+            businessName: document.getElementById('business-name').value.trim(),
+            lastModified: new Date().toISOString()
+        };
+
+        if (settingsToUpload) {
+            await window.cloudStorage.saveSettingsToCloud(userId, settingsToUpload);
             console.log('📤 Settings uploaded to cloud');
         }
     } catch (error) {
@@ -332,16 +325,15 @@ async function downloadSettingsFromCloud() {
     if (!window.authManager?.getCurrentUser()) {
         return;
     }
-    
+
     try {
         const userId = window.authManager.getCurrentUser().uid;
         const cloudSettings = await window.cloudStorage.getSettingsFromCloud(userId);
-        
+
         if (cloudSettings) {
-            const settingsToSave = { ...cloudSettings, name: 'rates' };
-            await window.dbFunctions.saveToDB('settings', settingsToSave);
+            // Do not persist locally - just refresh UI to show cloud settings
             await loadSettings();
-            console.log('📥 Settings downloaded from cloud');
+            console.log('📥 Settings loaded from cloud (not saved locally)');
         }
     } catch (error) {
         console.error('Error downloading settings from cloud:', error);
@@ -358,7 +350,7 @@ async function downloadSettingsFromCloud() {
  */
 function settingsAreDifferent(settings1, settings2) {
     const compareFields = ['pointRate', 'kmRate', 'perDiemFullRate', 'perDiemPartialRate', 'includeGST', 'techCode', 'gstNumber', 'businessName'];
-    
+
     for (const field of compareFields) {
         if (settings1[field] !== settings2[field]) {
             return true;
@@ -428,19 +420,19 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
-        
+
         // Enable apply button when choice is made
         const radioButtons = modal.querySelectorAll('input[name="settings-choice"]');
         const applyBtn = modal.querySelector('#apply-settings-choice');
-        
+
         radioButtons.forEach(radio => {
             radio.addEventListener('change', () => {
                 applyBtn.disabled = false;
             });
         });
-        
+
         // Handle apply button
         applyBtn.addEventListener('click', () => {
             const selectedChoice = modal.querySelector('input[name="settings-choice"]:checked');
@@ -448,13 +440,13 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
             document.body.removeChild(modal);
             resolve(choice);
         });
-        
+
         // Handle cancel button
         modal.querySelector('#cancel-settings-choice').addEventListener('click', () => {
             document.body.removeChild(modal);
             resolve('cancel');
         });
-        
+
         // Handle click outside modal
         modal.querySelector('.conflict-modal-overlay').addEventListener('click', () => {
             document.body.removeChild(modal);
@@ -502,13 +494,13 @@ function showDangerConfirmationDialog(title, message, confirmText) {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
-        
+
         const input = modal.querySelector('#danger-confirmation-input');
         const confirmBtn = modal.querySelector('#danger-confirm-btn');
         const cancelBtn = modal.querySelector('#danger-cancel-btn');
-        
+
         // Enable confirm button only when "DELETE" is typed
         input.addEventListener('input', () => {
             if (input.value.trim().toUpperCase() === 'DELETE') {
@@ -521,19 +513,19 @@ function showDangerConfirmationDialog(title, message, confirmText) {
                 confirmBtn.style.cursor = 'not-allowed';
             }
         });
-        
+
         confirmBtn.addEventListener('click', () => {
             if (input.value.trim().toUpperCase() === 'DELETE') {
                 document.body.removeChild(modal);
                 resolve(true);
             }
         });
-        
+
         cancelBtn.addEventListener('click', () => {
             document.body.removeChild(modal);
             resolve(false);
         });
-        
+
         // Focus input
         setTimeout(() => input.focus(), 100);
     });
@@ -554,31 +546,31 @@ async function handleClearAllData() {
             'This will permanently delete ALL of your entries and settings from both your device and the cloud. This includes all historical data, preferences, and any offline backup data.',
             'Delete Everything'
         );
-        
+
         if (!confirmed) {
             return;
         }
-        
+
         window.uiManager.showNotification('🗑️ Clearing all data...', false);
-        
+
         const userId = window.authManager.getUserId();
         if (!userId) {
             throw new Error('User not authenticated');
         }
-        
+
         // Clear cloud data
         await clearAllCloudData(userId);
-        
+
         // Clear local data
         await window.authManager.clearAllLocalData();
-        
+
         window.uiManager.showNotification('✅ All data cleared successfully', false);
-        
+
         // Refresh the page to reset UI state
         setTimeout(() => {
             window.location.reload();
         }, 2000);
-        
+
     } catch (error) {
         console.error('Error clearing all data:', error);
         window.uiManager.showNotification('❌ Error clearing data: ' + error.message, true);
@@ -595,31 +587,31 @@ async function handleClearAllData() {
 async function clearAllCloudData(userId) {
     try {
         console.log('🗑️ Clearing all cloud data for user:', userId);
-        
+
         // Get all entries and delete them
         const entries = await window.cloudStorage.getAllEntriesFromCloud(userId);
         console.log(`Found ${entries.length} entries to delete`);
-        
+
         for (const entry of entries) {
             await window.cloudStorage.deleteEntryFromCloud(userId, entry.date);
         }
-        
+
         // Delete settings
         const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
         await window.firebaseModules.deleteDoc(settingsRef).catch(() => {
             console.log('Settings already deleted or not found');
         });
-        
+
         // Delete device info
         const devicesRef = window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'devices');
         const devicesSnapshot = await window.firebaseModules.getDocs(devicesRef);
-        
+
         for (const deviceDoc of devicesSnapshot.docs) {
             await window.firebaseModules.deleteDoc(deviceDoc.ref);
         }
-        
+
         console.log('✅ All cloud data cleared');
-        
+
     } catch (error) {
         console.error('❌ Error clearing cloud data:', error);
         throw error;
