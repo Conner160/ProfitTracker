@@ -20,10 +20,10 @@ async function saveEntryToCloud(userId, entry) {
             cloudUpdatedAt: new Date(),
             cloudCreatedAt: entry.cloudCreatedAt || new Date()
         };
-        
+
         const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', entry.date);
         await window.firebaseModules.setDoc(entryRef, entryWithMetadata);
-        
+
         console.log('☁️ Entry saved to cloud:', entry.date);
         return entry.date;
     } catch (error) {
@@ -47,10 +47,10 @@ async function updateEntryInCloud(userId, date, entry) {
             ...entry,
             cloudUpdatedAt: new Date()
         };
-        
+
         const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         await window.firebaseModules.updateDoc(entryRef, entryWithMetadata);
-        
+
         console.log('☁️ Entry updated in cloud:', date);
     } catch (error) {
         console.error('❌ Error updating entry in cloud:', error);
@@ -70,7 +70,7 @@ async function deleteEntryFromCloud(userId, date) {
     try {
         const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         await window.firebaseModules.deleteDoc(entryRef);
-        
+
         console.log('☁️ Entry deleted from cloud:', date);
     } catch (error) {
         console.error('❌ Error deleting entry from cloud:', error);
@@ -89,7 +89,7 @@ async function getAllEntriesFromCloud(userId) {
     try {
         const entriesRef = window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'entries');
         const querySnapshot = await window.firebaseModules.getDocs(entriesRef);
-        
+
         const entries = [];
         querySnapshot.forEach((doc) => {
             entries.push({
@@ -97,7 +97,7 @@ async function getAllEntriesFromCloud(userId) {
                 ...doc.data()
             });
         });
-        
+
         console.log(`☁️ Retrieved ${entries.length} entries from cloud`);
         return entries;
     } catch (error) {
@@ -118,7 +118,7 @@ async function getEntryFromCloud(userId, date) {
     try {
         const entryRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'entries', date);
         const docSnap = await window.firebaseModules.getDoc(entryRef);
-        
+
         if (docSnap.exists()) {
             return {
                 date: docSnap.id, // Date is the document ID
@@ -147,7 +147,7 @@ async function saveSettingsToCloud(userId, settings) {
             ...settings,
             cloudUpdatedAt: new Date()
         };
-        
+
         const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
         await window.firebaseModules.updateDoc(settingsRef, settingsWithMetadata).catch(async (error) => {
             if (error.code === 'not-found') {
@@ -157,7 +157,7 @@ async function saveSettingsToCloud(userId, settings) {
                 throw error;
             }
         });
-        
+
         console.log('☁️ Settings saved to cloud');
     } catch (error) {
         console.error('❌ Error saving settings to cloud:', error);
@@ -176,7 +176,7 @@ async function getSettingsFromCloud(userId) {
     try {
         const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
         const docSnap = await window.firebaseModules.getDoc(settingsRef);
-        
+
         if (docSnap.exists()) {
             console.log('☁️ Settings retrieved from cloud');
             return docSnap.data();
@@ -201,7 +201,7 @@ function setupEntriesListener(userId, callback) {
     try {
         const entriesRef = window.firebaseModules.collection(window.firebaseDb, 'users', userId, 'entries');
         const q = window.firebaseModules.query(entriesRef, window.firebaseModules.orderBy('date', 'desc'));
-        
+
         return window.firebaseModules.onSnapshot(q, (querySnapshot) => {
             const entries = [];
             querySnapshot.forEach((doc) => {
@@ -210,7 +210,7 @@ function setupEntriesListener(userId, callback) {
                     ...doc.data()
                 });
             });
-            
+
             console.log(`🔄 Real-time update: ${entries.length} entries`);
             callback(entries);
         }, (error) => {
@@ -218,7 +218,7 @@ function setupEntriesListener(userId, callback) {
         });
     } catch (error) {
         console.error('❌ Error setting up entries listener:', error);
-        return () => {}; // Return empty unsubscribe function
+        return () => { }; // Return empty unsubscribe function
     }
 }
 
@@ -232,7 +232,7 @@ function setupEntriesListener(userId, callback) {
 function setupSettingsListener(userId, callback) {
     try {
         const settingsRef = window.firebaseModules.doc(window.firebaseDb, 'users', userId, 'settings', 'rates');
-        
+
         return window.firebaseModules.onSnapshot(settingsRef, (docSnap) => {
             if (docSnap.exists()) {
                 console.log('🔄 Real-time settings update');
@@ -243,7 +243,7 @@ function setupSettingsListener(userId, callback) {
         });
     } catch (error) {
         console.error('❌ Error setting up settings listener:', error);
-        return () => {}; // Return empty unsubscribe function
+        return () => { }; // Return empty unsubscribe function
     }
 }
 
@@ -258,7 +258,7 @@ function setupSettingsListener(userId, callback) {
 async function batchUploadEntries(userId, entries) {
     try {
         console.log(`☁️ Starting batch upload of ${entries.length} entries...`);
-        
+
         const uploadPromises = entries.map(async (entry) => {
             try {
                 return await saveEntryToCloud(userId, entry);
@@ -267,10 +267,10 @@ async function batchUploadEntries(userId, entries) {
                 return null;
             }
         });
-        
+
         const results = await Promise.all(uploadPromises);
         const successful = results.filter(id => id !== null);
-        
+
         console.log(`✅ Batch upload complete: ${successful.length}/${entries.length} entries uploaded`);
         return successful;
     } catch (error) {
@@ -332,14 +332,21 @@ async function getDeviceInfo(userId, deviceId) {
     try {
         const deviceRef = window.firebaseModules.doc(window.firebaseDb, `users/${userId}/devices/${deviceId}`);
         const deviceDoc = await window.firebaseModules.getDoc(deviceRef);
-        
+
         if (deviceDoc.exists()) {
             return deviceDoc.data();
         }
         return null;
     } catch (error) {
+        // Permission errors are expected in restricted environments.
+        // Don't throw here to avoid surfacing stack traces during normal app init.
+        if (error && error.code === 'permission-denied') {
+            console.warn('Permission denied when reading device info (user may not have cloud access)');
+            return null;
+        }
+
         console.error('Error getting device info:', error);
-        throw error;
+        return null;
     }
 }
 
@@ -352,7 +359,7 @@ async function getUserDevices(userId) {
     try {
         const devicesRef = window.firebaseModules.collection(window.firebaseDb, `users/${userId}/devices`);
         const devicesSnapshot = await window.firebaseModules.getDocs(devicesRef);
-        
+
         const devices = [];
         devicesSnapshot.forEach(doc => {
             devices.push({
@@ -360,11 +367,16 @@ async function getUserDevices(userId) {
                 ...doc.data()
             });
         });
-        
+
         return devices;
     } catch (error) {
+        if (error && error.code === 'permission-denied') {
+            console.warn('Permission denied when listing user devices (user may not have cloud access)');
+            return [];
+        }
+
         console.error('Error getting user devices:', error);
-        throw error;
+        return [];
     }
 }
 

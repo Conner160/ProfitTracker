@@ -10,7 +10,7 @@
  */
 function getDeviceId() {
     let deviceId = localStorage.getItem('deviceId');
-    
+
     if (!deviceId) {
         // Generate a unique device ID based on browser characteristics
         const canvas = document.createElement('canvas');
@@ -18,7 +18,7 @@ function getDeviceId() {
         ctx.textBaseline = 'top';
         ctx.font = '14px Arial';
         ctx.fillText('Device fingerprint', 2, 2);
-        
+
         const fingerprint = [
             navigator.userAgent,
             navigator.language,
@@ -26,7 +26,7 @@ function getDeviceId() {
             new Date().getTimezoneOffset(),
             canvas.toDataURL()
         ].join('|');
-        
+
         // Create a simple hash of the fingerprint
         let hash = 0;
         for (let i = 0; i < fingerprint.length; i++) {
@@ -34,11 +34,11 @@ function getDeviceId() {
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash; // Convert to 32-bit integer
         }
-        
+
         deviceId = 'device_' + Math.abs(hash).toString(36) + '_' + Date.now();
         localStorage.setItem('deviceId', deviceId);
     }
-    
+
     return deviceId;
 }
 
@@ -56,7 +56,7 @@ async function registerDevice(userId, deviceId) {
             migrationStatus: 'pending', // pending, completed, skipped
             migrationAttempts: 0
         };
-        
+
         await window.cloudStorage.saveDeviceInfo(userId, deviceId, deviceInfo);
         console.log(`📱 Registered device ${deviceId} for user ${userId}`);
     } catch (error) {
@@ -82,7 +82,7 @@ async function updateDeviceMigrationStatus(userId, deviceId, status, results = {
             migrationResults: results,
             completedAt: status === 'completed' ? new Date().toISOString() : null
         };
-        
+
         await window.cloudStorage.saveDeviceInfo(userId, deviceId, deviceInfo);
         console.log(`📱 Updated device ${deviceId} migration status: ${status}`);
     } catch (error) {
@@ -121,7 +121,7 @@ async function getUserMigrationStats(userId) {
             totalEntriesMigrated: 0,
             totalConflictsResolved: 0
         };
-        
+
         for (const device of allDevices) {
             if (device.migrationStatus === 'completed') {
                 stats.completedDevices++;
@@ -133,13 +133,16 @@ async function getUserMigrationStats(userId) {
                 stats.pendingDevices++;
             }
         }
-        
+
         return stats;
     } catch (error) {
         console.warn('Could not get migration stats:', error);
         return { totalDevices: 0, completedDevices: 0, pendingDevices: 0, totalEntriesMigrated: 0, totalConflictsResolved: 0 };
     }
 }
+
+// Track whether a migration is pending (found old local data but not migrated)
+let migrationPending = false;
 
 /**
  * Shows a dialog to resolve conflicts between local and cloud entries
@@ -164,7 +167,7 @@ async function showConflictResolutionDialog(localEntry, cloudEntry) {
             z-index: 10000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         `;
-        
+
         const dialog = document.createElement('div');
         dialog.style.cssText = `
             background: white;
@@ -176,7 +179,7 @@ async function showConflictResolutionDialog(localEntry, cloudEntry) {
             overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         `;
-        
+
         const formatEntryData = (entry) => {
             const expenses = entry.expenses || {};
             const totalExpenses = (expenses.hotel || 0) + (expenses.gas || 0) + (expenses.food || 0);
@@ -192,7 +195,7 @@ async function showConflictResolutionDialog(localEntry, cloudEntry) {
                 </div>
             `;
         };
-        
+
         dialog.innerHTML = `
             <h2 style="margin-top: 0; color: #333;">Data Conflict Found</h2>
             <p style="color: #666; margin-bottom: 20px;">
@@ -232,16 +235,16 @@ async function showConflictResolutionDialog(localEntry, cloudEntry) {
                 ">Keep Local Data</button>
             </div>
         `;
-        
+
         modal.appendChild(dialog);
         document.body.appendChild(modal);
-        
+
         // Handle button clicks
         dialog.querySelector('#keep-local').onclick = () => {
             document.body.removeChild(modal);
             resolve(true);
         };
-        
+
         dialog.querySelector('#keep-cloud').onclick = () => {
             document.body.removeChild(modal);
             resolve(false);
@@ -272,7 +275,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
             z-index: 10000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         `;
-        
+
         const dialog = document.createElement('div');
         dialog.style.cssText = `
             background: white;
@@ -284,7 +287,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
             overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         `;
-        
+
         const formatSettingsData = (settings, title) => {
             return `
                 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 8px 0;">
@@ -302,7 +305,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
                 </div>
             `;
         };
-        
+
         dialog.innerHTML = `
             <h2 style="margin-top: 0; color: #333;">Settings Conflict Found</h2>
             <p style="color: #666; margin-bottom: 20px;">
@@ -336,21 +339,21 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
                 ">Keep Local Settings</button>
             </div>
         `;
-        
+
         modal.appendChild(dialog);
         document.body.appendChild(modal);
-        
+
         // Handle button clicks
         dialog.querySelector('#keep-local').onclick = () => {
             document.body.removeChild(modal);
             resolve(true);
         };
-        
+
         dialog.querySelector('#keep-cloud').onclick = () => {
             document.body.removeChild(modal);
             resolve(false);
         };
-        
+
         // Handle ESC key to close dialog (default to cloud)
         const handleKeyPress = (e) => {
             if (e.key === 'Escape') {
@@ -370,7 +373,7 @@ async function showSettingsConflictDialog(localSettings, cloudSettings) {
 async function migrateToCloudFirst() {
     try {
         console.log('🔄 Starting device-specific migration to cloud-first architecture...');
-        
+
         // Since migration is now called after authManager initialization, this should always pass
         if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
             console.error('❌ CRITICAL: Migration called without authentication! This indicates a timing bug.');
@@ -381,20 +384,20 @@ async function migrateToCloudFirst() {
             });
             return;
         }
-        
+
         const userId = window.authManager.getCurrentUser().uid;
         const deviceId = getDeviceId();
-        
+
         // Register this device if not already registered
         await registerDevice(userId, deviceId);
-        
+
         // Check if this device has already completed migration
         const alreadyMigrated = await hasDeviceCompletedMigration(userId, deviceId);
         if (alreadyMigrated) {
             console.log('✅ This device has already completed migration, skipping...');
             return;
         }
-        
+
         let migrationResults = {
             migratedEntries: 0,
             skippedEntries: 0,
@@ -402,47 +405,47 @@ async function migrateToCloudFirst() {
             migratedSettings: false,
             attempts: 1
         };
-        
+
         // Migrate old entries to cloud
         try {
             const oldEntries = await window.dbFunctions.getAllFromDB('entries').catch(() => []);
-            
+
             if (oldEntries.length > 0) {
                 console.log(`� Migrating ${oldEntries.length} local entries to cloud...`);
-                
+
                 // Upload each entry to cloud
                 for (const entry of oldEntries) {
                     try {
                         // Remove the local ID since cloud will generate new ones
                         const cloudEntry = { ...entry };
                         delete cloudEntry.id;
-                        
+
                         await window.cloudStorage.saveEntryToCloud(userId, cloudEntry);
                         migrationResults.migratedEntries++;
-                        
+
                         // Delete from old local storage after successful cloud upload
                         await window.dbFunctions.deleteFromDB('entries', entry.id);
-                        
+
                     } catch (entryError) {
                         console.error(`Failed to migrate entry for ${entry.date}:`, entryError);
                         // Continue with other entries even if one fails
                     }
                 }
-                
+
                 console.log(`✅ Successfully migrated ${migrationResults.migratedEntries} entries to cloud`);
             }
-            
+
         } catch (error) {
             console.warn('⚠️ Could not migrate entries:', error);
         }
-        
+
         // Migrate settings with conflict resolution
         try {
             const oldSettings = await window.dbFunctions.getFromDB('settings', 'rates').catch(() => null);
-            
+
             if (oldSettings) {
                 console.log('📤 Migrating local settings to cloud...');
-                
+
                 // Check if cloud settings exist
                 let cloudSettings = null;
                 try {
@@ -450,11 +453,11 @@ async function migrateToCloudFirst() {
                 } catch (error) {
                     // No cloud settings exist
                 }
-                
+
                 if (cloudSettings) {
                     // Ask user which settings to keep
                     const keepLocal = await showSettingsConflictDialog(oldSettings, cloudSettings);
-                    
+
                     if (keepLocal) {
                         await window.cloudStorage.saveSettingsToCloud(userId, oldSettings);
                         migrationResults.migratedSettings = true;
@@ -468,23 +471,23 @@ async function migrateToCloudFirst() {
                     migrationResults.migratedSettings = true;
                     console.log('✅ Saved local settings to cloud');
                 }
-                
+
                 // Delete from old local storage
                 await window.dbFunctions.deleteFromDB('settings', 'rates');
             }
-            
+
         } catch (error) {
             console.warn('⚠️ Could not migrate settings:', error);
         }
-        
+
         // Mark migration as complete for this device
         await updateDeviceMigrationStatus(userId, deviceId, 'completed', migrationResults);
         console.log('✅ Device migration to cloud-first architecture completed');
-        
+
         // Get overall migration stats for user
         const migrationStats = await getUserMigrationStats(userId);
         console.log(`📊 User migration stats: ${migrationStats.completedDevices}/${migrationStats.totalDevices} devices completed`);
-        
+
         // Show notification to user about what was migrated
         if (window.uiManager && window.uiManager.showNotification) {
             if (migrationResults.migratedEntries > 0) {
@@ -504,10 +507,10 @@ async function migrateToCloudFirst() {
                 window.uiManager.showNotification(message, false, 3000);
             }
         }
-        
+
     } catch (error) {
         console.error('❌ Migration failed:', error);
-        
+
         // Try to update device status even if migration failed
         try {
             const userId = window.authManager?.getCurrentUser()?.uid;
@@ -521,7 +524,7 @@ async function migrateToCloudFirst() {
         } catch (statusError) {
             console.warn('Could not update device status after migration failure:', statusError);
         }
-        
+
         // Show error notification but don't block app
         if (window.uiManager && window.uiManager.showNotification) {
             window.uiManager.showNotification('⚠️ Some data migration failed. Contact support if you\'re missing data.', true, 8000);
@@ -539,25 +542,33 @@ async function checkForOldData() {
         if (!window.authManager?.getCurrentUser() || !window.authManager?.isEmailVerified()) {
             return;
         }
-        
+
         const userId = window.authManager.getCurrentUser().uid;
         const deviceId = getDeviceId();
-        
+
         // Check if this device has already completed migration
         const migrationComplete = await hasDeviceCompletedMigration(userId, deviceId);
         if (migrationComplete) {
             console.log('✅ This device has already completed migration, no old data check needed.');
             return; // Already migrated
         }
-        
+
         const oldEntries = await window.dbFunctions.getAllFromDB('entries').catch(() => []);
         const oldSettings = await window.dbFunctions.getFromDB('settings', 'rates').catch(() => null);
-        
+
         if (oldEntries.length > 0 || oldSettings) {
             console.log(`📋 Found existing local data: ${oldEntries.length} entries${oldSettings ? ' and settings' : ''}`);
-            
-            // Auto-migrate data to preserve it
-            await migrateToCloudFirst();
+
+            // DO NOT auto-migrate. Migration can cause conflicts and unexpected
+            // uploads. Defer migration and prompt the user to run it manually.
+            migrationPending = true;
+
+            if (window.uiManager && window.uiManager.showNotification) {
+                window.uiManager.showNotification('Old local data detected. Migration is required to move data to cloud, but auto-migration has been disabled. Please run migration manually from Settings or call window.migrationManager.migrateToCloudFirst()', false, 10000);
+            }
+
+            // Leave migration for manual trigger
+            return;
         } else {
             // No old data, just mark migration complete for this device
             await updateDeviceMigrationStatus(userId, deviceId, 'completed', {
@@ -580,3 +591,6 @@ window.migrationManager = {
     hasDeviceCompletedMigration,
     getUserMigrationStats
 };
+
+// Expose migrationPending flag for UI checks
+window.migrationManager.migrationPending = () => migrationPending;

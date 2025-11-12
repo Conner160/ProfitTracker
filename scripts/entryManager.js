@@ -46,22 +46,35 @@ async function saveEntry() {
     // Get current land locations from the location manager
     const landLocations = window.locationManager.getLandLocations();
 
-    // Check if entry exists for this date
-    const existingEntry = await window.dbFunctions.getFromDB('entries', dateInput);
-    const isUpdate = !!existingEntry;
+    // Cloud-only behavior: determine if entry exists in cloud (if online)
+    let existingEntry = null;
+    let isUpdate = false;
 
-    // Handle existing entry with user confirmation
-    if (existingEntry) {
-        const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
-            `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
-            `New: ${points} pts, ${kms} km\n\n` +
-            `Update with new data? (Cancel to keep existing)`);
-
-        // If user cancels, abort save operation
-        if (!keepNew) {
-            window.uiManager.showNotification('Entry not saved - kept existing entry');
+    try {
+        const userId = window.authManager.getCurrentUser().uid;
+        if (!navigator.onLine) {
+            window.uiManager.showNotification('You are offline — entries must be saved while online', true);
             return;
         }
+
+        existingEntry = await window.cloudStorage.getEntryFromCloud(userId, dateInput);
+        isUpdate = !!existingEntry;
+
+        if (existingEntry) {
+            const keepNew = confirm(`An entry already exists for ${window.dateUtils.formatDateForDisplay(dateInput)}.\n\n` +
+                `Existing: ${existingEntry.points} pts, ${existingEntry.kms} km\n` +
+                `New: ${points} pts, ${kms} km\n\n` +
+                `Update with new data? (Cancel to keep existing)`);
+
+            if (!keepNew) {
+                window.uiManager.showNotification('Entry not saved - kept existing entry');
+                return;
+            }
+        }
+    } catch (err) {
+        console.error('Error checking cloud for existing entry:', err);
+        window.uiManager.showNotification('Unable to verify existing entry in cloud', true);
+        return;
     }
 
     // Create entry object (date is the primary key)
@@ -78,58 +91,29 @@ async function saveEntry() {
         createdAt: existingEntry?.createdAt || new Date().toISOString() // Preserve creation time for updates
     };
 
-    // 🌐 ONLINE-FIRST ARCHITECTURE: Prioritize cloud operations with offline backup
+    // Cloud-only save path
     try {
         const userId = window.authManager.getCurrentUser().uid;
 
-        // ✅ Check connection status before attempting cloud operation
         if (!navigator.onLine) {
-            throw new Error('No internet connection detected');
+            window.uiManager.showNotification('You must be online to save entries', true);
+            return;
         }
 
-        // 🔄 Attempt direct cloud save (primary path)
-        try {
-            await window.cloudStorage.saveEntryToCloud(userId, entry);
-            window.secureLog.log('✅ Entry saved to cloud:', entry.date);
+        await window.cloudStorage.saveEntryToCloud(userId, entry);
+        window.secureLog.log('✅ Entry saved to cloud:', entry.date);
+        window.uiManager.showNotification(isUpdate ? 'Entry updated in cloud' : 'Entry saved to cloud', false, 2000);
 
-            // 🧹 Clear any existing offline backup since cloud save succeeded
-            await window.dbFunctions.deleteFromDB('offline_entries', entry.date).catch(() => {
-                // Ignore errors if entry doesn't exist in offline storage
-            });
-
-            // 🎯 Show success with online indicator
-            window.uiManager.showNotification('✅ Entry saved to cloud', false, 2000);
-
-        } catch (cloudError) {
-            window.secureLog.warn('☁️ Cloud save failed despite connection, using offline backup:', cloudError);
-
-            // 💾 Offline backup only when cloud specifically fails (not connection)
-            const offlineEntry = {
-                ...entry,
-                offlineAction: 'save',
-                offlineTimestamp: new Date().getTime(),
-                retryCount: 0
-            };
-
-            await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
-            window.uiManager.showNotification('⚠️ Saved locally - will sync when cloud is available', true, 4000);
-        }
-
-        // Refresh UI components after successful save
+        // Refresh UI
         window.calculations.calculateEarnings();
-        loadEntries(); // Reload entries list to show updated data
+        await loadEntries();
 
-        if (isUpdate) {
-            // For updates, keep the form populated and just show success message
-            window.uiManager.showNotification('Entry updated successfully!');
-        } else {
-            // For new entries, clear form for next entry
+        if (!isUpdate) {
             clearForm();
-            window.uiManager.showNotification('Entry saved successfully!');
         }
     } catch (error) {
-        console.error('Error saving entry:', error);
-        window.uiManager.showNotification('Error saving entry', true);
+        console.error('Error saving entry to cloud:', error);
+        window.uiManager.showNotification('Error saving entry to cloud', true);
     }
 }
 
@@ -229,56 +213,18 @@ function populateFormForEdit(entry) {
  */
 async function checkAndPopulateExistingEntry(date) {
     try {
-        let allEntries = [];
-        let existingEntry = null;
-
-        const userId = window.authManager.getCurrentUser().uid;
-
-        try {
-            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
-            existingEntry = allEntries.find(entry => entry.date === date);
-
-        } catch (cloudError) {
-            console.warn('☁️ Could not load from cloud for date check, checking offline storage:', cloudError);
-
-            // Fallback to offline storage
-            try {
-                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
-                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                existingEntry = allEntries.find(entry => entry.date === date);
-            } catch (offlineError) {
-                console.error('Failed to check offline storage:', offlineError);
-            }
+        if (!navigator.onLine) {
+            // Offline not supported in this configuration
+            window.uiManager.showNotification('Offline mode is not supported. Connect to the internet to load entries.', true);
+            return;
         }
 
+        const userId = window.authManager.getCurrentUser().uid;
+        const allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+        const existingEntry = allEntries.find(entry => entry.date === date);
+
         if (existingEntry) {
-            // Auto-populate form with existing entry data (no scrolling)
-            document.getElementById('points').value = existingEntry.points;
-            document.getElementById('kms').value = existingEntry.kms;
-
-            // Set per diem radio button - handle both old boolean and new string format
-            const perDiemValue = typeof existingEntry.perDiem === 'boolean' ?
-                (existingEntry.perDiem ? 'full' : 'none') : existingEntry.perDiem;
-            const perDiemRadio = document.querySelector(`input[name="per-diem"][value="${perDiemValue}"]`);
-            if (perDiemRadio) {
-                perDiemRadio.checked = true;
-            } else {
-                // Default to 'none' if value not found
-                document.querySelector('input[name="per-diem"][value="none"]').checked = true;
-            }
-            document.getElementById('notes').value = existingEntry.notes || '';
-
-            // Populate expense fields with existing data
-            const expenses = existingEntry.expenses || {};
-            document.getElementById('hotel-expense').value = expenses.hotel || '';
-            document.getElementById('gas-expense').value = expenses.gas || '';
-            document.getElementById('food-expense').value = expenses.food || '';
-
-            // Populate saved land locations for this date
-            window.locationManager.setLandLocations(existingEntry.landLocations || []);
-
-            // Update earnings display with loaded data
-            window.calculations.calculateEarnings();
+            populateFormForEdit(existingEntry);
         } else if ((document.getElementById('points').value !== '' ||
             document.getElementById('kms').value !== '' ||
             document.getElementById('notes').value !== '' ||
@@ -288,11 +234,9 @@ async function checkAndPopulateExistingEntry(date) {
             window.locationManager.getLandLocations().length > 0) &&
             confirm('No entry exists for this date. Keep data currently in form? ("OK" for yes, "Cancel" to clear entries)')) {
 
-            // User chose to keep current form data - just recalculate earnings
             window.calculations.calculateEarnings();
         } else {
-            // No existing entry and user wants fresh form OR no current data exists
-            // Clear all form fields for new entry (preserve date)
+            // Clear form if no existing entry
             document.getElementById('points').value = '';
             document.getElementById('kms').value = '';
             document.querySelector('input[name="per-diem"][value="full"]').checked = true;
@@ -300,11 +244,7 @@ async function checkAndPopulateExistingEntry(date) {
             document.getElementById('hotel-expense').value = '';
             document.getElementById('gas-expense').value = '';
             document.getElementById('food-expense').value = '';
-
-            // Clear land locations for fresh entry
             window.locationManager.clearLandLocations();
-
-            // Reset earnings display to zero values
             window.calculations.calculateEarnings();
         }
     } catch (error) {
@@ -355,48 +295,24 @@ async function loadEntriesImmediate() {
     try {
         let allEntries = [];
 
-        // 🌐 ONLINE-FIRST LOADING: Prioritize fresh cloud data with offline fallback
         const userId = window.authManager.getCurrentUser().uid;
 
-        // ✅ Always attempt cloud load first when online
-        if (navigator.onLine) {
-            try {
-                allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
-                window.secureLog.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+        if (!navigator.onLine) {
+            // Offline not supported; show user-friendly message and empty list
+            const entriesList = document.getElementById('entries-list');
+            entriesList.innerHTML = '<p>Offline mode is not supported. Connect to the internet to view entries.</p>';
+            window.uiManager.updateSyncStatus('offline', 'Offline not supported');
+            return;
+        }
 
-                // 🎯 Indicate successful online operation
-                window.uiManager.updateSyncStatus('online', 'Latest data loaded');
-
-            } catch (cloudError) {
-                window.secureLog.warn('☁️ Cloud load failed despite connection, using offline data:', cloudError);
-
-                // 💾 Use offline data only when cloud specifically fails
-                try {
-                    const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
-                    allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                    window.secureLog.log(`💾 Loaded ${allEntries.length} entries from offline storage`);
-
-                    window.uiManager.showNotification('⚠️ Using offline data - cloud temporarily unavailable', true, 3000);
-                    window.uiManager.updateSyncStatus('offline', 'Using cached data');
-                } catch (offlineError) {
-                    window.secureLog.error('Failed to load from offline storage:', offlineError);
-                    allEntries = [];
-                }
-            }
-        } else {
-            // 📵 Explicitly offline - show offline data with clear messaging
-            try {
-                const offlineEntries = await window.dbFunctions.getAllFromDB('offline_entries');
-                allEntries = offlineEntries.filter(entry => entry.offlineAction === 'save');
-                window.secureLog.log(`📵 Offline mode: Loaded ${allEntries.length} entries from local storage`);
-
-                window.uiManager.showNotification('📵 Offline Mode: Showing local data only', false, 5000);
-                window.uiManager.updateSyncStatus('offline', 'No internet connection');
-            } catch (offlineError) {
-                window.secureLog.error('Failed to load offline data:', offlineError);
-                allEntries = [];
-                window.uiManager.showNotification('❌ No data available offline', true);
-            }
+        try {
+            allEntries = await window.cloudStorage.getAllEntriesFromCloud(userId);
+            window.secureLog.log(`📥 Loaded ${allEntries.length} entries from cloud`);
+            window.uiManager.updateSyncStatus('online', 'Latest data loaded');
+        } catch (cloudError) {
+            console.error('Failed to load entries from cloud:', cloudError);
+            window.uiManager.showNotification('Unable to load entries from cloud', true);
+            allEntries = [];
         }
 
         // Filter entries to current pay period date range
@@ -588,30 +504,20 @@ async function deleteEntry(date) {
 
     try {
         const userId = window.authManager.getCurrentUser().uid;
+        // Must be online to delete entries in cloud-only mode
+        if (!navigator.onLine) {
+            window.uiManager.showNotification('You must be online to delete entries', true);
+            return;
+        }
 
-        // Try to delete from cloud first
+        // Try to delete from cloud
         try {
             await window.cloudStorage.deleteEntryFromCloud(userId, date);
             console.log('✅ Entry deleted from cloud:', date);
-
-            // Clear any existing local backup for this entry since cloud delete succeeded
-            await window.dbFunctions.deleteFromDB('offline_entries', date).catch(() => {
-                // Ignore errors if entry doesn't exist in offline storage
-            });
-
         } catch (cloudError) {
-            console.warn('☁️ Cloud delete failed, queuing for offline sync:', cloudError);
-
-            // Queue delete operation for later sync
-            const offlineEntry = {
-                date,
-                offlineAction: 'delete',
-                offlineTimestamp: new Date().getTime(),
-                retryCount: 0
-            };
-
-            await window.dbFunctions.saveToDB('offline_entries', offlineEntry);
-            throw new Error('Could not delete from cloud. Delete queued locally and will sync when connection is restored.');
+            console.error('Failed to delete entry from cloud:', cloudError);
+            window.uiManager.showNotification('Error deleting entry from cloud', true);
+            return;
         }
 
         loadEntries();
