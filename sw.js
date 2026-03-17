@@ -24,7 +24,7 @@ const ALLOWED_ORIGINS = [
 
 // 🔒 Restricted Files - Block access to sensitive file
 const RESTRICTED_FILES = [
-  '/CCC_Travel_Sheet.xlsx',
+  //'/CCC_Travel_Sheet.xlsx',
   '/.htaccess',
   '/nginx.conf',
   '/SECURITY_REPORT.md',
