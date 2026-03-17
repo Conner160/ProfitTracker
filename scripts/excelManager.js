@@ -44,7 +44,7 @@ async function loadTemplate() {
             const buffer = await response.arrayBuffer();
             return await createWorkbook(buffer);
         } else {
-            console.log('Template file not found, creating structured template');
+            console.log('[@^@%#^@^#^@&&@]Template file not found, creating structured template');
             return await createStructuredTemplate();
         }
     } catch (error) {
